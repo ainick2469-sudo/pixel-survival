@@ -494,6 +494,52 @@
   - Planetary support is now planned around topology-aware chunk addressing, but the actual migration from planar coordinates to cube-sphere regions will need careful save-data and traversal planning later.
   - The worldgen stage list is clearer now, but deeper cave and sky-landform passes will increase surface area and mesh churn if greedy meshing and stronger worker scheduling do not land first.
 
+## 2026-03-15 09:26:00 MDT
+
+- Date/Time: 2026-03-15 09:26:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Remove the camera-facing chunk streaming regression and stabilize high-distance runtime behavior.
+- Completed Work:
+  - Removed the camera-heading and view-cone chunk targeting logic that caused the world behind the player to unload too aggressively.
+  - Switched chunk targeting back to a stable circular radius around the player with deterministic near-to-far ordering so turning around no longer forces a full horizon reload.
+  - Added batching limits for completed chunk-load and mesh-attach work so a large number of finished background jobs does not spike a single frame.
+  - Slightly increased load-target retention and capped runtime worker count more aggressively so the chunk runtime stays smoother at high render distances.
+  - Updated docs to reflect buffered radial chunk streaming instead of the previous visible-range camera-driven wording.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkVisibilityPlanner.java`
+  - `src/test/java/.../rendering/world/ChunkVisibilityPlannerTest.java`
+- Systems Touched:
+  - chunk runtime target planning
+  - chunk load/unload stability
+  - mesh attach pacing
+  - render-distance runtime smoothing
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup and registry load after the planner/runtime change
+- Current Playable State:
+  - The game still supports render distances up to `48` chunks.
+  - Chunks now remain buffered around the player instead of unloading based on the camera view cone.
+  - Turning around no longer depends on reloading the entire world behind the player.
+- Known Issues:
+  - High render-distance settings are more stable now, but the renderer still uses visible-face quad output rather than greedy meshing.
+  - Full 48-chunk horizons remain expensive because the main scaling bottleneck is still the mesh path rather than the old view-cone logic alone.
+- Next Tasks:
+  - Implement greedy meshing or stronger mesh compaction so high render distances cost fewer faces and less CPU time.
+  - Add deeper chunk-memory optimization once the mesh path is leaner.
+  - Keep simulation distance decoupled from render distance as more gameplay systems come online.
+- Risks/Technical Debt:
+  - Stable radial residency fixes the turn-around hitch, but it necessarily keeps more chunks available than the old cone-based path.
+  - The current smoothing work reduces spikes, but the real long-term solution is still lower face count and stronger chunk mesh efficiency.
+
 ## Entry Template
 
 - Date/Time:

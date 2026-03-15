@@ -28,7 +28,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ChunkRenderManager implements AutoCloseable {
     private static final int MAX_PENDING_CHUNK_LOADS = 64;
     private static final int MAX_PENDING_MESH_BUILDS = 24;
-    private static final long LOAD_RETENTION_NANOS = 850_000_000L;
+    private static final int MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE = 12;
+    private static final int MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE = 6;
+    private static final long LOAD_RETENTION_NANOS = 1_500_000_000L;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
@@ -57,7 +59,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         this.terrainMaterialLibrary = new TerrainMaterialLibrary(assetManager);
         this.chunkMeshBuilder = new ChunkMeshBuilder(worldService, registries);
         this.backgroundExecutor = Executors.newFixedThreadPool(
-                Math.max(2, Runtime.getRuntime().availableProcessors() / 2),
+                Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)),
                 new ChunkRuntimeThreadFactory());
         rootNode.attachChild(terrainRoot);
     }
@@ -169,7 +171,11 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void attachCompletedLoads() {
+        int attachedLoads = 0;
         for (Map.Entry<ChunkCoord, CompletableFuture<ChunkData>> entry : new ArrayList<>(pendingChunkLoads.entrySet())) {
+            if (attachedLoads >= MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE) {
+                break;
+            }
             CompletableFuture<ChunkData> loadFuture = entry.getValue();
             if (!loadFuture.isDone()) {
                 continue;
@@ -178,6 +184,7 @@ public final class ChunkRenderManager implements AutoCloseable {
             loadFuture.join();
             pendingChunkLoads.remove(entry.getKey());
             markChunkAndNeighborsDirty(entry.getKey());
+            attachedLoads++;
         }
     }
 
@@ -211,8 +218,12 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void attachCompletedMeshes(Set<ChunkCoord> renderTargets) {
+        int attachedMeshes = 0;
         for (Map.Entry<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> entry :
                 new ArrayList<>(pendingMeshBuilds.entrySet())) {
+            if (attachedMeshes >= MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE) {
+                break;
+            }
             CompletableFuture<ChunkMeshBuildResult> meshFuture = entry.getValue();
             if (!meshFuture.isDone()) {
                 continue;
@@ -226,6 +237,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
             attachChunkMesh(meshFuture.join());
             dirtyChunks.remove(chunkCoord);
+            attachedMeshes++;
         }
     }
 

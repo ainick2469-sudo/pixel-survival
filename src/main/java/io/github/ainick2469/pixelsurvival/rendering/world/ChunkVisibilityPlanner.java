@@ -10,115 +10,54 @@ import java.util.List;
 import java.util.Set;
 
 public final class ChunkVisibilityPlanner {
-    private static final int ALWAYS_LOADED_RADIUS_CHUNKS = 2;
-    private static final int QUICK_TURN_RADIUS_CHUNKS = 5;
-    private static final float MIN_HORIZONTAL_VIEW_DEGREES = 52f;
-    private static final float MAX_HORIZONTAL_VIEW_DEGREES = 120f;
-    private static final float RENDER_OVERSCAN_DEGREES = 10f;
-    private static final float LOAD_OVERSCAN_DEGREES = 24f;
-
     public RuntimeTargets plan(
             Vector3f cameraLocation,
             Vector3f cameraDirection,
             float horizontalViewDegrees,
             ChunkRuntimeConfig runtimeConfig) {
         ChunkCoord centerChunk = chunkCoordFor(cameraLocation);
-        Vector3f forward = horizontalForward(cameraDirection);
-        float renderHalfAngleDegrees = renderHalfAngleDegrees(horizontalViewDegrees);
-        float loadHalfAngleDegrees = Math.min(89f, renderHalfAngleDegrees + LOAD_OVERSCAN_DEGREES);
-        float renderDot = (float) Math.cos(Math.toRadians(renderHalfAngleDegrees));
-        float loadDot = (float) Math.cos(Math.toRadians(loadHalfAngleDegrees));
+        return new RuntimeTargets(
+                orderedTargets(centerChunk, runtimeConfig.loadRadius()),
+                orderedTargets(centerChunk, runtimeConfig.renderRadius()),
+                orderedTargets(centerChunk, runtimeConfig.simulationRadius()));
+    }
 
-        List<TargetCandidate> loadCandidates = new ArrayList<>();
-        List<TargetCandidate> renderCandidates = new ArrayList<>();
-        Set<ChunkCoord> simulationTargets = new LinkedHashSet<>();
+    private Set<ChunkCoord> orderedTargets(ChunkCoord centerChunk, int radius) {
+        LinkedHashSet<ChunkCoord> orderedTargets = new LinkedHashSet<>();
+        if (radius < 0) {
+            return orderedTargets;
+        }
 
-        int loadRadiusSquared = runtimeConfig.loadRadius() * runtimeConfig.loadRadius();
-        int renderRadiusSquared = runtimeConfig.renderRadius() * runtimeConfig.renderRadius();
-        int simulationRadiusSquared = runtimeConfig.simulationRadius() * runtimeConfig.simulationRadius();
-        int alwaysLoadedRadiusSquared = ALWAYS_LOADED_RADIUS_CHUNKS * ALWAYS_LOADED_RADIUS_CHUNKS;
-        int quickTurnRadiusSquared = QUICK_TURN_RADIUS_CHUNKS * QUICK_TURN_RADIUS_CHUNKS;
-
-        for (int chunkX = centerChunk.x() - runtimeConfig.loadRadius();
-                chunkX <= centerChunk.x() + runtimeConfig.loadRadius();
-                chunkX++) {
-            for (int chunkZ = centerChunk.z() - runtimeConfig.loadRadius();
-                    chunkZ <= centerChunk.z() + runtimeConfig.loadRadius();
-                    chunkZ++) {
+        List<TargetCandidate> candidates = new ArrayList<>();
+        int radiusSquared = radius * radius;
+        for (int chunkX = centerChunk.x() - radius; chunkX <= centerChunk.x() + radius; chunkX++) {
+            for (int chunkZ = centerChunk.z() - radius; chunkZ <= centerChunk.z() + radius; chunkZ++) {
                 int deltaChunkX = chunkX - centerChunk.x();
                 int deltaChunkZ = chunkZ - centerChunk.z();
                 int chunkDistanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
-                if (chunkDistanceSquared > loadRadiusSquared) {
+                if (chunkDistanceSquared > radiusSquared) {
                     continue;
                 }
 
-                ChunkCoord chunkCoord = new ChunkCoord(chunkX, chunkZ);
-                if (chunkDistanceSquared <= simulationRadiusSquared) {
-                    simulationTargets.add(chunkCoord);
-                }
-
-                boolean alwaysLoaded = chunkDistanceSquared <= alwaysLoadedRadiusSquared;
-                boolean quickTurnChunk = chunkDistanceSquared <= quickTurnRadiusSquared;
-                float alignment = alignmentToChunk(cameraLocation, forward, chunkCoord);
-                boolean withinRenderCone = alignment >= renderDot;
-                boolean withinLoadCone = alignment >= loadDot;
-
-                if (alwaysLoaded
-                        || (chunkDistanceSquared <= renderRadiusSquared && (quickTurnChunk || withinRenderCone))) {
-                    renderCandidates.add(new TargetCandidate(chunkCoord, chunkDistanceSquared, alignment, alwaysLoaded));
-                }
-                if (alwaysLoaded
-                        || quickTurnChunk
-                        || (chunkDistanceSquared <= renderRadiusSquared && withinRenderCone)
-                        || withinLoadCone) {
-                    loadCandidates.add(new TargetCandidate(chunkCoord, chunkDistanceSquared, alignment, alwaysLoaded));
-                }
+                candidates.add(new TargetCandidate(
+                        new ChunkCoord(chunkX, chunkZ),
+                        chunkDistanceSquared,
+                        Math.abs(deltaChunkX) + Math.abs(deltaChunkZ),
+                        deltaChunkX,
+                        deltaChunkZ));
             }
         }
 
-        return new RuntimeTargets(
-                orderedTargets(loadCandidates),
-                orderedTargets(renderCandidates),
-                Set.copyOf(simulationTargets));
-    }
+        candidates.sort(Comparator.comparingInt(TargetCandidate::chunkDistanceSquared)
+                .thenComparingInt(TargetCandidate::manhattanDistance)
+                .thenComparingInt(TargetCandidate::ringPriority)
+                .thenComparingInt(TargetCandidate::deltaChunkX)
+                .thenComparingInt(TargetCandidate::deltaChunkZ));
 
-    private Set<ChunkCoord> orderedTargets(List<TargetCandidate> candidates) {
-        candidates.sort(Comparator.comparingInt(TargetCandidate::priorityBucket)
-                .thenComparing(Comparator.comparingDouble(TargetCandidate::alignment).reversed())
-                .thenComparingInt(TargetCandidate::chunkDistanceSquared));
-
-        LinkedHashSet<ChunkCoord> orderedTargets = new LinkedHashSet<>();
         for (TargetCandidate candidate : candidates) {
             orderedTargets.add(candidate.chunkCoord());
         }
         return orderedTargets;
-    }
-
-    private float alignmentToChunk(Vector3f cameraLocation, Vector3f forward, ChunkCoord chunkCoord) {
-        float centerX = (chunkCoord.x() * ChunkData.SIZE_X) + (ChunkData.SIZE_X * 0.5f);
-        float centerZ = (chunkCoord.z() * ChunkData.SIZE_Z) + (ChunkData.SIZE_Z * 0.5f);
-        float deltaX = centerX - cameraLocation.x;
-        float deltaZ = centerZ - cameraLocation.z;
-        float planarLength = (float) Math.sqrt((deltaX * deltaX) + (deltaZ * deltaZ));
-        if (planarLength < 0.0001f) {
-            return 1f;
-        }
-        return ((deltaX / planarLength) * forward.x) + ((deltaZ / planarLength) * forward.z);
-    }
-
-    private Vector3f horizontalForward(Vector3f cameraDirection) {
-        Vector3f horizontal = new Vector3f(cameraDirection.x, 0f, cameraDirection.z);
-        if (horizontal.lengthSquared() < 0.0001f) {
-            return new Vector3f(0f, 0f, 1f);
-        }
-        return horizontal.normalizeLocal();
-    }
-
-    private float renderHalfAngleDegrees(float horizontalViewDegrees) {
-        float clampedViewDegrees = Math.max(
-                MIN_HORIZONTAL_VIEW_DEGREES,
-                Math.min(MAX_HORIZONTAL_VIEW_DEGREES, horizontalViewDegrees));
-        return Math.min(87f, (clampedViewDegrees * 0.5f) + RENDER_OVERSCAN_DEGREES);
     }
 
     private ChunkCoord chunkCoordFor(Vector3f location) {
@@ -136,13 +75,17 @@ public final class ChunkVisibilityPlanner {
     private record TargetCandidate(
             ChunkCoord chunkCoord,
             int chunkDistanceSquared,
-            float alignment,
-            boolean alwaysLoaded) {
-        private int priorityBucket() {
-            if (alwaysLoaded) {
+            int manhattanDistance,
+            int deltaChunkX,
+            int deltaChunkZ) {
+        private int ringPriority() {
+            if (deltaChunkX == 0 && deltaChunkZ == 0) {
                 return 0;
             }
-            return alignment >= 0.8f ? 1 : 2;
+            if (deltaChunkX == 0 || deltaChunkZ == 0) {
+                return 1;
+            }
+            return 2;
         }
     }
 }

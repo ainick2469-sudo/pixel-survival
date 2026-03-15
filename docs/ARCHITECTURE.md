@@ -135,8 +135,8 @@ This matters because future caves, floating mountains, and walkable cloud region
 
 - The old prototype renderer emitted one geometry per exposed block and relied on flat debug colors. That made the terrain look washed out, over-bright, and low-detail because the lighting had no real surface breakup to work with.
 - `ChunkRenderManager` is now the production path. It keeps separate load, render, and simulation radii and streams chunks around the camera.
-- Chunk selection is now camera-driven rather than square-radius driven. The runtime prioritizes what is in front of the player, keeps a short quick-turn buffer, and unloads far-behind chunks quickly so higher horizon settings do not keep the whole radius resident in memory.
-- Runtime chunk scheduling is now capped so high render-distance settings do not enqueue unbounded load and mesh work in a single frame.
+- Chunk selection now stays centered on the player chunk in a buffered circular radius instead of a camera-facing cone. That keeps the nearby world stable when the player turns around and avoids full horizon reloads on fast view changes.
+- Runtime chunk scheduling is capped and chunk completion work is batched per update so high render-distance settings do not enqueue or attach unbounded work in one frame.
 - `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
@@ -192,7 +192,7 @@ Why this matters:
 - `PauseMenuController` owns the current in-game pause/options UI state.
 - `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
 - Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
-- The current ceiling is `48` chunks, but the runtime is intentionally biased toward visible terrain rather than full-radius residency so that max settings do not try to hold every possible chunk in memory.
+- The current ceiling is `48` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
 
 ## Registry model
 
