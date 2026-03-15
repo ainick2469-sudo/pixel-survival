@@ -17,7 +17,7 @@ public record ChunkRuntimeConfig(
             throw new IllegalArgumentException("simulationRadius must be at least 0");
         }
         if (loadRadius < renderRadius + 1) {
-            throw new IllegalArgumentException("loadRadius must be at least renderRadius + 1 for neighbor culling.");
+            throw new IllegalArgumentException("loadRadius must be at least renderRadius + 1 for buffered streaming.");
         }
         if (renderRadius < simulationRadius) {
             throw new IllegalArgumentException("renderRadius must be greater than or equal to simulationRadius.");
@@ -25,7 +25,7 @@ public record ChunkRuntimeConfig(
     }
 
     public static ChunkRuntimeConfig productionDefaults() {
-        return new ChunkRuntimeConfig(10, 8, 4);
+        return new ChunkRuntimeConfig(15, 12, 3);
     }
 
     public ChunkRuntimeConfig startupPrimeConfig() {

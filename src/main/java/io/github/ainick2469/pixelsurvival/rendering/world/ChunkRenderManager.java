@@ -13,9 +13,7 @@ import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,16 +28,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ChunkRenderManager implements AutoCloseable {
     private static final int MAX_PENDING_CHUNK_LOADS = 64;
     private static final int MAX_PENDING_MESH_BUILDS = 24;
+    private static final long LOAD_RETENTION_NANOS = 850_000_000L;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
     private final GameRegistries registries;
     private final TerrainMaterialLibrary terrainMaterialLibrary;
     private final ChunkMeshBuilder chunkMeshBuilder;
+    private final ChunkVisibilityPlanner visibilityPlanner = new ChunkVisibilityPlanner();
     private final ExecutorService backgroundExecutor;
     private final Map<ChunkCoord, CompletableFuture<ChunkData>> pendingChunkLoads = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> pendingMeshBuilds = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, Node> renderedChunkNodes = new HashMap<>();
+    private final Map<ChunkCoord, Long> retainedLoadTargets = new ConcurrentHashMap<>();
     private final Set<ChunkCoord> dirtyChunks = ConcurrentHashMap.newKeySet();
     private volatile ChunkRuntimeConfig runtimeConfig;
     private ChunkRuntimeMetrics metrics = ChunkRuntimeMetrics.empty();
@@ -61,22 +62,30 @@ public final class ChunkRenderManager implements AutoCloseable {
         rootNode.attachChild(terrainRoot);
     }
 
-    public void primeAround(Vector3f cameraLocation) {
-        RuntimeTargets initialTargets =
-                RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig.startupPrimeConfig());
+    public void primeAround(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
+        ChunkVisibilityPlanner.RuntimeTargets initialTargets =
+                visibilityPlanner.plan(
+                        cameraLocation,
+                        cameraDirection,
+                        horizontalViewDegrees,
+                        runtimeConfig.startupPrimeConfig());
         for (ChunkCoord chunkCoord : initialTargets.loadTargets()) {
             worldService.loadChunk(chunkCoord);
         }
         dirtyChunks.addAll(initialTargets.renderTargets());
         buildRenderTargetsSynchronously(initialTargets.renderTargets());
-        metrics = buildMetrics(RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig));
+        metrics = buildMetrics(
+                visibilityPlanner.plan(cameraLocation, cameraDirection, horizontalViewDegrees, runtimeConfig));
     }
 
-    public void update(Vector3f cameraLocation) {
-        RuntimeTargets targets = RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig);
-        cancelAndUnloadFarChunks(targets.loadTargets(), targets.renderTargets());
+    public void update(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
+        ChunkVisibilityPlanner.RuntimeTargets targets =
+                visibilityPlanner.plan(cameraLocation, cameraDirection, horizontalViewDegrees, runtimeConfig);
+        long now = System.nanoTime();
+        Set<ChunkCoord> effectiveLoadTargets = effectiveLoadTargets(targets.loadTargets(), now);
+        cancelAndUnloadFarChunks(effectiveLoadTargets, targets.renderTargets());
         attachCompletedLoads();
-        enqueueChunkLoads(targets.loadTargets());
+        enqueueChunkLoads(effectiveLoadTargets);
         enqueueMeshBuilds(targets.renderTargets());
         attachCompletedMeshes(targets.renderTargets());
         detachRenderedChunksOutside(targets.renderTargets());
@@ -93,6 +102,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     public void setRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
+        retainedLoadTargets.clear();
     }
 
     @Override
@@ -102,9 +112,6 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void buildRenderTargetsSynchronously(Collection<ChunkCoord> renderTargets) {
         for (ChunkCoord chunkCoord : renderTargets) {
-            if (!neighborsLoaded(chunkCoord)) {
-                continue;
-            }
             ChunkData chunkData = worldService.getChunkIfLoaded(chunkCoord);
             if (chunkData == null) {
                 continue;
@@ -122,6 +129,8 @@ public final class ChunkRenderManager implements AutoCloseable {
                 cancelFuture(pendingChunkLoads.remove(chunkCoord));
                 detachRenderedChunk(chunkCoord);
                 dirtyChunks.remove(chunkCoord);
+                retainedLoadTargets.remove(chunkCoord);
+                markChunkAndNeighborsDirty(chunkCoord);
                 worldService.unloadChunk(chunkCoord);
             }
         }
@@ -168,7 +177,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
             loadFuture.join();
             pendingChunkLoads.remove(entry.getKey());
-            dirtyChunks.add(entry.getKey());
+            markChunkAndNeighborsDirty(entry.getKey());
         }
     }
 
@@ -186,9 +195,6 @@ public final class ChunkRenderManager implements AutoCloseable {
                 continue;
             }
             if (renderedChunkNodes.containsKey(chunkCoord) && !dirtyChunks.contains(chunkCoord)) {
-                continue;
-            }
-            if (!neighborsLoaded(chunkCoord)) {
                 continue;
             }
 
@@ -274,15 +280,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
     }
 
-    private boolean neighborsLoaded(ChunkCoord chunkCoord) {
-        return worldService.isChunkLoaded(chunkCoord)
-                && worldService.isChunkLoaded(new ChunkCoord(chunkCoord.x() + 1, chunkCoord.z()))
-                && worldService.isChunkLoaded(new ChunkCoord(chunkCoord.x() - 1, chunkCoord.z()))
-                && worldService.isChunkLoaded(new ChunkCoord(chunkCoord.x(), chunkCoord.z() + 1))
-                && worldService.isChunkLoaded(new ChunkCoord(chunkCoord.x(), chunkCoord.z() - 1));
-    }
-
-    private ChunkRuntimeMetrics buildMetrics(RuntimeTargets targets) {
+    private ChunkRuntimeMetrics buildMetrics(ChunkVisibilityPlanner.RuntimeTargets targets) {
         int simulatedLoaded = 0;
         for (ChunkCoord chunkCoord : targets.simulationTargets()) {
             if (worldService.isChunkLoaded(chunkCoord)) {
@@ -308,45 +306,34 @@ public final class ChunkRenderManager implements AutoCloseable {
                 renderedFaceCount);
     }
 
-    private ChunkCoord chunkCoordFor(Vector3f location) {
-        return new ChunkCoord(
-                Math.floorDiv((int) Math.floor(location.x), ChunkData.SIZE_X),
-                Math.floorDiv((int) Math.floor(location.z), ChunkData.SIZE_Z));
-    }
-
     private void cancelFuture(CompletableFuture<?> future) {
         if (future != null) {
             future.cancel(true);
         }
     }
 
-    private record RuntimeTargets(
-            Set<ChunkCoord> loadTargets,
-            Set<ChunkCoord> renderTargets,
-            Set<ChunkCoord> simulationTargets) {
-        private static RuntimeTargets around(ChunkCoord center, ChunkRuntimeConfig config) {
-            return new RuntimeTargets(
-                    targetCoords(center, config.loadRadius()),
-                    targetCoords(center, config.renderRadius()),
-                    targetCoords(center, config.simulationRadius()));
+    private Set<ChunkCoord> effectiveLoadTargets(Set<ChunkCoord> activeLoadTargets, long now) {
+        for (ChunkCoord chunkCoord : activeLoadTargets) {
+            retainedLoadTargets.put(chunkCoord, now + LOAD_RETENTION_NANOS);
         }
 
-        private static Set<ChunkCoord> targetCoords(ChunkCoord center, int radius) {
-            List<ChunkCoord> chunks = new ArrayList<>();
-            for (int chunkX = center.x() - radius; chunkX <= center.x() + radius; chunkX++) {
-                for (int chunkZ = center.z() - radius; chunkZ <= center.z() + radius; chunkZ++) {
-                    chunks.add(new ChunkCoord(chunkX, chunkZ));
-                }
+        LinkedHashSet<ChunkCoord> effectiveTargets = new LinkedHashSet<>(activeLoadTargets);
+        for (Map.Entry<ChunkCoord, Long> retainedEntry : new ArrayList<>(retainedLoadTargets.entrySet())) {
+            if (retainedEntry.getValue() <= now) {
+                retainedLoadTargets.remove(retainedEntry.getKey());
+                continue;
             }
-            chunks.sort(Comparator.comparingInt(coord -> distanceSquared(center, coord)));
-            return new LinkedHashSet<>(chunks);
+            effectiveTargets.add(retainedEntry.getKey());
         }
+        return effectiveTargets;
+    }
 
-        private static int distanceSquared(ChunkCoord first, ChunkCoord second) {
-            int deltaX = first.x() - second.x();
-            int deltaZ = first.z() - second.z();
-            return deltaX * deltaX + deltaZ * deltaZ;
-        }
+    private void markChunkAndNeighborsDirty(ChunkCoord chunkCoord) {
+        dirtyChunks.add(chunkCoord);
+        dirtyChunks.add(new ChunkCoord(chunkCoord.x() + 1, chunkCoord.z()));
+        dirtyChunks.add(new ChunkCoord(chunkCoord.x() - 1, chunkCoord.z()));
+        dirtyChunks.add(new ChunkCoord(chunkCoord.x(), chunkCoord.z() + 1));
+        dirtyChunks.add(new ChunkCoord(chunkCoord.x(), chunkCoord.z() - 1));
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

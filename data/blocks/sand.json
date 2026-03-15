@@ -1,0 +1,15 @@
+{
+  "id": "pixel_survival:sand",
+  "displayName": "Sand",
+  "materialFamily": "sediment",
+  "solid": true,
+  "opaque": true,
+  "debugColor": "#D6C58D",
+  "visuals": {
+    "topTexture": "Textures/Terrain/sand.png",
+    "sideTexture": "Textures/Terrain/sand.png",
+    "bottomTexture": "Textures/Terrain/sand.png",
+    "tintKey": "none"
+  },
+  "tags": ["terrain", "sediment"]
+}

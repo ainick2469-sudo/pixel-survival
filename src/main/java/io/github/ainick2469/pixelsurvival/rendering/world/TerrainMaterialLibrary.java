@@ -23,7 +23,7 @@ public final class TerrainMaterialLibrary {
     private Material createMaterial(TerrainMaterialKey materialKey) {
         Material material = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
         material.setBoolean("UseMaterialColors", true);
-        material.setColor("Ambient", ColorRGBA.White.mult(0.7f));
+        material.setColor("Ambient", ColorRGBA.White.mult(0.5f));
         material.setColor("Diffuse", ColorRGBA.White);
         material.setColor("Specular", ColorRGBA.Black);
         material.setFloat("Shininess", 1f);
@@ -34,7 +34,7 @@ public final class TerrainMaterialLibrary {
             Texture texture = assetManager.loadTexture(textureKey);
             texture.setWrap(Texture.WrapMode.Repeat);
             texture.setMinFilter(Texture.MinFilter.Trilinear);
-            texture.setMagFilter(Texture.MagFilter.Bilinear);
+            texture.setMagFilter(Texture.MagFilter.Nearest);
             texture.setAnisotropicFilter(4);
             material.setTexture("DiffuseMap", texture);
             return material;

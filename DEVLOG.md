@@ -313,6 +313,71 @@
   - Very high render-distance settings can still become memory- and CPU-heavy until greedy meshing, atlasing, or more aggressive chunk prioritization lands.
   - The current pause menu is purpose-built for this milestone and should be generalized carefully once more UI screens exist.
 
+## 2026-03-15 03:02:00 MDT
+
+- Date/Time: 2026-03-15 03:02:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Push the horizon scale further without trashing memory, improve fullscreen launch behavior, and repaint terrain toward a stronger premium survival look.
+- Completed Work:
+  - Updated the runtime to support render-distance settings up to `48` chunks.
+  - Added camera-view-aware chunk target planning so the runtime prioritizes what is in front of the player, keeps a short quick-turn buffer, and unloads far-behind chunks instead of holding a full-radius square in memory.
+  - Removed the old neighbor-residency dependency from chunk meshing and switched the culling path to authoritative world lookups plus dirty-neighbor rebuilds so chunk eviction can be more aggressive.
+  - Tuned terrain material filtering and daylight lighting so the world reads darker, crisper, and less washed out at close range.
+  - Reworked the generated `grass_side` and `stone` textures, kept `grass_top`/`dirt`, and added `sand` as a terrain-ready block asset in the registry.
+  - Switched the default launch path to fullscreen startup and tightened the desktop focus-retry loop in the hidden Windows launcher.
+  - Reduced the camera far clip to a more realistic horizon-scaled range so distant terrain remains visible without the previous extremely oversized frustum.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `LAUNCHER.md`
+  - `build.gradle.kts`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `data/blocks/sand.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `scripts/launch_desktop.vbs`
+  - `src/main/resources/Textures/Terrain/*.png`
+  - `src/main/java/.../app/GameVersion.java`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../app/PixelSurvivalLauncher.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeConfig.java`
+  - `src/main/java/.../rendering/world/ChunkVisibilityPlanner.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialLibrary.java`
+  - `src/main/java/.../settings/GraphicsSettings.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../rendering/world/ChunkVisibilityPlannerTest.java`
+  - `src/test/java/.../settings/GraphicsSettingsTest.java`
+- Systems Touched:
+  - desktop/fullscreen launch workflow
+  - terrain material pipeline
+  - camera/view-based chunk scheduling
+  - horizon distance and frustum tuning
+  - block registry content
+  - automated validation
+- Tests Run:
+  - `java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\cscript.exe //nologo scripts\launch_desktop.vbs /buildonly`
+  - `java -jar build/libs/pixel-survival-desktop.jar` smoke launch, verified jME startup, OpenGL initialization, and successful registry load on the `0.008` build
+- Current Playable State:
+  - The game launches fullscreen by default and the Windows launcher attempts to bring the game window to the front after boot.
+  - `Esc` still opens the pause/options menu and render distance can now be pushed to `48` chunks.
+  - Terrain is more readable at close range and long-range streaming now focuses on what the player is actually facing instead of keeping a full distant square resident.
+- Known Issues:
+  - `48` chunks is now available, but the renderer still emits one quad per visible face and does not yet have greedy meshing or atlas packing.
+  - The desktop launcher can improve focus reliability, but Windows may still occasionally refuse foreground stealing depending on the shell state that launched it.
+  - The current terrain textures are still generated in-repo rather than coming from a final hand-authored art pipeline.
+- Next Tasks:
+  - Add vegetation, exposed rock variation, and simple biome/surface breakup so long horizons feel inhabited rather than only farther.
+  - Add chunk memory compaction or block-ID compression before even larger world scope lands.
+  - Plan greedy meshing or texture-atlas packing as the next major render/runtime optimization step.
+- Risks/Technical Debt:
+  - High render-distance settings are much more controlled now, but the current face-per-quad mesh path is still the main scaling ceiling.
+  - Camera-heading chunk selection saves RAM, but it makes fast large-angle turns more dependent on the short retention buffer and load queue tuning.
+
 ## Entry Template
 
 - Date/Time:

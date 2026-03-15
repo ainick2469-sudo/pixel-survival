@@ -60,7 +60,7 @@ public final class PixelSurvivalApplication extends SimpleApplication {
         configureViewport();
         bootstrapSession();
         configureCamera();
-        chunkRenderManager.primeAround(cam.getLocation());
+        chunkRenderManager.primeAround(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
         configureInput();
         attachHud();
     }
@@ -79,17 +79,17 @@ public final class PixelSurvivalApplication extends SimpleApplication {
 
     private void configureLighting() {
         AmbientLight ambientLight = new AmbientLight();
-        ambientLight.setColor(new ColorRGBA(0.84f, 0.87f, 0.93f, 1f).mult(0.26f));
+        ambientLight.setColor(new ColorRGBA(0.82f, 0.86f, 0.93f, 1f).mult(0.18f));
         rootNode.addLight(ambientLight);
 
         DirectionalLight sunlight = new DirectionalLight();
-        sunlight.setDirection(new Vector3f(-0.7f, -1.0f, -0.4f).normalizeLocal());
-        sunlight.setColor(new ColorRGBA(1.00f, 0.97f, 0.90f, 1f).mult(1.15f));
+        sunlight.setDirection(new Vector3f(-0.62f, -1.0f, -0.45f).normalizeLocal());
+        sunlight.setColor(new ColorRGBA(1.00f, 0.97f, 0.91f, 1f).mult(1.08f));
         rootNode.addLight(sunlight);
     }
 
     private void configureViewport() {
-        viewPort.setBackgroundColor(new ColorRGBA(0.58f, 0.74f, 0.90f, 1f));
+        viewPort.setBackgroundColor(new ColorRGBA(0.56f, 0.72f, 0.88f, 1f));
     }
 
     private void bootstrapSession() {
@@ -175,7 +175,7 @@ public final class PixelSurvivalApplication extends SimpleApplication {
     public void simpleUpdate(float timePerFrame) {
         smoothedFrameTimeSeconds = (smoothedFrameTimeSeconds * 0.9f) + (timePerFrame * 0.1f);
         if (chunkRenderManager != null) {
-            chunkRenderManager.update(cam.getLocation());
+            chunkRenderManager.update(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
         }
         if (pauseMenuController != null && pauseMenuController.isVisible()) {
             pauseMenuController.updateHover(inputManager.getCursorPosition());
@@ -256,9 +256,14 @@ public final class PixelSurvivalApplication extends SimpleApplication {
             return;
         }
         float aspectRatio = (float) cam.getWidth() / Math.max(1, cam.getHeight());
-        float farClip = Math.max(
-                768f,
-                (graphicsSettings.renderDistanceChunks() + 6f) * ChunkData.SIZE_X * 9.0f);
+        float renderRadiusWorldUnits = (graphicsSettings.renderDistanceChunks() + 4f) * ChunkData.SIZE_X;
+        float farClip = Math.max(384f, renderRadiusWorldUnits * 2.2f);
         cam.setFrustumPerspective(45f, aspectRatio, 0.1f, farClip);
+    }
+
+    private float horizontalViewDegrees() {
+        float nearClip = Math.max(0.0001f, cam.getFrustumNear());
+        float halfHorizontal = Math.max(Math.abs(cam.getFrustumLeft()), Math.abs(cam.getFrustumRight()));
+        return (float) Math.toDegrees(Math.atan(halfHorizontal / nearClip) * 2.0);
     }
 }

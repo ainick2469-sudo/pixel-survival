@@ -10,23 +10,23 @@ class GraphicsSettingsTest {
     void defaultsToFarButReasonableRenderDistance() {
         GraphicsSettings graphicsSettings = GraphicsSettings.defaults();
 
-        assertEquals(8, graphicsSettings.renderDistanceChunks());
-        assertEquals(10, graphicsSettings.toChunkRuntimeConfig().loadRadius());
-        assertEquals(8, graphicsSettings.toChunkRuntimeConfig().renderRadius());
-        assertEquals(4, graphicsSettings.toChunkRuntimeConfig().simulationRadius());
+        assertEquals(12, graphicsSettings.renderDistanceChunks());
+        assertEquals(15, graphicsSettings.toChunkRuntimeConfig().loadRadius());
+        assertEquals(12, graphicsSettings.toChunkRuntimeConfig().renderRadius());
+        assertEquals(3, graphicsSettings.toChunkRuntimeConfig().simulationRadius());
     }
 
     @Test
     void rejectsOutOfRangeRenderDistance() {
         assertThrows(IllegalArgumentException.class, () -> new GraphicsSettings(1));
-        assertThrows(IllegalArgumentException.class, () -> new GraphicsSettings(25));
+        assertThrows(IllegalArgumentException.class, () -> new GraphicsSettings(49));
     }
 
     @Test
     void clampsRequestedRenderDistanceChanges() {
         GraphicsSettings graphicsSettings = GraphicsSettings.defaults();
 
-        assertEquals(24, graphicsSettings.withRenderDistanceChunks(30).renderDistanceChunks());
+        assertEquals(48, graphicsSettings.withRenderDistanceChunks(64).renderDistanceChunks());
         assertEquals(2, graphicsSettings.withRenderDistanceChunks(-4).renderDistanceChunks());
     }
 }

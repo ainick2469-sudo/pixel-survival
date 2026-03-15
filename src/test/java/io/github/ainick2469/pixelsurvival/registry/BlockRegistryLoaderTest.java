@@ -18,11 +18,12 @@ class BlockRegistryLoaderTest {
 
         Map<BlockId, BlockDefinition> blocks = loader.loadDirectory(Path.of("data", "blocks"));
 
-        assertEquals(4, blocks.size());
+        assertEquals(5, blocks.size());
         assertTrue(blocks.containsKey(BlockId.of("pixel_survival:air")));
         assertEquals("Dirt", blocks.get(BlockId.of("pixel_survival:dirt")).displayName());
         assertEquals("Stone", blocks.get(BlockId.of("pixel_survival:stone")).displayName());
         assertEquals("Grass Block", blocks.get(BlockId.of("pixel_survival:grass_block")).displayName());
+        assertEquals("Sand", blocks.get(BlockId.of("pixel_survival:sand")).displayName());
         assertEquals(
                 "Textures/Terrain/dirt.png",
                 blocks.get(BlockId.of("pixel_survival:dirt")).visuals().sideTexture());
@@ -35,6 +36,9 @@ class BlockRegistryLoaderTest {
         assertEquals(
                 "Textures/Terrain/grass_side.png",
                 blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().sideTexture());
+        assertEquals(
+                "Textures/Terrain/sand.png",
+                blocks.get(BlockId.of("pixel_survival:sand")).visuals().topTexture());
         assertNotNull(blocks.get(BlockId.of("pixel_survival:air")).visuals());
     }
 }

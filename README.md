@@ -4,9 +4,9 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 ## Current milestone
 
-- Version target: `0.007`
-- Milestone: adjustable render distance, pause/options menu, and distant-horizon camera support
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance, and a Minecraft-style pause/options flow
+- Version target: `0.008`
+- Milestone: fullscreen-first launch, visible-range horizon streaming up to 48 chunks, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance up to 48 chunks, camera-driven chunk loading/unloading, and a Minecraft-style pause/options flow
 
 ## Technology stack
 
@@ -28,6 +28,7 @@ gradlew.bat run
 ```
 
 For this machine, there is also a desktop double-click launcher that uses a hidden launcher flow so the game window can take focus without a foreground command prompt.
+The game now boots fullscreen by default and the launcher retries focus activation so the window is brought to the front more reliably on startup.
 
 ## Controls
 
@@ -41,8 +42,11 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 ## Current render/runtime state
 
 - Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
-- Grass, dirt, and stone use 128x128 textures with separate top/side/bottom support in the block registry.
-- The chunk runtime now supports adjustable render distance up to a high horizon-focused setting while rate-limiting background load and mesh work.
+- Grass, dirt, stone, and sand now use 128x128 terrain textures with separate top/side/bottom support in the block registry.
+- Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
+- Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
+- The chunk runtime now supports adjustable render distance up to `48` chunks while rate-limiting background load and mesh work.
+- Chunk targets are now driven by the active camera heading and view width instead of a simple full-radius square, so far-behind chunks unload and RAM stays focused on visible horizons.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 
@@ -70,3 +74,4 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 5. `0.005`: begin terrain layering
 6. `0.006`: production chunk runtime foundation and textured terrain readability pass
 7. `0.007`: adjustable render distance, pause/options menu, and distant horizons
+8. `0.008`: fullscreen-visible startup, visible-range chunk streaming, and premium terrain texture upgrade

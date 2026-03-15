@@ -17,6 +17,7 @@
 
 - `0.006`: replace debug block rendering with the production chunk runtime foundation and textured terrain materials.
 - `0.007`: add a Minecraft-style pause/options menu and adjustable high-distance horizon settings on top of the new runtime.
+- `0.008`: move to fullscreen-first startup, camera-visible chunk streaming/unloading, and a stronger terrain art pass that can hold up at higher render distances.
 - Better noise stacks
 - Biome masks and biome families
 - Cave and ravine generation

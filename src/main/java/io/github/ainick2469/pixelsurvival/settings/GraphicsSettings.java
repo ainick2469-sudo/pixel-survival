@@ -4,8 +4,8 @@ import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRuntimeConfig;
 
 public record GraphicsSettings(int renderDistanceChunks) {
     public static final int MIN_RENDER_DISTANCE_CHUNKS = 2;
-    public static final int DEFAULT_RENDER_DISTANCE_CHUNKS = 8;
-    public static final int MAX_RENDER_DISTANCE_CHUNKS = 24;
+    public static final int DEFAULT_RENDER_DISTANCE_CHUNKS = 12;
+    public static final int MAX_RENDER_DISTANCE_CHUNKS = 48;
 
     public GraphicsSettings {
         if (renderDistanceChunks < MIN_RENDER_DISTANCE_CHUNKS
@@ -27,8 +27,8 @@ public record GraphicsSettings(int renderDistanceChunks) {
     }
 
     public ChunkRuntimeConfig toChunkRuntimeConfig() {
-        int loadRadius = renderDistanceChunks + 2;
-        int simulationRadius = Math.min(4, Math.max(2, renderDistanceChunks / 2));
+        int loadRadius = renderDistanceChunks + Math.max(3, renderDistanceChunks / 6);
+        int simulationRadius = Math.min(4, Math.max(2, renderDistanceChunks / 4));
         return new ChunkRuntimeConfig(loadRadius, renderDistanceChunks, simulationRadius);
     }
 

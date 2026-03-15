@@ -2,7 +2,7 @@ Option Explicit
 
 Dim shell, fso
 Dim scriptDir, repoDir, toolsDir, javaHome, javawPath, gradlePath, buildDir, logPath, jarPath
-Dim buildCommand, runCommand, exitCode
+Dim buildCommand, exitCode, previousDirectory, attempt
 Dim buildOnly
 
 Set shell = CreateObject("WScript.Shell")
@@ -53,19 +53,27 @@ If buildOnly Then
     WScript.Quit 0
 End If
 
-runCommand = "cmd.exe /c start """" /d " & Quote(repoDir) & " " & Quote(javawPath) & " -Dfile.encoding=UTF-8 -jar " & Quote(jarPath)
 On Error Resume Next
-shell.Run runCommand, 0, False
+previousDirectory = shell.CurrentDirectory
+shell.CurrentDirectory = repoDir
+shell.Run Quote(javawPath) & " -Dfile.encoding=UTF-8 -jar " & Quote(jarPath), 1, False
+shell.CurrentDirectory = previousDirectory
 If Err.Number <> 0 Then
     MsgBox "Pixel Survival failed to start." & vbCrLf & "Launcher error: " & Err.Description, vbCritical, "Pixel Survival Launcher"
     WScript.Quit 1
 End If
 On Error GoTo 0
 
-WScript.Sleep 900
-On Error Resume Next
-shell.AppActivate "Pixel Survival"
-On Error GoTo 0
+For attempt = 1 To 20
+    WScript.Sleep 350
+    On Error Resume Next
+    If shell.AppActivate("Pixel Survival") Then
+        WScript.Sleep 90
+        shell.AppActivate("Pixel Survival")
+        Exit For
+    End If
+    On Error GoTo 0
+Next
 
 Function Quote(value)
     Quote = Chr(34) & value & Chr(34)

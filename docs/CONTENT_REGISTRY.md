@@ -32,6 +32,14 @@
 - Block definitions
 - Survival settings presets
 
+Current shipped terrain blocks:
+
+- `pixel_survival:air`
+- `pixel_survival:grass_block`
+- `pixel_survival:dirt`
+- `pixel_survival:stone`
+- `pixel_survival:sand`
+
 ## Active block definition shape
 
 Current terrain blocks use this render-oriented contract:
