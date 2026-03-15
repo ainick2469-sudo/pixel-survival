@@ -1,5 +1,60 @@
 # Devlog
 
+## 2026-03-15 17:49:04 MDT
+
+- Date/Time: 2026-03-15 17:49:04 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Reduce terrain material fragmentation by batching textured terrain through a shared texture-array material path.
+- Completed Work:
+  - Added a deterministic `TerrainTexturePalette` that assigns shared runtime texture-array layers across direct terrain textures and imported cube-net faces.
+  - Reworked the live terrain material path so textured terrain now renders through one shared texture-array material instead of one material section per visible face texture.
+  - Updated `ChunkMeshBuilder` so textured terrain faces batch into a single chunk section while still preserving per-face UV orientation and per-face layer identity for grass top, grass lip walls, and stone faces.
+  - Extended runtime metrics and the HUD to expose rendered chunk-section counts so batching results are visible during live tuning.
+  - Updated renderer regression coverage to prove mixed grass/stone chunks still batch into one textured section while preserving the grass-side UV correctness checks.
+  - Refreshed docs and the Codex handoff so they describe the live shared-material terrain path and stop describing the cracked `HORIZON` tier as a live milestone result.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `docs/VERSION_PLAN.md`
+  - `docs/ROADMAP.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/main/java/.../rendering/world/ChunkMeshSectionData.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeMetrics.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialKey.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialLibrary.java`
+  - `src/main/java/.../rendering/world/TerrainTexturePalette.java`
+  - `src/main/resources/Materials/TerrainArrayLighting.j3md`
+  - `src/main/resources/Shaders/TerrainArrayLighting.vert`
+  - `src/main/resources/Shaders/TerrainArrayLighting.frag`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - terrain material batching
+  - chunk mesh section generation
+  - terrain shader/material resources
+  - runtime telemetry HUD
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - The live terrain path keeps the current `.voxelblock` grass and stone assets intact while batching textured chunk terrain through one shared material section per chunk in the normal case.
+  - The coarse `HORIZON` seam remains disabled in the live runtime; near and mid-distance terrain still route through the stable `FULL` and `SURFACE` paths.
+- Known Issues:
+  - `96` chunks remains experimental even after the batching pass; far-distance geometry and residency pressure still need a safer outer-distance representation.
+  - The shared terrain material currently batches the live terrain path correctly, but if explicit face tinting becomes visually active later the shared section key will need tint-aware grouping instead of today’s untinted path.
+- Next Tasks:
+  - Replace the failed coarse horizon tier with a continuity-safe far-distance representation instead of re-enabling the cracked approximation.
+  - Tighten chunk queue prioritization and back-pressure around the new shared terrain batching path once live `48`-chunk behavior has been re-measured.
+- Risks/Technical Debt:
+  - The new texture-array terrain material assumes the desktop runtime stays on modern GPU paths that support texture arrays, which is appropriate for the current target but should remain documented.
+  - The batching pass solved the worst chunk-section/material fragmentation, but it did not eliminate the need for stronger far-distance geometry simplification later.
+
 ## 2026-03-15 14:05:31 MDT
 
 - Date/Time: 2026-03-15 14:05:31 MDT

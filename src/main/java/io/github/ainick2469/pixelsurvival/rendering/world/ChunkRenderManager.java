@@ -35,6 +35,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
     private final GameRegistries registries;
+    private final TerrainTexturePalette terrainTexturePalette;
     private final TerrainMaterialLibrary terrainMaterialLibrary;
     private final ChunkMeshBuilder chunkMeshBuilder;
     private final ChunkVisibilityPlanner visibilityPlanner = new ChunkVisibilityPlanner();
@@ -44,6 +45,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final Map<ChunkCoord, ChunkDetailLevel> pendingMeshDetailLevels = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, Node> renderedChunkNodes = new HashMap<>();
     private final Map<ChunkCoord, Integer> renderedChunkFaceCounts = new HashMap<>();
+    private final Map<ChunkCoord, Integer> renderedChunkSectionCounts = new HashMap<>();
     private final Map<ChunkCoord, ChunkDetailLevel> renderedChunkDetailLevels = new HashMap<>();
     private final Map<ChunkCoord, Long> retainedLoadTargets = new ConcurrentHashMap<>();
     private final Set<ChunkCoord> dirtyChunks = ConcurrentHashMap.newKeySet();
@@ -54,6 +56,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private ChunkRuntimeConfig activeTargetRuntimeConfig;
     private ChunkRuntimeMetrics metrics = ChunkRuntimeMetrics.empty();
     private int totalRenderedFaceCount;
+    private int totalRenderedSectionCount;
     private long nextMetricsRefreshNanos;
 
     public ChunkRenderManager(
@@ -65,8 +68,9 @@ public final class ChunkRenderManager implements AutoCloseable {
         this.worldService = worldService;
         this.registries = registries;
         this.runtimeConfig = runtimeConfig;
-        this.terrainMaterialLibrary = new TerrainMaterialLibrary(assetManager);
-        this.chunkMeshBuilder = new ChunkMeshBuilder(worldService, registries);
+        this.terrainTexturePalette = TerrainTexturePalette.build(registries);
+        this.terrainMaterialLibrary = new TerrainMaterialLibrary(assetManager, terrainTexturePalette);
+        this.chunkMeshBuilder = new ChunkMeshBuilder(worldService, registries, terrainTexturePalette);
         this.backgroundExecutor = Executors.newFixedThreadPool(
                 Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)),
                 new ChunkRuntimeThreadFactory());
@@ -294,6 +298,7 @@ public final class ChunkRenderManager implements AutoCloseable {
                 meshBuildResult.chunkCoord().x() * ChunkData.SIZE_X,
                 0f,
                 meshBuildResult.chunkCoord().z() * ChunkData.SIZE_Z);
+        int attachedSectionCount = 0;
 
         for (Map.Entry<TerrainMaterialKey, ChunkMeshSectionData> sectionEntry : meshBuildResult.sections().entrySet()) {
             ChunkMeshSectionData sectionData = sectionEntry.getValue();
@@ -304,7 +309,10 @@ public final class ChunkRenderManager implements AutoCloseable {
             Mesh mesh = new Mesh();
             mesh.setBuffer(VertexBuffer.Type.Position, 3, BufferUtils.createFloatBuffer(sectionData.positions()));
             mesh.setBuffer(VertexBuffer.Type.Normal, 3, BufferUtils.createFloatBuffer(sectionData.normals()));
-            mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, BufferUtils.createFloatBuffer(sectionData.textureCoordinates()));
+            mesh.setBuffer(
+                    VertexBuffer.Type.TexCoord,
+                    sectionData.textureCoordinateComponents(),
+                    BufferUtils.createFloatBuffer(sectionData.textureCoordinates()));
             mesh.setBuffer(VertexBuffer.Type.Index, 3, BufferUtils.createIntBuffer(sectionData.indices()));
             mesh.updateBound();
             mesh.setStatic();
@@ -314,14 +322,17 @@ public final class ChunkRenderManager implements AutoCloseable {
                     mesh);
             geometry.setMaterial(terrainMaterialLibrary.materialFor(sectionEntry.getKey()));
             chunkNode.attachChild(geometry);
+            attachedSectionCount++;
         }
 
         if (chunkNode.getQuantity() > 0) {
             terrainRoot.attachChild(chunkNode);
             renderedChunkNodes.put(meshBuildResult.chunkCoord(), chunkNode);
             renderedChunkFaceCounts.put(meshBuildResult.chunkCoord(), meshBuildResult.faceCount());
+            renderedChunkSectionCounts.put(meshBuildResult.chunkCoord(), attachedSectionCount);
             renderedChunkDetailLevels.put(meshBuildResult.chunkCoord(), meshBuildResult.detailLevel());
             totalRenderedFaceCount += meshBuildResult.faceCount();
+            totalRenderedSectionCount += attachedSectionCount;
         }
     }
 
@@ -336,9 +347,13 @@ public final class ChunkRenderManager implements AutoCloseable {
     private void detachRenderedChunk(ChunkCoord chunkCoord) {
         Node existingNode = renderedChunkNodes.remove(chunkCoord);
         Integer removedFaceCount = renderedChunkFaceCounts.remove(chunkCoord);
+        Integer removedSectionCount = renderedChunkSectionCounts.remove(chunkCoord);
         renderedChunkDetailLevels.remove(chunkCoord);
         if (removedFaceCount != null) {
             totalRenderedFaceCount -= removedFaceCount;
+        }
+        if (removedSectionCount != null) {
+            totalRenderedSectionCount -= removedSectionCount;
         }
         if (existingNode != null) {
             existingNode.removeFromParent();
@@ -356,6 +371,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         return new ChunkRuntimeMetrics(
                 worldService.getLoadedChunkCount(),
                 renderedChunkNodes.size(),
+                totalRenderedSectionCount,
                 simulatedLoaded,
                 pendingChunkLoads.size(),
                 pendingMeshBuilds.size(),

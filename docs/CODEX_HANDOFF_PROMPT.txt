@@ -58,6 +58,7 @@ What exists right now:
 - Chunk meshing with hidden-face culling.
 - Greedy face merging.
 - Palette-compressed chunk storage.
+- Shared texture-array terrain batching/material consolidation.
 - Adjustable render distance.
 - Pause/options menu on `Esc`.
 - Fullscreen toggle on `F11`.
@@ -76,7 +77,6 @@ What is intentionally NOT finished:
 - floating mountains
 - cloud realm content
 - planetary world topology
-- draw-call optimized terrain atlas batching
 - continuity-safe ultra-far horizon representation
 
 ==================================================
@@ -160,7 +160,8 @@ Important current truths:
 - Chunk targeting is now buffered and centered around the player chunk.
 - Greedy meshing is active.
 - Chunk storage is palette-compressed.
-- The HUD reports loaded/rendered/simulated chunks, queues, faces, heap, chunk memory, and coarse timing splits.
+- Shared terrain texture-array batching is active, so textured chunk terrain now aims to render through one shared textured section per chunk instead of many per-face material sections.
+- The HUD reports loaded/rendered/section/simulated chunks, queues, faces, heap, chunk memory, and coarse timing splits.
 
 Live chunk detail tiers:
 - `FULL`
@@ -172,14 +173,14 @@ Important warning:
 - Do not casually re-enable it unless the continuity problem is actually solved.
 
 Why performance is still not where the user wants it:
-- High render distance is still expensive because distant terrain is still paying too much mesh/material/draw-call cost.
-- The next real optimization target is batching/material consolidation, not another brittle visual shortcut.
+- High render distance is still expensive because distant terrain is still paying too much far-geometry and residency cost even after the material batching pass.
+- The next real optimization target is a continuity-safe far-distance representation plus tighter queue/back-pressure tuning, not another brittle visual shortcut.
 
 Highest-value next optimization step:
-- terrain atlas or equivalent shared-material batching so chunk rendering pays fewer draw calls and fewer material splits
+- a continuity-safe far-distance representation that reduces outer-ring cost without reopening the old crack problem
 
 Next step after that:
-- a continuity-safe far-distance terrain representation
+- tighter queue prioritization and background-work budgeting around the new shared terrain material path
 - not the old cracked `HORIZON` cell approach
 
 The user wants:
@@ -404,8 +405,8 @@ Important note:
 - live runtime now routes away from it
 
 Current known likely next commit themes:
-- terrain atlas batching / shared-material terrain path
 - better far-distance representation without cracks
+- tighter chunk queue prioritization / back-pressure tuning
 - more importer polish if the external app evolves further
 
 ==================================================
@@ -435,9 +436,9 @@ If taking over immediately, do this in order:
 2. Read `DEVLOG.md` tail and recent commits.
 3. If visuals were just fixed, relaunch and confirm the grass top actually renders on top in the live build.
 4. Do NOT re-enable the old cracked `HORIZON` tier.
-5. Start the next optimization pass with terrain batching/material consolidation.
+5. Keep the shared terrain batching path intact and measure it at `48` first.
 6. Keep the `.voxelblock` importer as the authoring bridge from the external app into runtime assets.
-7. Update docs/devlog for any meaningful new work.
+7. Start the next optimization pass with continuity-safe far-distance representation and queue tuning.
 
 ==================================================
 PROMPT TO FOLLOW

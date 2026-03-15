@@ -3,29 +3,34 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 import com.jme3.asset.AssetInfo;
 import com.jme3.asset.AssetKey;
 import com.jme3.asset.AssetManager;
-import com.jme3.asset.TextureKey;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
+import com.jme3.texture.Image;
 import com.jme3.texture.Texture;
-import com.jme3.texture.Texture2D;
+import com.jme3.texture.TextureArray;
 import com.jme3.texture.plugins.AWTLoader;
+import com.jme3.util.MipMapGenerator;
 import io.github.ainick2469.pixelsurvival.world.block.BlockFaceTextureReference;
+import java.awt.RenderingHints;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Objects;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
 public final class TerrainMaterialLibrary {
     private final AssetManager assetManager;
+    private final TerrainTexturePalette terrainTexturePalette;
     private final Map<TerrainMaterialKey, Material> materialCache = new ConcurrentHashMap<>();
-    private final Map<BlockFaceTextureReference, Texture> textureCache = new ConcurrentHashMap<>();
 
-    public TerrainMaterialLibrary(AssetManager assetManager) {
+    public TerrainMaterialLibrary(AssetManager assetManager, TerrainTexturePalette terrainTexturePalette) {
         this.assetManager = assetManager;
+        this.terrainTexturePalette = terrainTexturePalette;
     }
 
     public Material materialFor(TerrainMaterialKey materialKey) {
@@ -33,6 +38,14 @@ public final class TerrainMaterialLibrary {
     }
 
     private Material createMaterial(TerrainMaterialKey materialKey) {
+        if (materialKey.usesTexture()) {
+            return createSharedTerrainMaterial();
+        }
+
+        return createDebugMaterial(materialKey);
+    }
+
+    private Material createDebugMaterial(TerrainMaterialKey materialKey) {
         Material material = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
         material.setBoolean("UseMaterialColors", true);
         material.setColor("Ambient", ColorRGBA.White.mult(0.5f));
@@ -40,14 +53,15 @@ public final class TerrainMaterialLibrary {
         material.setColor("Specular", ColorRGBA.Black);
         material.setFloat("Shininess", 1f);
 
-        if (materialKey.usesTexture()) {
-            material.setTexture("DiffuseMap", textureFor(materialKey.textureReference()));
-            return material;
-        }
-
         ColorRGBA color = parseHexColor(materialKey.debugColor());
         material.setColor("Ambient", color.mult(0.45f));
         material.setColor("Diffuse", color);
+        return material;
+    }
+
+    private Material createSharedTerrainMaterial() {
+        Material material = new Material(assetManager, "Materials/TerrainArrayLighting.j3md");
+        material.setTexture("DiffuseMapArray", buildTextureArray());
         return material;
     }
 
@@ -60,62 +74,104 @@ public final class TerrainMaterialLibrary {
         return new ColorRGBA(red, green, blue, 1f);
     }
 
-    private Texture textureFor(BlockFaceTextureReference textureReference) {
-        return textureCache.computeIfAbsent(textureReference, this::loadTexture);
+    private Texture buildTextureArray() {
+        List<BufferedImage> layerImages = new ArrayList<>();
+        int targetLayerSize = 1;
+        for (BlockFaceTextureReference textureReference : terrainTexturePalette.textureReferences()) {
+            BufferedImage layerImage = textureReference.usesCubeNet()
+                    ? loadCubeNetFaceImage(textureReference)
+                    : loadDirectTextureImage(textureReference.texturePath());
+            layerImages.add(layerImage);
+            targetLayerSize = Math.max(targetLayerSize, Math.max(layerImage.getWidth(), layerImage.getHeight()));
+        }
+
+        targetLayerSize = nextPowerOfTwo(targetLayerSize);
+        List<Image> normalizedLayers = new ArrayList<>(layerImages.size());
+        for (BufferedImage layerImage : layerImages) {
+            BufferedImage normalizedImage = layerImage.getWidth() == targetLayerSize && layerImage.getHeight() == targetLayerSize
+                    ? layerImage
+                    : resizeImage(layerImage, targetLayerSize);
+            Image image = new AWTLoader().load(normalizedImage, false);
+            MipMapGenerator.generateMipMaps(image);
+            normalizedLayers.add(image);
+        }
+
+        TextureArray textureArray = new TextureArray(normalizedLayers);
+        applyTextureSettings(textureArray);
+        return textureArray;
     }
 
-    private Texture loadTexture(BlockFaceTextureReference textureReference) {
-        Texture texture = textureReference.usesCubeNet()
-                ? loadCubeNetFace(textureReference)
-                : loadDirectTexture(textureReference.texturePath());
-        applyTextureSettings(texture);
-        return texture;
+    private BufferedImage loadDirectTextureImage(String texturePath) {
+        return readImage(Objects.requireNonNull(texturePath, "texturePath"));
     }
 
-    private Texture loadDirectTexture(String texturePath) {
-        TextureKey textureKey = new TextureKey(Objects.requireNonNull(texturePath, "texturePath"), false);
-        textureKey.setGenerateMips(true);
-        return assetManager.loadTexture(textureKey);
+    private BufferedImage loadCubeNetFaceImage(BlockFaceTextureReference textureReference) {
+        BufferedImage sourceImage = readImage(textureReference.cubeNetTexturePath());
+        int faceSize = textureReference.cubeNetLayout().faceSize(sourceImage.getWidth(), sourceImage.getHeight());
+        int cropX = textureReference.cubeNetLayout().tileX(textureReference.cubeNetFace()) * faceSize;
+        int cropY = textureReference.cubeNetLayout().tileY(textureReference.cubeNetFace()) * faceSize;
+
+        BufferedImage faceImage = new BufferedImage(faceSize, faceSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = faceImage.createGraphics();
+        graphics.drawImage(
+                sourceImage,
+                0,
+                0,
+                faceSize,
+                faceSize,
+                cropX,
+                cropY,
+                cropX + faceSize,
+                cropY + faceSize,
+                null);
+        graphics.dispose();
+        return faceImage;
     }
 
-    private Texture loadCubeNetFace(BlockFaceTextureReference textureReference) {
-        AssetInfo assetInfo = assetManager.locateAsset(new AssetKey<>(textureReference.cubeNetTexturePath()));
+    private BufferedImage readImage(String assetPath) {
+        AssetInfo assetInfo = assetManager.locateAsset(new AssetKey<>(assetPath));
         if (assetInfo == null) {
-            throw new IllegalStateException("Unable to locate cube-net texture asset: " + textureReference.cubeNetTexturePath());
+            throw new IllegalStateException("Unable to locate terrain texture asset: " + assetPath);
         }
 
         try (InputStream stream = assetInfo.openStream()) {
             BufferedImage sourceImage = ImageIO.read(stream);
             if (sourceImage == null) {
-                throw new IllegalStateException(
-                        "Failed to decode cube-net texture image: " + textureReference.cubeNetTexturePath());
+                throw new IllegalStateException("Failed to decode terrain texture image: " + assetPath);
+            }
+            if (sourceImage.getType() == BufferedImage.TYPE_INT_ARGB) {
+                return sourceImage;
             }
 
-            int faceSize = textureReference.cubeNetLayout().faceSize(sourceImage.getWidth(), sourceImage.getHeight());
-            int cropX = textureReference.cubeNetLayout().tileX(textureReference.cubeNetFace()) * faceSize;
-            int cropY = textureReference.cubeNetLayout().tileY(textureReference.cubeNetFace()) * faceSize;
-
-            BufferedImage faceImage = new BufferedImage(faceSize, faceSize, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D graphics = faceImage.createGraphics();
-            graphics.drawImage(
-                    sourceImage,
-                    0,
-                    0,
-                    faceSize,
-                    faceSize,
-                    cropX,
-                    cropY,
-                    cropX + faceSize,
-                    cropY + faceSize,
-                    null);
+            BufferedImage normalizedImage = new BufferedImage(
+                    sourceImage.getWidth(),
+                    sourceImage.getHeight(),
+                    BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = normalizedImage.createGraphics();
+            graphics.drawImage(sourceImage, 0, 0, null);
             graphics.dispose();
-
-            return new Texture2D(new AWTLoader().load(faceImage, false));
+            return normalizedImage;
         } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Failed to load cube-net texture asset: " + textureReference.cubeNetTexturePath(),
-                    exception);
+            throw new IllegalStateException("Failed to load terrain texture asset: " + assetPath, exception);
         }
+    }
+
+    private BufferedImage resizeImage(BufferedImage sourceImage, int targetLayerSize) {
+        BufferedImage resizedImage = new BufferedImage(targetLayerSize, targetLayerSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = resizedImage.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        graphics.drawImage(sourceImage, 0, 0, targetLayerSize, targetLayerSize, null);
+        graphics.dispose();
+        return resizedImage;
+    }
+
+    private int nextPowerOfTwo(int value) {
+        int powerOfTwo = 1;
+        while (powerOfTwo < value) {
+            powerOfTwo <<= 1;
+        }
+        return powerOfTwo;
     }
 
     private void applyTextureSettings(Texture texture) {

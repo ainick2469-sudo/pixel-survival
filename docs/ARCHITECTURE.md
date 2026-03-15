@@ -138,8 +138,9 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Chunk selection now stays centered on the player chunk in a buffered circular radius instead of a camera-facing cone. That keeps the nearby world stable when the player turns around and avoids full horizon reloads on fast view changes.
 - Runtime chunk scheduling is capped and chunk completion work is batched per update so high render-distance settings do not enqueue or attach unbounded work in one frame.
 - Chunk target planning is now cached by radius and refreshed only when the player crosses into a new chunk or changes runtime settings, which avoids rebuilding and sorting thousands of targets every frame while stationary.
-- `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
-- The mesh builder now greedily merges adjacent coplanar faces that share the same material key, which reduces quad count dramatically on flat terrain and cliff bands.
+- `ChunkMeshBuilder` now emits one shared textured terrain section plus any fallback debug-color sections instead of splitting textured terrain by per-face materials.
+- The mesh builder now greedily merges adjacent coplanar faces that share the same resolved face texture layer, which reduces quad count dramatically on flat terrain and cliff bands.
+- `TerrainTexturePalette` deterministically assigns layer indices to every registered terrain face texture so imported cube-net faces and direct textures can batch through one runtime material path.
 - The runtime now uses three terrain detail tiers:
   - `FULL`: nearby chunks keep full voxel face detail
   - `SURFACE`: distance chunks collapse into top surfaces plus compressed vertical walls per height column
@@ -148,9 +149,9 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
-- `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
-- The terrain material path now uses crisp close-up filtering with mipmaps and reusable shared materials rather than one-off block-instance materials.
-- Rendered face totals are now tracked incrementally when chunk meshes attach/detach instead of rescanning every rendered geometry every frame.
+- `TerrainMaterialLibrary` owns the shared terrain texture-array material plus any fallback debug-color materials so block visuals remain data-driven and renderer changes stay localized.
+- The terrain material path now uses crisp close-up filtering, mipmaps, and a shared texture-array material instead of one texture material per visible face family.
+- Rendered face totals and rendered section totals are now tracked incrementally when chunk meshes attach/detach instead of rescanning every rendered geometry every frame.
 
 ## Block visual pipeline
 
@@ -166,9 +167,10 @@ Supported visual modes:
 Current runtime behavior:
 
 - block definitions resolve face textures through `BlockVisualDefinition`
-- `ChunkMeshBuilder` requests the correct face texture per visible block face
-- `TerrainMaterialLibrary` caches reusable materials and can now slice a face out of a cube-net source image at runtime
-- per-block-instance materials are still avoided
+- `TerrainTexturePalette` resolves the registered face textures into stable runtime array layers
+- `ChunkMeshBuilder` writes the correct UVs plus a texture-array layer per visible textured face
+- `TerrainMaterialLibrary` builds one shared terrain texture-array material for those layers while still allowing debug-color fallback materials
+- per-block-instance and per-face materials are both avoided on the live terrain path
 
 Supported cube-net format:
 
@@ -194,7 +196,7 @@ Why this matters:
 
 - artists can author one cube-net image and define a block in data
 - stone, dirt, grass, logs, bricks, and later specialty blocks can all use the same import contract
-- future texture-atlas work can remain localized to the material/texture layer instead of changing every block definition
+- future tint-aware batching or atlas experimentation can remain localized to the material/texture layer instead of changing every block definition
 
 ## Settings and UI model
 
@@ -205,7 +207,7 @@ Why this matters:
 - The current default is `48` chunks and the experimental ceiling is `96` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
 - The load-radius buffer is now intentionally smaller at high render distances so horizon rendering does not automatically keep an oversized extra ring of chunks resident.
 - Render distance no longer implies camera-facing unload behavior. Stable buffered residency is preserved first, and additional far-distance representations will only be re-enabled when they maintain terrain continuity cleanly.
-- The HUD now reports chunk-memory usage and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
+- The HUD now reports chunk-memory usage, rendered chunk-section count, and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
 
 ## Registry model
 

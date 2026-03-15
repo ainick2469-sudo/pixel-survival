@@ -213,6 +213,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | Render Distance " + graphicsSettings.renderDistanceChunks()
                 + " | Loaded " + runtimeMetrics.loadedChunkCount()
                 + " | Rendered " + runtimeMetrics.renderedChunkCount()
+                + " | Sections " + runtimeMetrics.renderedSectionCount()
                 + " | Sim " + runtimeMetrics.simulatedChunkCount()
                 + " | LoadQ " + runtimeMetrics.pendingLoadCount()
                 + " | MeshQ " + runtimeMetrics.pendingMeshBuildCount()

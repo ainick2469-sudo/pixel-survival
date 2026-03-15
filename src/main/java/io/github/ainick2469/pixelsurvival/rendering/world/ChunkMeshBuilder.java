@@ -2,6 +2,7 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.block.BlockDefinition;
+import io.github.ainick2469.pixelsurvival.world.block.BlockFaceTextureReference;
 import io.github.ainick2469.pixelsurvival.world.block.BlockTextureFace;
 import io.github.ainick2469.pixelsurvival.world.block.BlockVisualDefinition;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
@@ -13,13 +14,23 @@ import java.util.Map;
 
 public final class ChunkMeshBuilder {
     private static final Map<BlockFace, FaceGeometry> FACE_GEOMETRY = buildFaceGeometry();
+    private static final TerrainMaterialKey SHARED_TEXTURED_MATERIAL_KEY = TerrainMaterialKey.sharedTextured();
 
     private final AuthoritativeWorldService worldService;
     private final GameRegistries registries;
+    private final TerrainTexturePalette terrainTexturePalette;
 
     public ChunkMeshBuilder(AuthoritativeWorldService worldService, GameRegistries registries) {
+        this(worldService, registries, TerrainTexturePalette.build(registries));
+    }
+
+    public ChunkMeshBuilder(
+            AuthoritativeWorldService worldService,
+            GameRegistries registries,
+            TerrainTexturePalette terrainTexturePalette) {
         this.worldService = worldService;
         this.registries = registries;
+        this.terrainTexturePalette = terrainTexturePalette;
     }
 
     public ChunkMeshBuildResult buildChunkMesh(ChunkData chunkData) {
@@ -103,7 +114,7 @@ public final class ChunkMeshBuilder {
             Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders,
             boolean[] visibleBlocks) {
         FaceGeometry geometry = FACE_GEOMETRY.get(face);
-        TerrainMaterialKey[] mask = new TerrainMaterialKey[geometry.uSize() * geometry.vSize()];
+        ResolvedFaceMaterial[] mask = new ResolvedFaceMaterial[geometry.uSize() * geometry.vSize()];
         int emittedQuads = 0;
 
         for (int slice = 0; slice < geometry.sliceCount(); slice++) {
@@ -113,15 +124,15 @@ public final class ChunkMeshBuilder {
             for (int v = 0; v < geometry.vSize(); v++) {
                 for (int u = 0; u < geometry.uSize(); ) {
                     int maskIndex = (v * geometry.uSize()) + u;
-                    TerrainMaterialKey materialKey = mask[maskIndex];
-                    if (materialKey == null) {
+                    ResolvedFaceMaterial material = mask[maskIndex];
+                    if (material == null) {
                         u++;
                         continue;
                     }
 
                     int width = 1;
                     while (u + width < geometry.uSize()
-                            && materialKey.equals(mask[(v * geometry.uSize()) + u + width])) {
+                            && material.equals(mask[(v * geometry.uSize()) + u + width])) {
                         width++;
                     }
 
@@ -129,7 +140,7 @@ public final class ChunkMeshBuilder {
                     scanHeight:
                     while (v + height < geometry.vSize()) {
                         for (int scanU = 0; scanU < width; scanU++) {
-                            if (!materialKey.equals(mask[((v + height) * geometry.uSize()) + u + scanU])) {
+                            if (!material.equals(mask[((v + height) * geometry.uSize()) + u + scanU])) {
                                 break scanHeight;
                             }
                         }
@@ -137,8 +148,8 @@ public final class ChunkMeshBuilder {
                     }
 
                     sectionBuilders
-                            .computeIfAbsent(materialKey, ignored -> new MeshSectionBuilder())
-                            .appendQuad(geometry, slice, u, v, width, height, face);
+                            .computeIfAbsent(material.sectionKey(), key -> new MeshSectionBuilder(key.usesTexture()))
+                            .appendQuad(geometry, slice, u, v, width, height, face, material.textureLayer());
                     emittedQuads++;
 
                     for (int clearV = 0; clearV < height; clearV++) {
@@ -160,7 +171,7 @@ public final class ChunkMeshBuilder {
             BlockFace face,
             FaceGeometry geometry,
             int slice,
-            TerrainMaterialKey[] mask,
+            ResolvedFaceMaterial[] mask,
             boolean[] visibleBlocks) {
         for (int v = 0; v < geometry.vSize(); v++) {
             for (int u = 0; u < geometry.uSize(); u++) {
@@ -168,7 +179,7 @@ public final class ChunkMeshBuilder {
                 int blockY = geometry.coordinateForAxis(1, slice, u, v);
                 int blockZ = geometry.coordinateForAxis(2, slice, u, v);
                 mask[(v * geometry.uSize()) + u] =
-                        visibleFaceMaterialKey(chunkData, face, blockX, blockY, blockZ, visibleBlocks);
+                        visibleFaceMaterial(chunkData, face, blockX, blockY, blockZ, visibleBlocks);
             }
         }
     }
@@ -257,7 +268,8 @@ public final class ChunkMeshBuilder {
                 if (surface == null) {
                     continue;
                 }
-                mask[(x * ChunkData.SIZE_Z) + z] = new SurfaceTopKey(surface.topY(), materialKeyFor(surface.definition(), BlockFace.UP));
+                mask[(x * ChunkData.SIZE_Z) + z] =
+                        new SurfaceTopKey(surface.topY(), resolvedMaterialFor(surface.definition(), BlockFace.UP));
             }
         }
 
@@ -293,8 +305,16 @@ public final class ChunkMeshBuilder {
                 int topHeight = topGeometry.vAxis() == 0 ? heightX : widthZ;
 
                 sectionBuilders
-                        .computeIfAbsent(topKey.materialKey(), ignored -> new MeshSectionBuilder())
-                        .appendQuad(topGeometry, topSlice, topU, topV, topWidth, topHeight, BlockFace.UP);
+                        .computeIfAbsent(topKey.faceMaterial().sectionKey(), key -> new MeshSectionBuilder(key.usesTexture()))
+                        .appendQuad(
+                                topGeometry,
+                                topSlice,
+                                topU,
+                                topV,
+                                topWidth,
+                                topHeight,
+                                BlockFace.UP,
+                                topKey.faceMaterial().textureLayer());
                 emittedQuads++;
 
                 for (int clearX = 0; clearX < heightX; clearX++) {
@@ -342,10 +362,11 @@ public final class ChunkMeshBuilder {
                     int v = geometry.vAxis() == 1 ? verticalStart : horizontalCoordinate;
                     int width = geometry.uAxis() == 1 ? spanHeight : 1;
                     int height = geometry.vAxis() == 1 ? spanHeight : 1;
+                    ResolvedFaceMaterial material = resolvedMaterialFor(surface.definition(), face);
 
                     sectionBuilders
-                            .computeIfAbsent(materialKeyFor(surface.definition(), face), ignored -> new MeshSectionBuilder())
-                            .appendQuad(geometry, slice, u, v, width, height, face);
+                            .computeIfAbsent(material.sectionKey(), key -> new MeshSectionBuilder(key.usesTexture()))
+                            .appendQuad(geometry, slice, u, v, width, height, face, material.textureLayer());
                     emittedQuads++;
                 }
             }
@@ -365,9 +386,10 @@ public final class ChunkMeshBuilder {
                 if (cell == null) {
                     continue;
                 }
+                ResolvedFaceMaterial material = resolvedMaterialFor(cell.definition(), BlockFace.UP);
 
                 sectionBuilders
-                        .computeIfAbsent(materialKeyFor(cell.definition(), BlockFace.UP), ignored -> new MeshSectionBuilder())
+                        .computeIfAbsent(material.sectionKey(), key -> new MeshSectionBuilder(key.usesTexture()))
                         .appendQuad(
                                 topGeometry,
                                 cell.topY(),
@@ -375,7 +397,8 @@ public final class ChunkMeshBuilder {
                                 cell.startZ(),
                                 cell.spanX(),
                                 cell.spanZ(),
-                                BlockFace.UP);
+                                BlockFace.UP,
+                                material.textureLayer());
                 emittedQuads++;
             }
         }
@@ -422,10 +445,11 @@ public final class ChunkMeshBuilder {
                     int v = geometry.vAxis() == 1 ? verticalStart : horizontalStart;
                     int width = geometry.uAxis() == 1 ? verticalSpan : horizontalSpan;
                     int height = geometry.vAxis() == 1 ? verticalSpan : horizontalSpan;
+                    ResolvedFaceMaterial material = resolvedMaterialFor(cell.definition(), face);
 
                     sectionBuilders
-                            .computeIfAbsent(materialKeyFor(cell.definition(), face), ignored -> new MeshSectionBuilder())
-                            .appendQuad(geometry, slice, u, v, width, height, face);
+                            .computeIfAbsent(material.sectionKey(), key -> new MeshSectionBuilder(key.usesTexture()))
+                            .appendQuad(geometry, slice, u, v, width, height, face, material.textureLayer());
                     emittedQuads++;
                 }
             }
@@ -525,7 +549,7 @@ public final class ChunkMeshBuilder {
         return highestTopY;
     }
 
-    private TerrainMaterialKey visibleFaceMaterialKey(
+    private ResolvedFaceMaterial visibleFaceMaterial(
             ChunkData chunkData,
             BlockFace face,
             int blockX,
@@ -543,7 +567,7 @@ public final class ChunkMeshBuilder {
         }
 
         visibleBlocks[indexOf(blockX, blockY, blockZ)] = true;
-        return materialKeyFor(definition, face);
+        return resolvedMaterialFor(definition, face);
     }
 
     private BlockDefinition neighborDefinition(ChunkData chunkData, BlockFace face, int blockX, int blockY, int blockZ) {
@@ -560,14 +584,13 @@ public final class ChunkMeshBuilder {
                 chunkData.toWorldZ(blockZ) + face.stepZ()));
     }
 
-    private TerrainMaterialKey materialKeyFor(BlockDefinition definition, BlockFace face) {
+    private ResolvedFaceMaterial resolvedMaterialFor(BlockDefinition definition, BlockFace face) {
         BlockVisualDefinition visuals = definition.visuals();
         if (visuals != null) {
-            return TerrainMaterialKey.textured(
-                    visuals.textureReferenceFor(textureFaceFor(face)),
-                    visuals.tintKey());
+            BlockFaceTextureReference textureReference = visuals.textureReferenceFor(textureFaceFor(face));
+            return ResolvedFaceMaterial.textured(terrainTexturePalette.layerIndexFor(textureReference));
         }
-        return TerrainMaterialKey.debugColor(definition.debugColor());
+        return ResolvedFaceMaterial.debugColor(definition.debugColor());
     }
 
     private BlockTextureFace textureFaceFor(BlockFace face) {
@@ -682,12 +705,17 @@ public final class ChunkMeshBuilder {
     }
 
     private static final class MeshSectionBuilder {
+        private final boolean textured;
         private final FloatCollector positions = new FloatCollector(1_024);
         private final FloatCollector normals = new FloatCollector(1_024);
         private final FloatCollector textureCoordinates = new FloatCollector(1_024);
         private final IntCollector indices = new IntCollector(1_024);
         private int vertexCount;
         private int faceCount;
+
+        private MeshSectionBuilder(boolean textured) {
+            this.textured = textured;
+        }
 
         private void appendQuad(
                 FaceGeometry geometry,
@@ -696,7 +724,8 @@ public final class ChunkMeshBuilder {
                 int v,
                 int width,
                 int height,
-                BlockFace face) {
+                BlockFace face,
+                int textureLayer) {
             float blockX = geometry.coordinateForAxis(0, slice, u, v);
             float blockY = geometry.coordinateForAxis(1, slice, u, v);
             float blockZ = geometry.coordinateForAxis(2, slice, u, v);
@@ -731,7 +760,7 @@ public final class ChunkMeshBuilder {
                 normals.add(face.normalZ());
             }
 
-            appendTextureCoordinates(geometry, width, height);
+            appendTextureCoordinates(geometry, width, height, textureLayer);
 
             indices.add(vertexCount);
             indices.add(vertexCount + 1);
@@ -743,7 +772,39 @@ public final class ChunkMeshBuilder {
             faceCount++;
         }
 
-        private void appendTextureCoordinates(FaceGeometry geometry, int width, int height) {
+        private void appendTextureCoordinates(FaceGeometry geometry, int width, int height, int textureLayer) {
+            if (textured) {
+                appendTexturedTextureCoordinates(geometry, width, height, textureLayer);
+                return;
+            }
+
+            appendDebugTextureCoordinates(geometry, width, height);
+        }
+
+        private void appendTexturedTextureCoordinates(FaceGeometry geometry, int width, int height, int textureLayer) {
+            if (geometry.fixedAxis() != 1 && geometry.uAxis() == 1) {
+                addTexturedTexCoord(0f, width, textureLayer);
+                addTexturedTexCoord(0f, 0f, textureLayer);
+                addTexturedTexCoord(height, 0f, textureLayer);
+                addTexturedTexCoord(height, width, textureLayer);
+                return;
+            }
+
+            if (geometry.fixedAxis() != 1 && geometry.vAxis() == 1) {
+                addTexturedTexCoord(0f, height, textureLayer);
+                addTexturedTexCoord(width, height, textureLayer);
+                addTexturedTexCoord(width, 0f, textureLayer);
+                addTexturedTexCoord(0f, 0f, textureLayer);
+                return;
+            }
+
+            addTexturedTexCoord(0f, 0f, textureLayer);
+            addTexturedTexCoord(width, 0f, textureLayer);
+            addTexturedTexCoord(width, height, textureLayer);
+            addTexturedTexCoord(0f, height, textureLayer);
+        }
+
+        private void appendDebugTextureCoordinates(FaceGeometry geometry, int width, int height) {
             if (geometry.fixedAxis() != 1 && geometry.uAxis() == 1) {
                 textureCoordinates.add(0f);
                 textureCoordinates.add(width);
@@ -778,11 +839,18 @@ public final class ChunkMeshBuilder {
             textureCoordinates.add(height);
         }
 
+        private void addTexturedTexCoord(float u, float v, int textureLayer) {
+            textureCoordinates.add(u);
+            textureCoordinates.add(v);
+            textureCoordinates.add(textureLayer);
+        }
+
         private ChunkMeshSectionData build() {
             return new ChunkMeshSectionData(
                     positions.toArray(),
                     normals.toArray(),
                     textureCoordinates.toArray(),
+                    textured ? 3 : 2,
                     indices.toArray(),
                     faceCount);
         }
@@ -858,6 +926,16 @@ public final class ChunkMeshBuilder {
     private record HorizonCell(int startX, int startZ, int spanX, int spanZ, int topY, BlockDefinition definition) {
     }
 
-    private record SurfaceTopKey(int topY, TerrainMaterialKey materialKey) {
+    private record SurfaceTopKey(int topY, ResolvedFaceMaterial faceMaterial) {
+    }
+
+    private record ResolvedFaceMaterial(TerrainMaterialKey sectionKey, int textureLayer) {
+        private static ResolvedFaceMaterial textured(int textureLayer) {
+            return new ResolvedFaceMaterial(SHARED_TEXTURED_MATERIAL_KEY, textureLayer);
+        }
+
+        private static ResolvedFaceMaterial debugColor(String debugColor) {
+            return new ResolvedFaceMaterial(TerrainMaterialKey.debugColor(debugColor), -1);
+        }
     }
 }

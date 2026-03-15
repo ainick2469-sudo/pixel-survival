@@ -255,6 +255,7 @@ The important architecture rule is that `.voxelblock` is an authoring/import for
 - face-texture resolution
 - hidden-face culling
 - greedy chunk meshing
+- shared terrain texture-array batching
 - far-chunk surface LOD
 - chunk streaming and unload rules
 

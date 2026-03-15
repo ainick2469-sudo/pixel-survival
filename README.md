@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered horizon streaming with a 48-chunk default, 96-chunk experimental horizon cap, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
+- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 96-chunk experimental cap, shared-material terrain batching, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, shared texture-array terrain batching, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -54,6 +54,7 @@ That means the runtime still uses the same optimized path after import:
 
 - hidden-face culling
 - greedy chunk meshing
+- shared texture-array terrain batching
 - far-chunk surface LOD
 - chunk streaming
 - palette-compressed chunk storage
@@ -79,7 +80,8 @@ The repo now also includes a sample imported block generated from a local `custo
 ## Current render/runtime state
 
 - Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
-- Chunk meshes now greedily merge adjacent coplanar faces that share the same material, which cuts quad count sharply on large terrain surfaces.
+- Chunk meshes now greedily merge adjacent coplanar faces that share the same resolved face texture layer, which cuts quad count sharply on large terrain surfaces.
+- Textured terrain now batches through a shared texture-array material path, so chunk terrain usually collapses into one textured section per chunk instead of splitting by per-face materials.
 - Chunk storage is now palette-compressed instead of storing a raw `BlockId` reference per voxel, which lowers world-memory cost at high loaded-chunk counts.
 - Grass, dirt, stone, and sand now use 128x128 terrain textures with data-driven support for single-texture, top/side/bottom, explicit six-face, and cube-net block visuals.
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
@@ -99,7 +101,7 @@ The repo now also includes a sample imported block generated from a local `custo
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.
 - High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
-- The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
+- The HUD now exposes runtime counts for loaded, rendered, section, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.
@@ -128,4 +130,4 @@ The repo now also includes a sample imported block generated from a local `custo
 5. `0.005`: begin terrain layering
 6. `0.006`: production chunk runtime foundation and textured terrain readability pass
 7. `0.007`: adjustable render distance, pause/options menu, and distant horizons
-8. `0.008`: fullscreen-visible startup, buffered chunk streaming stabilization, and premium terrain texture upgrade
+8. `0.008`: fullscreen-visible startup, buffered chunk streaming stabilization, terrain texture-array batching, and premium terrain texture upgrade

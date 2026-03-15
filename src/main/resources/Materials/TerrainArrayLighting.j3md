@@ -1,0 +1,20 @@
+MaterialDef Terrain Array Lighting {
+
+    MaterialParameters {
+        TextureArray DiffuseMapArray
+    }
+
+    Technique {
+        LightMode SinglePass
+
+        VertexShader   GLSL310 GLSL300 GLSL150 : Shaders/TerrainArrayLighting.vert
+        FragmentShader GLSL310 GLSL300 GLSL150 : Shaders/TerrainArrayLighting.frag
+
+        WorldParameters {
+            WorldViewProjectionMatrix
+            NormalMatrix
+            WorldViewMatrix
+            ViewMatrix
+        }
+    }
+}
