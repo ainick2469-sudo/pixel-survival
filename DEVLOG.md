@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-03-15 11:12:00 MDT
+
+- Date/Time: 2026-03-15 11:12:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Make screenshot capture behave more like a proper desktop capture action with `Print Screen` support and a more reliable clipboard path.
+- Completed Work:
+  - Bound `Print Screen` and `SysRq` to the same in-game screenshot action as `F2`.
+  - Hardened clipboard copy so it runs through the AWT event queue instead of only attempting clipboard writes directly from the jME render thread.
+  - Updated HUD and README text to advertise `F2/PrtSc` screenshot capture instead of only `F2`.
+  - Verified the repo screenshot directory already contained captured PNGs, which confirmed the save-to-folder path was valid even though the user-facing workflow still needed improvement.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../app/ScreenshotCaptureProcessor.java`
+- Systems Touched:
+  - screenshot input bindings
+  - screenshot clipboard integration
+  - HUD messaging
+  - screenshot workflow documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup after the Print Screen and clipboard changes
+- Current Playable State:
+  - `F2`, `Print Screen`, and `SysRq` now all request the same in-game screenshot capture.
+  - Captures still save into the repo `screenshots/` folder and now use a more reliable clipboard handoff path for paste workflows.
+- Known Issues:
+  - Windows clipboard ownership is still OS-managed, so another app can temporarily block clipboard writes even though the file save succeeds.
+- Next Tasks:
+  - Continue the far-horizon optimization work now that the screenshot workflow is less fragile.
+  - Consider exposing the exact screenshot folder path in an on-screen menu/help panel if the user still wants a more discoverable save location.
+- Risks/Technical Debt:
+  - Clipboard support still depends on desktop AWT APIs, which is correct for the current Windows target but not a cross-platform abstraction yet.
+
 ## 2026-03-15 11:01:00 MDT
 
 - Date/Time: 2026-03-15 11:01:00 MDT

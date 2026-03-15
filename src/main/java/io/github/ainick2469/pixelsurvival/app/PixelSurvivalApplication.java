@@ -156,7 +156,11 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
 
         inputManager.addMapping(INPUT_TOGGLE_PAUSE_MENU, new KeyTrigger(KeyInput.KEY_ESCAPE));
         inputManager.addMapping(INPUT_QUIT_GAME, new KeyTrigger(KeyInput.KEY_F10));
-        inputManager.addMapping(INPUT_TAKE_SCREENSHOT, new KeyTrigger(KeyInput.KEY_F2));
+        inputManager.addMapping(
+                INPUT_TAKE_SCREENSHOT,
+                new KeyTrigger(KeyInput.KEY_F2),
+                new KeyTrigger(KeyInput.KEY_PRTSCR),
+                new KeyTrigger(KeyInput.KEY_SYSRQ));
         inputManager.addMapping(INPUT_TOGGLE_FULLSCREEN, new KeyTrigger(KeyInput.KEY_F11));
         inputManager.addMapping(INPUT_MENU_SELECT, new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(
@@ -219,7 +223,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | UI " + String.format("%.1f", smoothedUiUpdateMilliseconds) + " ms"
                 + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"
                 + " | GC " + String.format("%.1f", smoothedGarbageCollectionMilliseconds) + " ms"
-                + "\nWASD move | Mouse look | Shift fast | F2 screenshot | F11 fullscreen | Esc menu | F10 quit"
+                + "\nWASD move | Mouse look | Shift fast | F2/PrtSc screenshot | F11 fullscreen | Esc menu | F10 quit"
                 + buildStatusMessageSuffix();
     }
 
@@ -344,7 +348,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
             return;
         }
         screenshotCaptureProcessor.requestScreenshot();
-        showStatusMessage("Saving screenshot...");
+        showStatusMessage("Saving screenshot to folder + clipboard...");
     }
 
     private void toggleFullscreen() {

@@ -9,6 +9,7 @@ import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.texture.FrameBuffer;
 import com.jme3.util.BufferUtils;
 import com.jme3.util.Screenshots;
+import java.awt.EventQueue;
 import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -18,6 +19,7 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,6 +118,22 @@ public final class ScreenshotCaptureProcessor implements SceneProcessor {
     }
 
     private boolean copyToClipboard(BufferedImage image) {
+        try {
+            if (EventQueue.isDispatchThread()) {
+                return setClipboardContents(image);
+            }
+            final boolean[] copied = {false};
+            EventQueue.invokeAndWait(() -> copied[0] = setClipboardContents(image));
+            return copied[0];
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (InvocationTargetException | IllegalStateException | HeadlessException exception) {
+            return false;
+        }
+    }
+
+    private boolean setClipboardContents(BufferedImage image) {
         try {
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new ImageTransferable(image), null);

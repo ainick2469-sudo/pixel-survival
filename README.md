@@ -37,7 +37,7 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - `Shift`: move faster
 - `Esc`: open or close the pause menu
 - `Left Click`: use the pause/options menu
-- `F2`: save a screenshot of the current frame to `screenshots/` and copy it to the clipboard
+- `F2` or `Print Screen`: save a screenshot of the current frame to `screenshots/` and copy it to the clipboard
 - `F11`: toggle between fullscreen and windowed mode
 - `F10`: quit the game intentionally
 
@@ -60,7 +60,7 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
-- `F2` captures the current in-game frame directly from the render pipeline, saves it into `screenshots/`, and also pushes the captured image into the system clipboard when clipboard access is available.
+- `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.
 
 ## Project principles
