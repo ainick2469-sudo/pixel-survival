@@ -32,6 +32,24 @@
 - Block definitions
 - Survival settings presets
 
+## Active block definition shape
+
+Current terrain blocks use this render-oriented contract:
+
+- `id`
+- `displayName`
+- `materialFamily`
+- `solid`
+- `opaque`
+- `debugColor`
+- `visuals.topTexture`
+- `visuals.sideTexture`
+- `visuals.bottomTexture`
+- `visuals.tintKey`
+- `tags`
+
+The `visuals` object is now the standard path for terrain rendering. `debugColor` remains as a fallback/debug aid, not the primary visual path.
+
 ## Reserved registry expansion
 
 The remaining registry directories are scaffolded now to prevent later architecture drift when recipes, creatures, upgrades, and worldgen content begin to scale.

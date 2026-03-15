@@ -5,5 +5,11 @@
   "solid": true,
   "opaque": true,
   "debugColor": "#7A5230",
+  "visuals": {
+    "topTexture": "Textures/Terrain/dirt.png",
+    "sideTexture": "Textures/Terrain/dirt.png",
+    "bottomTexture": "Textures/Terrain/dirt.png",
+    "tintKey": null
+  },
   "tags": ["terrain", "surface_seed"]
 }

@@ -25,13 +25,16 @@ Long-term session modes:
 
 ## Rendering model
 
-- `ChunkDebugRenderer` converts chunk data into jME scene nodes.
-- Session 1 uses simple shared cube meshes and debug materials instead of a production meshing pipeline.
-- The renderer only emits exposed blocks to avoid wasting work on fully buried interior cubes.
+- The old prototype renderer emitted one geometry per exposed block and relied on flat debug colors. That made the terrain look washed out, over-bright, and low-detail because the lighting had no real surface breakup to work with.
+- `ChunkRenderManager` is now the production path. It keeps separate load, render, and simulation radii and streams chunks around the camera.
+- `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
+- Hidden-face culling now works against loaded neighbor chunks, which removes the worst interior waste and keeps the mesh path compatible with later greedy meshing.
+- `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
 
 ## Registry model
 
 - Blocks and settings presets load from JSON files in `data/`.
+- Block definitions can now declare `visuals.topTexture`, `visuals.sideTexture`, `visuals.bottomTexture`, and `visuals.tintKey`.
 - Additional registries already have reserved directories and documentation.
 - Duplicate keys fail fast during loading.
 

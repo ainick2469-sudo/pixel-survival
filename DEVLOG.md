@@ -29,6 +29,9 @@
   - automated validation
 - Tests Run:
   - `./gradlew test`
+  - `./gradlew test shadowJar`
+  - `./gradlew run` smoke launch, verified jME startup, registry load log, and clean runtime initialization on the new chunk path
+  - `cscript //nologo scripts\launch_desktop.vbs /buildonly`
   - `./gradlew run` smoke launch, verified jME window startup, OpenGL initialization, registry load log, and visible chunk render
 - Current Playable State:
   - The project launches into a lit 3D scene with a fly camera and a visible spawned dirt chunk.
@@ -198,6 +201,62 @@
 - Risks/Technical Debt:
   - The debug renderer still draws one geometry per exposed block and does not yet optimize chunk mesh generation.
   - Layer depths are currently hardcoded constants inside the generator rather than externalized terrain config.
+
+## 2026-03-15 02:24:00 MDT
+
+- Date/Time: 2026-03-15 02:24:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.006`
+- Milestone: Replace the washed-out debug terrain path with a production chunk runtime foundation and textured terrain materials.
+- Completed Work:
+  - Replaced the per-exposed-block debug renderer with a chunk runtime that keeps separate load, render, and simulation radii.
+  - Added asynchronous chunk load and mesh-build queues plus a synchronous startup prime so the game still opens into a visible world immediately.
+  - Added chunk-local mesh generation with cross-chunk hidden-face culling and shared material buckets instead of one material or geometry per block instance.
+  - Promoted `BlockVisualDefinition` into the live block registry contract and updated terrain block JSON definitions to declare top, side, and bottom textures plus future tint metadata.
+  - Added reproducible 128x128 terrain textures for `grass_top`, `grass_side`, `dirt`, `stone`, and a fallback `missing_block` texture through an in-repo generator script.
+  - Rebalanced daylight lighting and viewport color so the terrain reads darker, earthier, and less pastel in normal play.
+  - Added renderer-focused tests for texture bucket assignment and cross-chunk face culling.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `build.gradle.kts`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `data/blocks/*.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/resources/Textures/Terrain/*.png`
+  - `src/main/java/.../app/*`
+  - `src/main/java/.../rendering/world/*`
+  - `src/main/java/.../session/LocalHostSession.java`
+  - `src/main/java/.../world/block/*`
+  - `src/main/java/.../world/sim/AuthoritativeWorldService.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - terrain rendering
+  - chunk runtime and streaming foundation
+  - block visual registry schema
+  - terrain texture asset pipeline
+  - lighting and scene readability
+  - automated validation
+- Tests Run:
+  - `./gradlew test`
+- Current Playable State:
+  - The game opens into a textured grass/dirt/stone world rendered as chunk-local meshes with a runtime HUD showing chunk and queue metrics.
+  - Terrain surfaces are materially distinct and readable up close instead of pastel debug cubes.
+- Known Issues:
+  - The chunk runtime still emits one quad per visible face and does not yet perform greedy meshing or atlas packing.
+  - Terrain texturing is limited to the first four terrain textures and still needs expansion for sand, mud, snow, peat, and other future materials.
+  - The current runtime tracks a simulation radius but does not yet have gameplay simulation systems to execute inside it.
+- Next Tasks:
+  - Expand the terrain pass into vegetation, exposed rock variation, and surface props now that the runtime can scale beyond debug cubes.
+  - Add dirty chunk rebuild hooks for future placement/removal work so block edits can reuse the current mesh pipeline.
+  - Start planning atlas-friendly UV packing or greedy meshing once more terrain materials are present.
+- Risks/Technical Debt:
+  - The mesh runtime depends on loaded neighbor chunks for clean border culling, so future networking or persistence layers must preserve that contract.
+  - Terrain textures are procedurally generated placeholders for now and may need a hand-authored art pass later.
 
 ## Entry Template
 

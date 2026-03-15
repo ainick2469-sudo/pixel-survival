@@ -15,6 +15,7 @@
 
 ## Phase C: Worldgen Expansion
 
+- `0.006`: replace debug block rendering with the production chunk runtime foundation and textured terrain materials.
 - Better noise stacks
 - Biome masks and biome families
 - Cave and ravine generation

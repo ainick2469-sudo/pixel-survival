@@ -10,12 +10,17 @@ public record BlockDefinition(
         boolean solid,
         boolean opaque,
         String debugColor,
+        BlockVisualDefinition visuals,
         Set<String> tags) {
     public BlockDefinition {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(displayName, "displayName");
         Objects.requireNonNull(materialFamily, "materialFamily");
-        Objects.requireNonNull(debugColor, "debugColor");
+        debugColor = debugColor == null || debugColor.isBlank() ? "#FF00FF" : debugColor;
         tags = tags == null ? Set.of() : Set.copyOf(tags);
+    }
+
+    public boolean hasVisuals() {
+        return visuals != null;
     }
 }

@@ -5,5 +5,11 @@
   "solid": true,
   "opaque": true,
   "debugColor": "#7A7D86",
+  "visuals": {
+    "topTexture": "Textures/Terrain/stone.png",
+    "sideTexture": "Textures/Terrain/stone.png",
+    "bottomTexture": "Textures/Terrain/stone.png",
+    "tintKey": null
+  },
   "tags": ["terrain", "deep_layer"]
 }

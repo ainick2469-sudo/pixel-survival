@@ -4,9 +4,9 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 ## Current milestone
 
-- Version target: `0.005`
-- Milestone: layered grass, dirt, and stone terrain on top of the deterministic heightmap foundation
-- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, and a runnable multi-chunk layered terrain world
+- Version target: `0.006`
+- Milestone: production chunk runtime foundation and textured terrain readability pass
+- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, streamed chunk rendering, profiling HUD metrics, and textured grass/dirt/stone terrain
 
 ## Technology stack
 
@@ -37,6 +37,12 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 - `Esc`: toggle mouse capture
 - `F10`: quit the game intentionally
 
+## Current render/runtime state
+
+- Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
+- Grass, dirt, and stone use 128x128 textures with separate top/side/bottom support in the block registry.
+- The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus load/mesh queue depth and heap use.
+
 ## Project principles
 
 - World generation and exploration come first.
@@ -59,3 +65,4 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 3. `0.003`: add stone blocks
 4. `0.004`: add grass
 5. `0.005`: begin terrain layering
+6. `0.006`: production chunk runtime foundation and textured terrain readability pass

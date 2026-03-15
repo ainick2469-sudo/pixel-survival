@@ -7,6 +7,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlockRegistryLoaderTest {
@@ -22,5 +23,18 @@ class BlockRegistryLoaderTest {
         assertEquals("Dirt", blocks.get(BlockId.of("pixel_survival:dirt")).displayName());
         assertEquals("Stone", blocks.get(BlockId.of("pixel_survival:stone")).displayName());
         assertEquals("Grass Block", blocks.get(BlockId.of("pixel_survival:grass_block")).displayName());
+        assertEquals(
+                "Textures/Terrain/dirt.png",
+                blocks.get(BlockId.of("pixel_survival:dirt")).visuals().sideTexture());
+        assertEquals(
+                "Textures/Terrain/stone.png",
+                blocks.get(BlockId.of("pixel_survival:stone")).visuals().topTexture());
+        assertEquals(
+                "Textures/Terrain/grass_top.png",
+                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().topTexture());
+        assertEquals(
+                "Textures/Terrain/grass_side.png",
+                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().sideTexture());
+        assertNotNull(blocks.get(BlockId.of("pixel_survival:air")).visuals());
     }
 }

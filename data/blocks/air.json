@@ -5,5 +5,11 @@
   "solid": false,
   "opaque": false,
   "debugColor": "#000000",
+  "visuals": {
+    "topTexture": "Textures/Terrain/missing_block.png",
+    "sideTexture": "Textures/Terrain/missing_block.png",
+    "bottomTexture": "Textures/Terrain/missing_block.png",
+    "tintKey": null
+  },
   "tags": ["non_rendered"]
 }
