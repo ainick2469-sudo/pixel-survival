@@ -1,5 +1,40 @@
 # Devlog
 
+## 2026-03-15 11:01:00 MDT
+
+- Date/Time: 2026-03-15 11:01:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Extend the in-game screenshot pipeline so captures also land in the system clipboard.
+- Completed Work:
+  - Updated the screenshot processor so each `F2` capture still saves a PNG into the repo `screenshots/` folder and also attempts to copy the captured image into the system clipboard.
+  - Split screenshot-save success from clipboard-copy success so the file still lands even if Windows clipboard access is temporarily unavailable.
+  - Updated the HUD and log feedback so the player can tell whether the screenshot was saved only or saved and copied.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../app/ScreenshotCaptureProcessor.java`
+- Systems Touched:
+  - screenshot capture pipeline
+  - system clipboard integration
+  - HUD status messaging
+  - screenshot workflow documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup after the clipboard update
+- Current Playable State:
+  - `F2` now saves the current frame into `screenshots/` and also copies the image to the clipboard when the OS allows clipboard access.
+  - If clipboard access is blocked or busy, the screenshot still saves to disk and the HUD reports that clipboard copy was unavailable.
+- Known Issues:
+  - Clipboard behavior is OS-managed, so another application locking the clipboard can still block copy without affecting file save.
+- Next Tasks:
+  - Continue render/runtime optimization for the new 48/96 horizon settings.
+  - Swap in final authored dirt and grass cube-net textures when the exact source files are available on disk.
+- Risks/Technical Debt:
+  - Clipboard integration currently uses the desktop AWT clipboard path, which is appropriate for the current Windows desktop target but should be abstracted if non-desktop targets ever become relevant.
+
 ## 2026-03-15 11:02:00 MDT
 
 - Date/Time: 2026-03-15 11:02:00 MDT

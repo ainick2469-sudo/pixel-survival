@@ -449,9 +449,15 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
     }
 
     @Override
-    public void onScreenshotSaved(Path screenshotPath) {
-        LOGGER.info("Saved screenshot to {}", screenshotPath);
-        showStatusMessage("Screenshot saved: " + screenshotPath.getFileName());
+    public void onScreenshotSaved(Path screenshotPath, boolean copiedToClipboard) {
+        LOGGER.info(
+                "Saved screenshot to {}{}",
+                screenshotPath,
+                copiedToClipboard ? " and copied it to the clipboard" : " but clipboard copy was unavailable");
+        showStatusMessage(
+                copiedToClipboard
+                        ? "Screenshot saved + copied: " + screenshotPath.getFileName()
+                        : "Screenshot saved: " + screenshotPath.getFileName() + " (clipboard unavailable)");
     }
 
     @Override

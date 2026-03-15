@@ -9,6 +9,13 @@ import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.texture.FrameBuffer;
 import com.jme3.util.BufferUtils;
 import com.jme3.util.Screenshots;
+import java.awt.HeadlessException;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -84,7 +91,8 @@ public final class ScreenshotCaptureProcessor implements SceneProcessor {
             Path screenshotPath =
                     screenshotDirectory.resolve("pixel-survival-" + FILE_TIMESTAMP.format(LocalDateTime.now()) + ".png");
             ImageIO.write(screenshotImage, "png", screenshotPath.toFile());
-            feedbackSink.onScreenshotSaved(screenshotPath);
+            boolean copiedToClipboard = copyToClipboard(cloneImage(screenshotImage));
+            feedbackSink.onScreenshotSaved(screenshotPath, copiedToClipboard);
         } catch (Exception exception) {
             feedbackSink.onScreenshotFailed(exception);
         }
@@ -107,9 +115,53 @@ public final class ScreenshotCaptureProcessor implements SceneProcessor {
         screenshotImage = new BufferedImage(width, height, BufferedImage.TYPE_4BYTE_ABGR);
     }
 
+    private boolean copyToClipboard(BufferedImage image) {
+        try {
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new ImageTransferable(image), null);
+            return true;
+        } catch (IllegalStateException | HeadlessException exception) {
+            return false;
+        }
+    }
+
+    private BufferedImage cloneImage(BufferedImage source) {
+        BufferedImage copy = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        copy.setData(source.getData());
+        return copy;
+    }
+
     public interface ScreenshotFeedbackSink {
-        void onScreenshotSaved(Path screenshotPath);
+        void onScreenshotSaved(Path screenshotPath, boolean copiedToClipboard);
 
         void onScreenshotFailed(Exception exception);
+    }
+
+    private static final class ImageTransferable implements Transferable {
+        private static final DataFlavor[] SUPPORTED_FLAVORS = {DataFlavor.imageFlavor};
+
+        private final Image image;
+
+        private ImageTransferable(Image image) {
+            this.image = image;
+        }
+
+        @Override
+        public DataFlavor[] getTransferDataFlavors() {
+            return SUPPORTED_FLAVORS.clone();
+        }
+
+        @Override
+        public boolean isDataFlavorSupported(DataFlavor flavor) {
+            return DataFlavor.imageFlavor.equals(flavor);
+        }
+
+        @Override
+        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+            if (!isDataFlavorSupported(flavor)) {
+                throw new UnsupportedFlavorException(flavor);
+            }
+            return image;
+        }
     }
 }
