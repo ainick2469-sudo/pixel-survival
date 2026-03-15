@@ -128,6 +128,32 @@
   - The desktop launcher currently rebuilds the desktop jar on launch, which is reliable but not yet optimized for zero-wait startup.
   - The hidden launcher depends on the current sibling folder layout between the repo and `pixel-survival-tools`.
 
+## 2026-03-15 01:12:00 MDT
+
+- Date/Time: 2026-03-15 01:12:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.002`
+- Milestone: Repair the desktop VBScript launcher regression.
+- Completed Work:
+  - Fixed the `Subscript out of range` crash caused by evaluating `WScript.Arguments(0)` when no arguments were passed.
+  - Hardened the final Java launch handoff to use `cmd /c start` with explicit VBScript error handling.
+- Files Changed:
+  - `DEVLOG.md`
+  - `scripts/launch_desktop.vbs`
+- Systems Touched:
+  - desktop launcher workflow
+- Tests Run:
+  - `cscript //nologo scripts\launch_desktop.vbs /buildonly`
+  - `cscript //nologo scripts\launch_desktop.vbs`
+- Current Playable State:
+  - The desktop launcher no longer throws the Windows Script Host line-20 runtime error on normal startup.
+- Known Issues:
+  - Launcher startup still rebuilds the desktop jar before opening the game.
+- Next Tasks:
+  - Optimize the desktop launch path to avoid rebuilding when the jar is already current.
+- Risks/Technical Debt:
+  - The desktop launcher still depends on the current local folder layout and Windows Script Host availability.
+
 ## Entry Template
 
 - Date/Time:

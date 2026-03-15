@@ -17,7 +17,11 @@ gradlePath = repoDir & "\gradlew.bat"
 buildDir = repoDir & "\build\launcher"
 logPath = buildDir & "\desktop-launch.log"
 jarPath = repoDir & "\build\libs\pixel-survival-0.002-desktop.jar"
-buildOnly = (WScript.Arguments.Count > 0 And LCase(WScript.Arguments(0)) = "/buildonly")
+buildOnly = False
+
+If WScript.Arguments.Count > 0 Then
+    buildOnly = (LCase(WScript.Arguments.Item(0)) = "/buildonly")
+End If
 
 If Not fso.FileExists(javawPath) Then
     MsgBox "Java 21 was not found at:" & vbCrLf & javawPath, vbCritical, "Pixel Survival Launcher"
@@ -49,8 +53,14 @@ If buildOnly Then
     WScript.Quit 0
 End If
 
-runCommand = Quote(javawPath) & " -Dfile.encoding=UTF-8 -jar " & Quote(jarPath)
-shell.Run runCommand, 1, False
+runCommand = "cmd.exe /c start """" /d " & Quote(repoDir) & " " & Quote(javawPath) & " -Dfile.encoding=UTF-8 -jar " & Quote(jarPath)
+On Error Resume Next
+shell.Run runCommand, 0, False
+If Err.Number <> 0 Then
+    MsgBox "Pixel Survival failed to start." & vbCrLf & "Launcher error: " & Err.Description, vbCritical, "Pixel Survival Launcher"
+    WScript.Quit 1
+End If
+On Error GoTo 0
 
 WScript.Sleep 900
 On Error Resume Next
