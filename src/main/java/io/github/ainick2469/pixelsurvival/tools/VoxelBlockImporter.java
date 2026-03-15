@@ -40,12 +40,12 @@ public final class VoxelBlockImporter {
             BlockTextureFace.RIGHT,
             BlockTextureFace.BOTTOM);
     private static final Map<BlockTextureFace, String> INPUT_FACE_FIELDS = Map.of(
-            BlockTextureFace.BACK, "top",
-            BlockTextureFace.TOP, "front",
+            BlockTextureFace.BACK, "back",
+            BlockTextureFace.TOP, "top",
             BlockTextureFace.LEFT, "left",
-            BlockTextureFace.FRONT, "bottom",
+            BlockTextureFace.FRONT, "front",
             BlockTextureFace.RIGHT, "right",
-            BlockTextureFace.BOTTOM, "back");
+            BlockTextureFace.BOTTOM, "bottom");
 
     public static void main(String[] args) throws Exception {
         ImportOptions options = ImportOptions.parse(args);

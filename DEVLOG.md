@@ -1144,6 +1144,72 @@
   - The new uniform-wall-face importer option is intentionally generic, but it still assumes the imported block should mirror one canonical side across all walls, which is correct for grass-style terrain blocks but not for every decorative block.
   - The horizon tier still exists in code as a deferred seam, so future work needs to avoid accidentally re-enabling it before the continuity problem is solved.
 
+## 2026-03-15 16:35:02 MDT
+
+- Date/Time: 2026-03-15 16:35:02 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Correct `.voxelblock` terrain face orientation so grass tops and wall faces map to the right world faces.
+- Completed Work:
+  - Fixed the `.voxelblock` importer face-name mapping so authored `top`, `front`, `back`, `left`, `right`, and `bottom` faces now stay attached to their actual runtime world faces.
+  - Re-imported `pixel_survival:grass_block` from `C:\Users\nickb\Downloads\Grass-Block.voxelblock` with the uniform wall-face option so the grass top remains on top and the grass-lip wall texture wraps the four side faces.
+  - Re-imported `pixel_survival:stone` from `C:\Users\nickb\Downloads\Stone-block.voxelblock` through the corrected mapping path so stone stays aligned with the same importer contract.
+  - Updated importer tests so they validate the corrected face mapping instead of the earlier incorrect remap.
+- Files Changed:
+  - `DEVLOG.md`
+  - `data/blocks/grass_block.json`
+  - `data/blocks/stone.json`
+  - `src/main/java/.../tools/VoxelBlockImporter.java`
+  - `src/main/resources/Textures/BlockCubeNets/grass_block_cube_net.png`
+  - `src/main/resources/Textures/BlockCubeNets/stone_cube_net.png`
+  - `src/test/java/.../tools/VoxelBlockImporterTest.java`
+- Systems Touched:
+  - voxelblock asset importing
+  - terrain block asset generation
+  - importer validation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Grass-Block.voxelblock -PvoxelBlockId=pixel_survival:grass_block -PvoxelMaterialFamily=soil -PvoxelUniformSideFace=front -PvoxelTags=terrain,surface_layer`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Stone-block.voxelblock -PvoxelBlockId=pixel_survival:stone -PvoxelMaterialFamily=stone -PvoxelTags=terrain,deep_layer`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - The shipped grass block cube-net now has the top face in the center tile, grass-lip wall faces on the four sides, and dirt on the bottom.
+  - The runtime build is passing again after the importer correction.
+- Known Issues:
+  - A running game instance will still show the previous block textures until it is fully restarted from the new build.
+  - The importer-side uniform wall-face option is useful for terrain blocks, but not every decorative block should use it.
+- Next Tasks:
+  - Relaunch the game and confirm the grass top now renders on the top surfaces in the live scene.
+  - Continue render-path optimization, with terrain batching/material consolidation still the highest-value next step.
+- Risks/Technical Debt:
+  - The block-maker and runtime contracts are now aligned, but future changes to the authoring app’s face naming or layout metadata must stay documented or imports will drift again.
+
+## 2026-03-15 16:42:00 MDT
+
+- Date/Time: 2026-03-15 16:42:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Create a standalone Codex handoff prompt file so another agent can pick up the repo without burning chat context.
+- Completed Work:
+  - Added `docs/CODEX_HANDOFF_PROMPT.txt` with a repo-specific handoff prompt that explains the project identity, current architecture, live runtime state, `.voxelblock` importer pipeline, current block assets, optimization direction, validation commands, and immediate next steps.
+  - Captured the current render/runtime realities explicitly, including the disabled `HORIZON` tier, the imported grass/stone block flow, and the user’s expectations around continuity and performance.
+- Files Changed:
+  - `DEVLOG.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+- Systems Touched:
+  - documentation
+  - repo handoff workflow
+- Tests Run:
+  - none; documentation-only addition
+- Current Playable State:
+  - no gameplay/runtime behavior changed from this handoff-file addition
+- Known Issues:
+  - the handoff file is only useful if future Codex sessions are actually directed to read it first
+- Next Tasks:
+  - point future Codex sessions at `docs/CODEX_HANDOFF_PROMPT.txt`
+  - continue terrain/runtime optimization after confirming the latest grass orientation fix in a fresh relaunch
+- Risks/Technical Debt:
+  - the handoff prompt must be kept current as the repo evolves or it will become stale and misleading
+
 ## Entry Template
 
 - Date/Time:

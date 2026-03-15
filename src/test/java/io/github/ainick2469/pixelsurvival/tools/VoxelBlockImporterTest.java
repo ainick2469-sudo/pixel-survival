@@ -59,12 +59,12 @@ class VoxelBlockImporterTest {
         assertEquals("cube_net", blockJson.get("visuals").get("textureMode").asText());
 
         BufferedImage cubeNetImage = ImageIO.read(result.cubeNetTexturePath().toFile());
-        assertFaceCenterColor(cubeNetImage, BlockTextureFace.BACK, new Color(220, 20, 60));
-        assertFaceCenterColor(cubeNetImage, BlockTextureFace.TOP, new Color(60, 179, 113));
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.BACK, new Color(210, 180, 140));
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.TOP, new Color(220, 20, 60));
         assertFaceCenterColor(cubeNetImage, BlockTextureFace.LEFT, new Color(65, 105, 225));
-        assertFaceCenterColor(cubeNetImage, BlockTextureFace.FRONT, new Color(255, 165, 0));
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.FRONT, new Color(60, 179, 113));
         assertFaceCenterColor(cubeNetImage, BlockTextureFace.RIGHT, new Color(138, 43, 226));
-        assertFaceCenterColor(cubeNetImage, BlockTextureFace.BOTTOM, new Color(210, 180, 140));
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.BOTTOM, new Color(255, 165, 0));
     }
 
     @Test
@@ -117,7 +117,7 @@ class VoxelBlockImporterTest {
                         java.util.List.of("test_block")));
 
         BufferedImage cubeNetImage = ImageIO.read(result.cubeNetTexturePath().toFile());
-        Color expectedSide = new Color(255, 165, 0);
+        Color expectedSide = new Color(60, 179, 113);
         assertFaceCenterColor(cubeNetImage, BlockTextureFace.BACK, expectedSide);
         assertFaceCenterColor(cubeNetImage, BlockTextureFace.LEFT, expectedSide);
         assertFaceCenterColor(cubeNetImage, BlockTextureFace.FRONT, expectedSide);

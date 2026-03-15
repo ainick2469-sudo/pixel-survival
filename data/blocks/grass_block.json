@@ -4,7 +4,7 @@
   "materialFamily" : "soil",
   "solid" : true,
   "opaque" : true,
-  "debugColor" : "#615B2E",
+  "debugColor" : "#307420",
   "visuals" : {
     "textureMode" : "cube_net",
     "cubeNetTexture" : "Textures/BlockCubeNets/grass_block_cube_net.png",

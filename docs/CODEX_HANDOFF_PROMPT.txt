@@ -1,0 +1,452 @@
+You are taking over active development of the `pixel-survival` repository.
+
+Read this file first. Then read:
+
+1. `AGENTS.md` if present in the active workspace context
+2. `README.md`
+3. `DEVLOG.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/CONTENT_REGISTRY.md`
+6. `docs/VERSION_PLAN.md`
+7. `docs/ROADMAP.md`
+
+Do not restart the project from scratch. Extend and repair what already exists.
+
+==================================================
+PROJECT IDENTITY
+==================================================
+
+Repo:
+- `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival`
+
+Remote:
+- `https://github.com/ainick2469-sudo/pixel-survival`
+
+Current branch:
+- `codex/session-1-foundation-0.001`
+
+Core game direction:
+- Java
+- full 3D
+- jMonkeyEngine 3
+- Gradle
+- multiplayer-safe architecture from day 1
+- worldgen/exploration first
+- data-driven content
+- long-term open-world block survival sandbox RPG
+
+Locked early roadmap:
+1. `0.001` blocks spawn
+2. `0.002` height differences
+3. `0.003` stone
+4. `0.004` grass
+5. `0.005` terrain layering
+
+Current live version target:
+- `0.008`
+
+The repo has already moved beyond the early terrain milestones into runtime/rendering foundation work, but the milestone history still matters and should not be rewritten.
+
+==================================================
+CURRENT STATE SUMMARY
+==================================================
+
+What exists right now:
+- A runnable desktop Java game with a visible streamed voxel terrain world.
+- Heightmap-driven layered terrain with grass, dirt, stone, sand, and reserved cloud block support.
+- Chunk-based world data with authoritative world service separation.
+- Chunk meshing with hidden-face culling.
+- Greedy face merging.
+- Palette-compressed chunk storage.
+- Adjustable render distance.
+- Pause/options menu on `Esc`.
+- Fullscreen toggle on `F11`.
+- Fullscreen startup behavior.
+- Desktop launcher support.
+- Devlog and architecture docs actively maintained.
+- `.voxelblock` asset importing pipeline for custom blocks from an external block-maker app.
+
+What is intentionally NOT finished:
+- real gameplay loop
+- placement/removal
+- crafting execution
+- survival simulation
+- creatures/NPCs
+- caves
+- floating mountains
+- cloud realm content
+- planetary world topology
+- draw-call optimized terrain atlas batching
+- continuity-safe ultra-far horizon representation
+
+==================================================
+REPO DISCIPLINE AND EXPECTATIONS
+==================================================
+
+This repo is being treated like a production game codebase, not a toy prototype.
+
+Rules:
+- Keep the game runnable after each meaningful change.
+- Update docs when architecture or workflow changes.
+- Update `DEVLOG.md` every meaningful session.
+- Do not wipe or casually replace existing architecture without a strong reason.
+- Prefer extending or repairing the current system.
+- Preserve the authoring pipeline and optimization rules already in place.
+
+At the end of meaningful work:
+- update docs if needed
+- update `DEVLOG.md`
+- summarize touched files
+- run validation
+- git add relevant files
+- commit clearly
+- push
+
+==================================================
+HIGH-LEVEL ARCHITECTURE
+==================================================
+
+Main runtime direction:
+- local play runs through an authoritative host boundary
+- render/input stay separate from world state and generation
+- chunk data is separate from scene objects
+- data and registries drive content
+
+Important Java areas:
+- `src/main/java/io/github/ainick2469/pixelsurvival/app`
+  - app bootstrap, launcher, HUD, controls
+- `.../rendering/world`
+  - chunk render manager
+  - mesh builder
+  - material library
+  - runtime metrics
+- `.../world/chunk`
+  - chunk data model
+- `.../world/gen`
+  - terrain/worldgen scaffolding
+- `.../world/gen/pipeline`
+  - staged worldgen seams for future biome/cave/floating/cloud passes
+- `.../world/sim`
+  - authoritative world service
+- `.../world/block`
+  - block IDs, block definitions, texture modes, cube-net layout support
+- `.../registry`
+  - content loading
+- `.../settings`
+  - graphics/settings data
+- `.../ui`
+  - pause/options menu controller
+- `.../tools`
+  - `.voxelblock` importer
+
+Core runtime responsibilities:
+- `AuthoritativeWorldService`
+  - owns chunk load/unload and world queries
+- `ChunkRenderManager`
+  - decides what chunks are loaded/rendered/simulated
+  - handles background load/mesh work
+  - attaches chunk meshes to the scene
+- `ChunkMeshBuilder`
+  - turns chunk data into terrain mesh sections
+- `TerrainMaterialLibrary`
+  - caches reusable materials/textures
+
+==================================================
+CURRENT RENDER / PERFORMANCE STATE
+==================================================
+
+Important current truths:
+- The runtime no longer unloads everything behind the player based on camera direction. That experiment was reverted because it made turning terrible.
+- Chunk targeting is now buffered and centered around the player chunk.
+- Greedy meshing is active.
+- Chunk storage is palette-compressed.
+- The HUD reports loaded/rendered/simulated chunks, queues, faces, heap, chunk memory, and coarse timing splits.
+
+Live chunk detail tiers:
+- `FULL`
+- `SURFACE`
+
+Important warning:
+- A `HORIZON` tier still exists in code as a future seam, but it is DISABLED in the live runtime.
+- It caused visible terrain cracks / holes / continuity failures in the distance.
+- Do not casually re-enable it unless the continuity problem is actually solved.
+
+Why performance is still not where the user wants it:
+- High render distance is still expensive because distant terrain is still paying too much mesh/material/draw-call cost.
+- The next real optimization target is batching/material consolidation, not another brittle visual shortcut.
+
+Highest-value next optimization step:
+- terrain atlas or equivalent shared-material batching so chunk rendering pays fewer draw calls and fewer material splits
+
+Next step after that:
+- a continuity-safe far-distance terrain representation
+- not the old cracked `HORIZON` cell approach
+
+The user wants:
+- strong performance at `48`
+- viable `96+` experimental visibility
+- distant sky content to be visible later
+
+That requires:
+- better batching
+- better far-distance representation
+- stable chunk residency
+- strict background work budgets
+
+==================================================
+BLOCK / TEXTURE / CONTENT PIPELINE
+==================================================
+
+The block visual system is data-driven.
+
+Supported texture modes:
+- `single`
+- `top_side_bottom`
+- `explicit_faces`
+- `cube_net`
+
+Block definitions live in:
+- `data/blocks/*.json`
+
+Visual assets live in:
+- `src/main/resources/Textures/Terrain/`
+- `src/main/resources/Textures/BlockCubeNets/`
+
+The runtime can resolve:
+- one texture for all faces
+- top/side/bottom textures
+- explicit six-face textures
+- full cube-net textures
+
+==================================================
+VOXELBLOCK AUTHORING APP / IMPORTER
+==================================================
+
+The user is building a separate app that exports `.voxelblock` files.
+
+This is important:
+- `.voxelblock` is an AUTHORING FORMAT, not the direct runtime format.
+- The runtime should keep consuming normalized block definitions and generated cube-net textures.
+- Do not turn `.voxelblock` into a special render path.
+
+Importer entry point:
+- `src/main/java/io/github/ainick2469/pixelsurvival/tools/VoxelBlockImporter.java`
+
+Gradle task:
+- `importVoxelBlock`
+
+Current accepted `.voxelblock` layout strings:
+- `cross-3x4`
+- `top-center-cross-3x4`
+
+Current block-maker convention:
+- center tile = `top`
+- surrounding tiles = wall faces
+- far tile = `bottom`
+
+Runtime cube-net layout used after import:
+- `center_top_surrounding_sides_outer_bottom`
+
+That runtime layout maps like this:
+
+    [bottom]
+    [back]
+[left][top][right]
+    [front]
+
+Meaning:
+- center tile = top face
+- tile above center = back face
+- left/right = left/right faces
+- tile below center = front face
+- extra far tile = bottom face
+
+Current importer behavior:
+- validates asset type/version/layout
+- decodes each face image from embedded `imageDataUrl`
+- applies per-face transforms
+  - rotation
+  - zoom
+  - offsetX
+  - offsetY
+  - fitMode
+- bakes a runtime cube-net PNG
+- writes a normal block definition JSON
+
+Important current importer rule:
+- authored face names now map directly
+  - authored `top` -> runtime top
+  - authored `bottom` -> runtime bottom
+  - authored `front` -> runtime front
+  - authored `back` -> runtime back
+  - authored `left` -> runtime left
+  - authored `right` -> runtime right
+
+This was recently fixed.
+Before the fix, faces were remapped incorrectly, which caused grass tops to appear on walls.
+
+Optional importer feature:
+- `--uniform-side-face` / `-PvoxelUniformSideFace=...`
+
+Purpose:
+- promotes one authored side face across all four wall faces
+- useful for terrain blocks like grass where one canonical side texture should wrap all walls
+
+This is currently used for:
+- `pixel_survival:grass_block`
+
+Example import command:
+
+`C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Grass-Block.voxelblock -PvoxelBlockId=pixel_survival:grass_block -PvoxelMaterialFamily=soil -PvoxelUniformSideFace=front -PvoxelTags=terrain,surface_layer`
+
+Stone import example:
+
+`C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Stone-block.voxelblock -PvoxelBlockId=pixel_survival:stone -PvoxelMaterialFamily=stone -PvoxelTags=terrain,deep_layer`
+
+Current live imported blocks:
+- `pixel_survival:grass_block`
+- `pixel_survival:stone`
+- sample `pixel_survival:custom_block`
+
+==================================================
+CURRENT BLOCK STATUS
+==================================================
+
+Current live grass block:
+- JSON: `data/blocks/grass_block.json`
+- texture: `src/main/resources/Textures/BlockCubeNets/grass_block_cube_net.png`
+- source authoring file used recently:
+  - `C:\Users\nickb\Downloads\Grass-Block.voxelblock`
+
+Current live stone block:
+- JSON: `data/blocks/stone.json`
+- texture: `src/main/resources/Textures/BlockCubeNets/stone_cube_net.png`
+- source authoring file used recently:
+  - `C:\Users\nickb\Downloads\Stone-block.voxelblock`
+
+If visuals look wrong in a running game:
+- fully relaunch the game
+- do not assume a live window hot-reloaded assets
+
+==================================================
+WORLDGEN / LONG-TERM VISION
+==================================================
+
+The repo is already being shaped for future:
+- biome masks
+- deep caves
+- floating mountains
+- walkable cloud regions
+- later cloud-city / sky-realm content
+- eventual planetary topology
+
+These are mostly architecture/documentation seams right now, not live gameplay features.
+
+Important long-term rule:
+- do not hack caves, floating mountains, or cloud platforms in as manual scene props
+- they must remain chunk-data / worldgen pipeline features
+
+The worldgen pass direction is intended to evolve toward:
+1. planetary topology / coordinate model
+2. base terrain
+3. material layering
+4. biome masks
+5. cave carving
+6. landmarks
+7. floating landforms
+8. cloud eligibility
+9. walkable cloud generation
+10. sky structures
+11. vegetation
+12. POIs / ruins
+13. settlements later
+14. ecology later
+
+Planet support is planned as a future migration path, not a current live topology.
+The likely target is a chunk-friendly cube-sphere style approach, not a naive sphere hack.
+
+==================================================
+USER-IMPORTANT UX / FEEL CONSTRAINTS
+==================================================
+
+The user cares a lot about:
+- fullscreen startup
+- the window being interactable in front
+- pause menu behavior
+- extremely far horizons
+- readable terrain textures
+- strong grass lip / top identity
+- being able to make their own block assets in the external app
+
+The user does NOT want:
+- the world unloading just because the camera turns
+- optimization tricks that make the world obviously break apart
+- cracked far terrain
+- stale imported assets persisting without explanation
+
+If you touch rendering:
+- protect visual continuity first
+- then optimize
+
+==================================================
+MOST RECENT HIGH-SIGNAL HISTORY
+==================================================
+
+Important recent commits:
+- `11cddcc` Add voxelblock block importer and sample imported block
+- `b202a8b` Fix voxelblock grass import layout and switch live grass block
+- `615f594` Add coarse horizon terrain LOD tier
+- `5f07bc6` Fix distant terrain cracks and switch grass and stone to voxelblock assets
+
+Important note:
+- `615f594` introduced the coarse horizon tier seam
+- that seam later proved visually broken in live play
+- live runtime now routes away from it
+
+Current known likely next commit themes:
+- terrain atlas batching / shared-material terrain path
+- better far-distance representation without cracks
+- more importer polish if the external app evolves further
+
+==================================================
+VALIDATION COMMANDS
+==================================================
+
+Core validation:
+
+`C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+
+Run/import example:
+
+`C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\path\to\block.voxelblock -PvoxelBlockId=pixel_survival:my_block -PvoxelMaterialFamily=decorative`
+
+Git executable in this environment:
+- `C:\Progra~1\Git\cmd\git.exe`
+
+If `git commit -m` quoting is broken in the shell, use a commit message file and `git commit -F`.
+
+==================================================
+WHAT TO DO NEXT
+==================================================
+
+If taking over immediately, do this in order:
+
+1. Check `git status` and understand whether the working tree is clean.
+2. Read `DEVLOG.md` tail and recent commits.
+3. If visuals were just fixed, relaunch and confirm the grass top actually renders on top in the live build.
+4. Do NOT re-enable the old cracked `HORIZON` tier.
+5. Start the next optimization pass with terrain batching/material consolidation.
+6. Keep the `.voxelblock` importer as the authoring bridge from the external app into runtime assets.
+7. Update docs/devlog for any meaningful new work.
+
+==================================================
+PROMPT TO FOLLOW
+==================================================
+
+Use this repo as an existing production-in-progress game project.
+Do not rewrite it from scratch.
+Inspect current files first.
+Preserve working functionality.
+Treat the user’s block-maker app and `.voxelblock` import flow as a first-class content pipeline.
+Treat the current optimization work as ongoing and incomplete.
+Fix broken runtime behavior directly and validate with tests/builds before claiming success.
