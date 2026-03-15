@@ -30,6 +30,7 @@ public final class ChunkMeshBuilder {
         return switch (detailLevel) {
             case FULL -> buildFullDetailMesh(chunkData);
             case SURFACE -> buildSurfaceDetailMesh(chunkData);
+            case HORIZON -> buildHorizonDetailMesh(chunkData);
         };
     }
 
@@ -61,6 +62,17 @@ public final class ChunkMeshBuilder {
         emittedFaceCount += appendSurfaceSideFaces(chunkData, surfaces, sectionBuilders);
 
         return buildResult(chunkData, ChunkDetailLevel.SURFACE, sectionBuilders, visibleColumnCount, emittedFaceCount);
+    }
+
+    private ChunkMeshBuildResult buildHorizonDetailMesh(ChunkData chunkData) {
+        HorizonCell[][] cells = collectHorizonCells(chunkData, 4);
+        int visibleCellCount = countVisibleCells(cells);
+        Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders = new LinkedHashMap<>();
+
+        int emittedFaceCount = appendHorizonTopFaces(cells, sectionBuilders);
+        emittedFaceCount += appendHorizonSideFaces(chunkData, cells, sectionBuilders);
+
+        return buildResult(chunkData, ChunkDetailLevel.HORIZON, sectionBuilders, visibleCellCount, emittedFaceCount);
     }
 
     private ChunkMeshBuildResult buildResult(
@@ -183,6 +195,55 @@ public final class ChunkMeshBuilder {
         return visibleColumns;
     }
 
+    private HorizonCell[][] collectHorizonCells(ChunkData chunkData, int cellSize) {
+        int cellsX = (ChunkData.SIZE_X + cellSize - 1) / cellSize;
+        int cellsZ = (ChunkData.SIZE_Z + cellSize - 1) / cellSize;
+        HorizonCell[][] cells = new HorizonCell[cellsX][cellsZ];
+
+        for (int cellX = 0; cellX < cellsX; cellX++) {
+            for (int cellZ = 0; cellZ < cellsZ; cellZ++) {
+                int startX = cellX * cellSize;
+                int startZ = cellZ * cellSize;
+                int spanX = Math.min(cellSize, ChunkData.SIZE_X - startX);
+                int spanZ = Math.min(cellSize, ChunkData.SIZE_Z - startZ);
+
+                ColumnSurface highestSurface = null;
+                for (int x = startX; x < startX + spanX; x++) {
+                    for (int z = startZ; z < startZ + spanZ; z++) {
+                        ColumnSurface surface = topSurfaceInColumn(chunkData, x, z);
+                        if (surface != null && (highestSurface == null || surface.topY() > highestSurface.topY())) {
+                            highestSurface = surface;
+                        }
+                    }
+                }
+
+                if (highestSurface != null) {
+                    cells[cellX][cellZ] = new HorizonCell(
+                            startX,
+                            startZ,
+                            spanX,
+                            spanZ,
+                            highestSurface.topY(),
+                            highestSurface.definition());
+                }
+            }
+        }
+
+        return cells;
+    }
+
+    private int countVisibleCells(HorizonCell[][] cells) {
+        int visibleCells = 0;
+        for (int cellX = 0; cellX < cells.length; cellX++) {
+            for (int cellZ = 0; cellZ < cells[cellX].length; cellZ++) {
+                if (cells[cellX][cellZ] != null) {
+                    visibleCells++;
+                }
+            }
+        }
+        return visibleCells;
+    }
+
     private int appendSurfaceTopFaces(
             ColumnSurface[][] surfaces,
             Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders) {
@@ -292,6 +353,87 @@ public final class ChunkMeshBuilder {
         return emittedQuads;
     }
 
+    private int appendHorizonTopFaces(
+            HorizonCell[][] cells,
+            Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders) {
+        FaceGeometry topGeometry = FACE_GEOMETRY.get(BlockFace.UP);
+        int emittedQuads = 0;
+
+        for (int cellX = 0; cellX < cells.length; cellX++) {
+            for (int cellZ = 0; cellZ < cells[cellX].length; cellZ++) {
+                HorizonCell cell = cells[cellX][cellZ];
+                if (cell == null) {
+                    continue;
+                }
+
+                sectionBuilders
+                        .computeIfAbsent(materialKeyFor(cell.definition(), BlockFace.UP), ignored -> new MeshSectionBuilder())
+                        .appendQuad(
+                                topGeometry,
+                                cell.topY(),
+                                cell.startX(),
+                                cell.startZ(),
+                                cell.spanX(),
+                                cell.spanZ(),
+                                BlockFace.UP);
+                emittedQuads++;
+            }
+        }
+
+        return emittedQuads;
+    }
+
+    private int appendHorizonSideFaces(
+            ChunkData chunkData,
+            HorizonCell[][] cells,
+            Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders) {
+        int emittedQuads = 0;
+        for (int cellX = 0; cellX < cells.length; cellX++) {
+            for (int cellZ = 0; cellZ < cells[cellX].length; cellZ++) {
+                HorizonCell cell = cells[cellX][cellZ];
+                if (cell == null) {
+                    continue;
+                }
+
+                for (BlockFace face : BlockFace.values()) {
+                    if (face == BlockFace.UP || face == BlockFace.DOWN) {
+                        continue;
+                    }
+
+                    int neighborTopY = horizonNeighborTopY(chunkData, cells, cellX, cellZ, face);
+                    if (cell.topY() <= neighborTopY) {
+                        continue;
+                    }
+
+                    int verticalSpan = cell.topY() - neighborTopY;
+                    FaceGeometry geometry = FACE_GEOMETRY.get(face);
+                    int horizontalStart = geometry.fixedAxis() == 0 ? cell.startZ() : cell.startX();
+                    int horizontalSpan = geometry.fixedAxis() == 0 ? cell.spanZ() : cell.spanX();
+                    int verticalStart = neighborTopY + 1;
+                    int slice = switch (face) {
+                        case WEST -> cell.startX();
+                        case EAST -> cell.startX() + cell.spanX() - 1;
+                        case NORTH -> cell.startZ();
+                        case SOUTH -> cell.startZ() + cell.spanZ() - 1;
+                        case UP, DOWN -> throw new IllegalArgumentException("Vertical faces are not horizon side faces.");
+                    };
+
+                    int u = geometry.uAxis() == 1 ? verticalStart : horizontalStart;
+                    int v = geometry.vAxis() == 1 ? verticalStart : horizontalStart;
+                    int width = geometry.uAxis() == 1 ? verticalSpan : horizontalSpan;
+                    int height = geometry.vAxis() == 1 ? verticalSpan : horizontalSpan;
+
+                    sectionBuilders
+                            .computeIfAbsent(materialKeyFor(cell.definition(), face), ignored -> new MeshSectionBuilder())
+                            .appendQuad(geometry, slice, u, v, width, height, face);
+                    emittedQuads++;
+                }
+            }
+        }
+
+        return emittedQuads;
+    }
+
     private ColumnSurface topSurfaceInColumn(ChunkData chunkData, int blockX, int blockZ) {
         for (int blockY = ChunkData.SIZE_Y - 1; blockY >= 0; blockY--) {
             BlockDefinition definition = registries.requireBlockDefinition(chunkData.getBlock(blockX, blockY, blockZ));
@@ -327,6 +469,60 @@ public final class ChunkMeshBuilder {
             }
         }
         return null;
+    }
+
+    private int horizonNeighborTopY(
+            ChunkData chunkData,
+            HorizonCell[][] cells,
+            int cellX,
+            int cellZ,
+            BlockFace face) {
+        int neighborCellX = cellX + Integer.signum(face.stepX());
+        int neighborCellZ = cellZ + Integer.signum(face.stepZ());
+        if (neighborCellX >= 0
+                && neighborCellX < cells.length
+                && neighborCellZ >= 0
+                && neighborCellZ < cells[neighborCellX].length) {
+            HorizonCell neighborCell = cells[neighborCellX][neighborCellZ];
+            return neighborCell == null ? -1 : neighborCell.topY();
+        }
+
+        return switch (face) {
+            case WEST -> highestTopYAlongWorldEdge(
+                    chunkData.toWorldX(cells[cellX][cellZ].startX()) - 1,
+                    chunkData.toWorldZ(cells[cellX][cellZ].startZ()),
+                    cells[cellX][cellZ].spanZ(),
+                    false);
+            case EAST -> highestTopYAlongWorldEdge(
+                    chunkData.toWorldX(cells[cellX][cellZ].startX()) + cells[cellX][cellZ].spanX(),
+                    chunkData.toWorldZ(cells[cellX][cellZ].startZ()),
+                    cells[cellX][cellZ].spanZ(),
+                    false);
+            case NORTH -> highestTopYAlongWorldEdge(
+                    chunkData.toWorldX(cells[cellX][cellZ].startX()),
+                    chunkData.toWorldZ(cells[cellX][cellZ].startZ()) - 1,
+                    cells[cellX][cellZ].spanX(),
+                    true);
+            case SOUTH -> highestTopYAlongWorldEdge(
+                    chunkData.toWorldX(cells[cellX][cellZ].startX()),
+                    chunkData.toWorldZ(cells[cellX][cellZ].startZ()) + cells[cellX][cellZ].spanZ(),
+                    cells[cellX][cellZ].spanX(),
+                    true);
+            case UP, DOWN -> -1;
+        };
+    }
+
+    private int highestTopYAlongWorldEdge(int startWorldX, int startWorldZ, int sampleCount, boolean advanceX) {
+        int highestTopY = -1;
+        for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
+            int worldX = startWorldX + (advanceX ? sampleIndex : 0);
+            int worldZ = startWorldZ + (advanceX ? 0 : sampleIndex);
+            ColumnSurface surface = topSurfaceAtWorld(worldX, worldZ);
+            if (surface != null && surface.topY() > highestTopY) {
+                highestTopY = surface.topY();
+            }
+        }
+        return highestTopY;
     }
 
     private TerrainMaterialKey visibleFaceMaterialKey(
@@ -657,6 +853,9 @@ public final class ChunkMeshBuilder {
     }
 
     private record ColumnSurface(int topY, BlockDefinition definition) {
+    }
+
+    private record HorizonCell(int startX, int startZ, int spanX, int spanZ, int topY, BlockDefinition definition) {
     }
 
     private record SurfaceTopKey(int topY, TerrainMaterialKey materialKey) {

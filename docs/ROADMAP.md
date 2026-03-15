@@ -17,7 +17,7 @@
 
 - `0.006`: replace debug block rendering with the production chunk runtime foundation and textured terrain materials.
 - `0.007`: add a Minecraft-style pause/options menu and adjustable high-distance horizon settings on top of the new runtime.
-- `0.008`: move to fullscreen-first startup, stabilize buffered chunk streaming/unloading, add greedy chunk meshing, add palette-compressed chunk storage plus runtime telemetry, cache chunk target planning/metrics work, add far-chunk surface LOD, and add a stronger terrain art pass that can hold up at higher render distances.
+- `0.008`: move to fullscreen-first startup, stabilize buffered chunk streaming/unloading, add greedy chunk meshing, add palette-compressed chunk storage plus runtime telemetry, cache chunk target planning/metrics work, add far-chunk surface LOD, extend it into a coarser horizon LOD tier, and add a stronger terrain art pass that can hold up at higher render distances.
 - Prepare the pass-based overworld generator so future terrain systems can be layered without rewriting the current milestone terrain.
 - Prepare a topology seam so the project can safely migrate from the planar prototype to a later cube-sphere planetary world.
 - Prepare the block visual pipeline for `single`, `top_side_bottom`, `explicit_faces`, and `cube_net` block textures.

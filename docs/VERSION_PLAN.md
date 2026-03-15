@@ -11,7 +11,7 @@
 | `0.005` | Begin layering | Grass, dirt, and stone become a true terrain layering pipeline |
 | `0.006` | Chunk runtime and terrain readability | Production chunk streaming foundation replaces debug block rendering and textured terrain materials replace pastel debug colors |
 | `0.007` | Pause/settings and adjustable horizons | Minecraft-style pause/options menu controls a live high-range render-distance system and distant-horizon camera setup |
-| `0.008` | Buffered streaming stabilization and terrain art upgrade | Fullscreen-first launch, stable buffered chunk loading/unloading up to 48 chunks, greedy chunk meshing for lower quad count, palette-compressed chunk storage plus telemetry, cached chunk-target/metrics runtime work, far-chunk surface LOD for cheaper distant terrain, and upgraded premium-style terrain textures improve horizon scale and terrain readability |
+| `0.008` | Buffered streaming stabilization and terrain art upgrade | Fullscreen-first launch, stable buffered chunk loading/unloading up to 48 chunks, greedy chunk meshing for lower quad count, palette-compressed chunk storage plus telemetry, cached chunk-target/metrics runtime work, far-chunk surface LOD plus a coarser horizon LOD tier for cheaper outer-ring terrain, and upgraded premium-style terrain textures improve horizon scale and terrain readability |
 
 ## After `0.008`
 

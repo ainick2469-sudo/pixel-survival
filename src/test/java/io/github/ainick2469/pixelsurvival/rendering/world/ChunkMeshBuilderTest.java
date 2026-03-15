@@ -147,6 +147,35 @@ class ChunkMeshBuilderTest {
     }
 
     @Test
+    void horizonDetailLodCollapsesNoisyTerrainIntoCoarseHorizonCells() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        Map<ChunkCoord, ChunkData> chunks = new HashMap<>();
+        ChunkData centerChunk = new ChunkData(new ChunkCoord(0, 0), AIR);
+        for (int x = 0; x < 8; x++) {
+            for (int z = 0; z < 8; z++) {
+                int columnHeight = 1 + ((x + z) % 4);
+                for (int y = 0; y < columnHeight; y++) {
+                    centerChunk.setBlock(x, y, z, DIRT);
+                }
+            }
+        }
+        chunks.put(centerChunk.chunkCoord(), centerChunk);
+        loadNeighborAirChunks(chunks);
+
+        AuthoritativeWorldService worldService =
+                new AuthoritativeWorldService(registries, mapBackedGenerator(chunks));
+        chunks.keySet().forEach(worldService::loadChunk);
+
+        ChunkMeshBuilder builder = new ChunkMeshBuilder(worldService, registries);
+        ChunkMeshBuildResult surfaceResult = builder.buildChunkMesh(centerChunk, ChunkDetailLevel.SURFACE);
+        ChunkMeshBuildResult horizonResult = builder.buildChunkMesh(centerChunk, ChunkDetailLevel.HORIZON);
+
+        assertEquals(ChunkDetailLevel.HORIZON, horizonResult.detailLevel());
+        assertTrue(horizonResult.faceCount() < surfaceResult.faceCount());
+        assertTrue(horizonResult.visibleBlockCount() < surfaceResult.visibleBlockCount());
+    }
+
+    @Test
     void keepsGrassSideTexturesUprightOnFacesWhoseVerticalSpanRunsAlongMeshU() {
         GameRegistries registries = GameRegistries.load(Path.of("data"));
         Map<ChunkCoord, ChunkData> chunks = new HashMap<>();

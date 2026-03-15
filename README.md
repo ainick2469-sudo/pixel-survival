@@ -90,7 +90,11 @@ The repo now also includes a sample imported block generated from a local `custo
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
-- Distant chunks now swap to a cheaper surface-LOD mesh instead of always paying for full voxel wall detail all the way to the horizon, which cuts far-distance render cost without shrinking the visible world.
+- Terrain now uses three mesh detail tiers:
+  - `FULL` for nearby chunks
+  - `SURFACE` for mid-distance chunks
+  - `HORIZON` for far chunks, where noisy terrain collapses into coarse horizon cells instead of full per-column horizon detail
+- Distant chunks no longer stop at the earlier surface-only LOD. Farther chunks now collapse again into a coarser horizon mesh so `48` and above spend materially less face count on the outer ring.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.

@@ -445,13 +445,20 @@ public final class ChunkRenderManager implements AutoCloseable {
         if (centerChunk == null) {
             return ChunkDetailLevel.FULL;
         }
-        int fullDetailRadius = Math.max(12, Math.min(32, Math.max(16, runtimeConfig.renderRadius() / 2)));
+        int fullDetailRadius = Math.max(8, Math.min(24, Math.max(8, runtimeConfig.renderRadius() / 3)));
+        int surfaceDetailRadius = Math.max(
+                fullDetailRadius + 4,
+                Math.min(runtimeConfig.renderRadius(), Math.max(12, (runtimeConfig.renderRadius() / 2) + 8)));
         int deltaX = chunkCoord.x() - centerChunk.x();
         int deltaZ = chunkCoord.z() - centerChunk.z();
         int distanceSquared = (deltaX * deltaX) + (deltaZ * deltaZ);
-        return distanceSquared <= fullDetailRadius * fullDetailRadius
-                ? ChunkDetailLevel.FULL
-                : ChunkDetailLevel.SURFACE;
+        if (distanceSquared <= fullDetailRadius * fullDetailRadius) {
+            return ChunkDetailLevel.FULL;
+        }
+        if (distanceSquared <= surfaceDetailRadius * surfaceDetailRadius) {
+            return ChunkDetailLevel.SURFACE;
+        }
+        return ChunkDetailLevel.HORIZON;
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

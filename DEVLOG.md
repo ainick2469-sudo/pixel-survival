@@ -1,5 +1,48 @@
 # Devlog
 
+## 2026-03-15 14:05:31 MDT
+
+- Date/Time: 2026-03-15 14:05:31 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Reduce far-horizon terrain cost again by adding a coarser outer-ring terrain LOD on top of the existing full and surface tiers.
+- Completed Work:
+  - Extended chunk detail selection from two tiers to three: `FULL`, `SURFACE`, and `HORIZON`.
+  - Added a new `HORIZON` chunk mesh path that groups far terrain into coarse horizon cells instead of preserving full per-column surface detail in the outer render ring.
+  - Updated the render manager to route farther chunks into the new horizon tier so large render distances do not keep paying the older mid-distance surface cost all the way out.
+  - Added regression coverage proving the new horizon tier emits fewer faces and fewer visible cells than the existing surface tier on noisy terrain.
+  - Updated runtime docs so the current large-horizon strategy is recorded as a three-tier terrain LOD path rather than only `FULL` plus `SURFACE`.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../rendering/world/ChunkDetailLevel.java`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - terrain LOD runtime
+  - far-horizon mesh generation
+  - chunk detail selection
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - Near terrain still renders with full voxel detail.
+  - Mid-distance terrain still uses the existing surface-only LOD.
+  - Far terrain now collapses again into a coarser horizon mesh, reducing outer-ring face cost at high render distances.
+- Known Issues:
+  - The new horizon tier is intentionally matched to the current heightmap-style terrain. Future caves, overhangs, and suspended landforms will need richer far-distance representations later.
+  - This reduces face cost, but it does not yet solve terrain draw-call/material-section pressure. That remains the next render-side bottleneck.
+- Next Tasks:
+  - Batch terrain rendering harder through a texture atlas, texture array, or similar shared-material path so large chunk counts pay fewer draw calls.
+  - Tighten chunk queue prioritization and back-pressure after the batched terrain path lands.
+- Risks/Technical Debt:
+  - The coarse horizon tier is a deliberate approximation layer. It is correct for the current terrain direction, but it should remain distance-limited once more vertical worldgen enters the game.
+
 ## 2026-03-15 13:45:41 MDT
 
 - Date/Time: 2026-03-15 13:45:41 MDT
