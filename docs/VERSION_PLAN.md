@@ -10,8 +10,9 @@
 | `0.004` | Add grass | Grass top surfaces visibly differentiate the terrain |
 | `0.005` | Begin layering | Grass, dirt, and stone become a true terrain layering pipeline |
 | `0.006` | Chunk runtime and terrain readability | Production chunk streaming foundation replaces debug block rendering and textured terrain materials replace pastel debug colors |
+| `0.007` | Pause/settings and adjustable horizons | Minecraft-style pause/options menu controls a live high-range render-distance system and distant-horizon camera setup |
 
-## After `0.006`
+## After `0.007`
 
 - biome masks
 - caves

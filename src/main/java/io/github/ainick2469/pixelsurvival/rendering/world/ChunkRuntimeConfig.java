@@ -4,6 +4,8 @@ public record ChunkRuntimeConfig(
         int loadRadius,
         int renderRadius,
         int simulationRadius) {
+    public static final int STARTUP_PRIME_RENDER_RADIUS = 2;
+
     public ChunkRuntimeConfig {
         if (loadRadius < 1) {
             throw new IllegalArgumentException("loadRadius must be at least 1");
@@ -23,6 +25,12 @@ public record ChunkRuntimeConfig(
     }
 
     public static ChunkRuntimeConfig productionDefaults() {
-        return new ChunkRuntimeConfig(4, 3, 2);
+        return new ChunkRuntimeConfig(10, 8, 4);
+    }
+
+    public ChunkRuntimeConfig startupPrimeConfig() {
+        int primedRenderRadius = Math.min(renderRadius, STARTUP_PRIME_RENDER_RADIUS);
+        int primedSimulationRadius = Math.min(simulationRadius, primedRenderRadius);
+        return new ChunkRuntimeConfig(primedRenderRadius + 1, primedRenderRadius, primedSimulationRadius);
     }
 }

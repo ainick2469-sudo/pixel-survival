@@ -4,9 +4,9 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 ## Current milestone
 
-- Version target: `0.006`
-- Milestone: production chunk runtime foundation and textured terrain readability pass
-- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, streamed chunk rendering, profiling HUD metrics, and textured grass/dirt/stone terrain
+- Version target: `0.007`
+- Milestone: adjustable render distance, pause/options menu, and distant-horizon camera support
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance, and a Minecraft-style pause/options flow
 
 ## Technology stack
 
@@ -34,14 +34,17 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 - `WASD`: move the debug fly camera
 - `Mouse`: look around
 - `Shift`: move faster
-- `Esc`: toggle mouse capture
+- `Esc`: open or close the pause menu
+- `Left Click`: use the pause/options menu
 - `F10`: quit the game intentionally
 
 ## Current render/runtime state
 
 - Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
 - Grass, dirt, and stone use 128x128 textures with separate top/side/bottom support in the block registry.
-- The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus load/mesh queue depth and heap use.
+- The chunk runtime now supports adjustable render distance up to a high horizon-focused setting while rate-limiting background load and mesh work.
+- The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
+- `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 
 ## Project principles
 
@@ -66,3 +69,4 @@ For this machine, there is also a desktop double-click launcher that uses a hidd
 4. `0.004`: add grass
 5. `0.005`: begin terrain layering
 6. `0.006`: production chunk runtime foundation and textured terrain readability pass
+7. `0.007`: adjustable render distance, pause/options menu, and distant horizons

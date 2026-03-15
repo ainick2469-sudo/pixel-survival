@@ -28,10 +28,12 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkRenderManager implements AutoCloseable {
+    private static final int MAX_PENDING_CHUNK_LOADS = 64;
+    private static final int MAX_PENDING_MESH_BUILDS = 24;
+
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
     private final GameRegistries registries;
-    private final ChunkRuntimeConfig runtimeConfig;
     private final TerrainMaterialLibrary terrainMaterialLibrary;
     private final ChunkMeshBuilder chunkMeshBuilder;
     private final ExecutorService backgroundExecutor;
@@ -39,6 +41,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final Map<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> pendingMeshBuilds = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, Node> renderedChunkNodes = new HashMap<>();
     private final Set<ChunkCoord> dirtyChunks = ConcurrentHashMap.newKeySet();
+    private volatile ChunkRuntimeConfig runtimeConfig;
     private ChunkRuntimeMetrics metrics = ChunkRuntimeMetrics.empty();
 
     public ChunkRenderManager(
@@ -59,13 +62,14 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     public void primeAround(Vector3f cameraLocation) {
-        RuntimeTargets targets = RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig);
-        for (ChunkCoord chunkCoord : targets.loadTargets()) {
+        RuntimeTargets initialTargets =
+                RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig.startupPrimeConfig());
+        for (ChunkCoord chunkCoord : initialTargets.loadTargets()) {
             worldService.loadChunk(chunkCoord);
         }
-        dirtyChunks.addAll(targets.renderTargets());
-        buildRenderTargetsSynchronously(targets.renderTargets());
-        metrics = buildMetrics(targets);
+        dirtyChunks.addAll(initialTargets.renderTargets());
+        buildRenderTargetsSynchronously(initialTargets.renderTargets());
+        metrics = buildMetrics(RuntimeTargets.around(chunkCoordFor(cameraLocation), runtimeConfig));
     }
 
     public void update(Vector3f cameraLocation) {
@@ -81,6 +85,14 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     public ChunkRuntimeMetrics metrics() {
         return metrics;
+    }
+
+    public ChunkRuntimeConfig runtimeConfig() {
+        return runtimeConfig;
+    }
+
+    public void setRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
+        this.runtimeConfig = runtimeConfig;
     }
 
     @Override
@@ -127,7 +139,15 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void enqueueChunkLoads(Set<ChunkCoord> loadTargets) {
+        int availableSlots = Math.max(0, MAX_PENDING_CHUNK_LOADS - pendingChunkLoads.size());
+        if (availableSlots == 0) {
+            return;
+        }
+
         for (ChunkCoord chunkCoord : loadTargets) {
+            if (availableSlots == 0) {
+                break;
+            }
             if (worldService.isChunkLoaded(chunkCoord) || pendingChunkLoads.containsKey(chunkCoord)) {
                 continue;
             }
@@ -135,6 +155,7 @@ public final class ChunkRenderManager implements AutoCloseable {
             CompletableFuture<ChunkData> loadFuture =
                     CompletableFuture.supplyAsync(() -> worldService.loadChunk(chunkCoord), backgroundExecutor);
             pendingChunkLoads.put(chunkCoord, loadFuture);
+            availableSlots--;
         }
     }
 
@@ -152,7 +173,15 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void enqueueMeshBuilds(Set<ChunkCoord> renderTargets) {
+        int availableSlots = Math.max(0, MAX_PENDING_MESH_BUILDS - pendingMeshBuilds.size());
+        if (availableSlots == 0) {
+            return;
+        }
+
         for (ChunkCoord chunkCoord : renderTargets) {
+            if (availableSlots == 0) {
+                break;
+            }
             if (!worldService.isChunkLoaded(chunkCoord) || pendingMeshBuilds.containsKey(chunkCoord)) {
                 continue;
             }
@@ -171,6 +200,7 @@ public final class ChunkRenderManager implements AutoCloseable {
             CompletableFuture<ChunkMeshBuildResult> meshFuture =
                     CompletableFuture.supplyAsync(() -> chunkMeshBuilder.buildChunkMesh(chunkData), backgroundExecutor);
             pendingMeshBuilds.put(chunkCoord, meshFuture);
+            availableSlots--;
         }
     }
 

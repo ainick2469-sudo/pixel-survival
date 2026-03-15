@@ -258,6 +258,61 @@
   - The mesh runtime depends on loaded neighbor chunks for clean border culling, so future networking or persistence layers must preserve that contract.
   - Terrain textures are procedurally generated placeholders for now and may need a hand-authored art pass later.
 
+## 2026-03-15 02:58:00 MDT
+
+- Date/Time: 2026-03-15 02:58:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.007`
+- Milestone: Add a Minecraft-style pause/options menu and live high-distance horizon controls.
+- Completed Work:
+  - Added `GraphicsSettings` so render distance is modeled as a real game setting rather than a hardcoded renderer constant.
+  - Updated the chunk runtime to support live runtime-config changes, capped outstanding background load/mesh work, and limited synchronous startup priming so high-distance settings do not freeze boot.
+  - Reworked `Esc` into a pause/options flow with a centered menu overlay and a dedicated options screen instead of raw mouse-capture toggling.
+  - Added live render-distance controls with default and max-horizon options that immediately retune the chunk runtime and camera far clip.
+  - Raised the default horizon distance beyond the previous prototype range and kept the far clip aligned to the active render-distance setting.
+  - Added settings validation tests for render-distance limits and runtime-config mapping.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `build.gradle.kts`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeConfig.java`
+  - `src/main/java/.../settings/GameSettings.java`
+  - `src/main/java/.../settings/GraphicsSettings.java`
+  - `src/main/java/.../ui/PauseMenuCommand.java`
+  - `src/main/java/.../ui/PauseMenuController.java`
+  - `src/test/java/.../settings/GraphicsSettingsTest.java`
+- Systems Touched:
+  - in-game menu/UI
+  - graphics settings
+  - render-distance runtime control
+  - camera horizon distance
+  - chunk-runtime scheduling stability
+  - automated validation
+- Tests Run:
+  - `./gradlew test`
+  - `./gradlew test shadowJar`
+  - `./gradlew run` smoke launch, verified jME startup, registry load log, and clean boot on the pause-menu/render-distance build
+  - `cscript //nologo scripts\launch_desktop.vbs /buildonly`
+- Current Playable State:
+  - `Esc` opens a Minecraft-style pause/options overlay instead of instantly changing mouse mode.
+  - Render distance can be adjusted live up to a high horizon setting and the chunk runtime streams toward that target without restarting the game.
+  - The camera far clip now scales with render distance so distant terrain can stay visible instead of being clipped out early.
+- Known Issues:
+  - Extreme render-distance settings still rely on the current face-per-quad chunk mesh path, so very high horizons are intentionally streamed in gradually rather than appearing instantly.
+  - The pause/options menu is currently a custom lightweight UI layer rather than a full reusable menu framework for future title screens or inventory screens.
+- Next Tasks:
+  - Add world fog/atmospheric depth and more landmark detail so long horizons look more dramatic instead of only longer.
+  - Add dirty-chunk rebuild hooks for placement/removal so future building systems can update the current runtime cleanly.
+  - Expand graphics settings beyond render distance once there is enough rendering surface area to justify them.
+- Risks/Technical Debt:
+  - Very high render-distance settings can still become memory- and CPU-heavy until greedy meshing, atlasing, or more aggressive chunk prioritization lands.
+  - The current pause menu is purpose-built for this milestone and should be generalized carefully once more UI screens exist.
+
 ## Entry Template
 
 - Date/Time:

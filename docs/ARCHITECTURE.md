@@ -27,9 +27,17 @@ Long-term session modes:
 
 - The old prototype renderer emitted one geometry per exposed block and relied on flat debug colors. That made the terrain look washed out, over-bright, and low-detail because the lighting had no real surface breakup to work with.
 - `ChunkRenderManager` is now the production path. It keeps separate load, render, and simulation radii and streams chunks around the camera.
+- Runtime chunk scheduling is now capped so high render-distance settings do not enqueue unbounded load and mesh work in a single frame.
 - `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
 - Hidden-face culling now works against loaded neighbor chunks, which removes the worst interior waste and keeps the mesh path compatible with later greedy meshing.
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
+
+## Settings and UI model
+
+- `GraphicsSettings` owns the live render-distance setting and maps it onto chunk runtime radii.
+- `PauseMenuController` owns the current in-game pause/options UI state.
+- `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
+- Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
 
 ## Registry model
 

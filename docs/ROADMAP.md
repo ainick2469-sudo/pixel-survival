@@ -16,6 +16,7 @@
 ## Phase C: Worldgen Expansion
 
 - `0.006`: replace debug block rendering with the production chunk runtime foundation and textured terrain materials.
+- `0.007`: add a Minecraft-style pause/options menu and adjustable high-distance horizon settings on top of the new runtime.
 - Better noise stacks
 - Biome masks and biome families
 - Cave and ravine generation
