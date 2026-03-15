@@ -176,6 +176,11 @@ This maps as:
 - tile directly below center: `front`
 - extra outer tile above `back`: `bottom`
 
+Runtime note:
+
+- The engine keeps the center tile as `top`, the surrounding tiles as the four side faces, and the far tile as `bottom`.
+- For this layout, side faces are rotated automatically at render time where needed so the top edge of each side tile stays aligned with the top of the wall in-game.
+
 This is the layout currently used by:
 
 - `pixel_survival:dirt`

@@ -331,14 +331,7 @@ public final class ChunkMeshBuilder {
                 normals.add(face.normalZ());
             }
 
-            textureCoordinates.add(0f);
-            textureCoordinates.add(0f);
-            textureCoordinates.add(width);
-            textureCoordinates.add(0f);
-            textureCoordinates.add(width);
-            textureCoordinates.add(height);
-            textureCoordinates.add(0f);
-            textureCoordinates.add(height);
+            appendTextureCoordinates(geometry, width, height);
 
             indices.add(vertexCount);
             indices.add(vertexCount + 1);
@@ -348,6 +341,41 @@ public final class ChunkMeshBuilder {
             indices.add(vertexCount + 3);
             vertexCount += 4;
             faceCount++;
+        }
+
+        private void appendTextureCoordinates(FaceGeometry geometry, int width, int height) {
+            if (geometry.fixedAxis() != 1 && geometry.uAxis() == 1) {
+                textureCoordinates.add(0f);
+                textureCoordinates.add(width);
+                textureCoordinates.add(0f);
+                textureCoordinates.add(0f);
+                textureCoordinates.add(height);
+                textureCoordinates.add(0f);
+                textureCoordinates.add(height);
+                textureCoordinates.add(width);
+                return;
+            }
+
+            if (geometry.fixedAxis() != 1 && geometry.vAxis() == 1) {
+                textureCoordinates.add(0f);
+                textureCoordinates.add(height);
+                textureCoordinates.add(width);
+                textureCoordinates.add(height);
+                textureCoordinates.add(width);
+                textureCoordinates.add(0f);
+                textureCoordinates.add(0f);
+                textureCoordinates.add(0f);
+                return;
+            }
+
+            textureCoordinates.add(0f);
+            textureCoordinates.add(0f);
+            textureCoordinates.add(width);
+            textureCoordinates.add(0f);
+            textureCoordinates.add(width);
+            textureCoordinates.add(height);
+            textureCoordinates.add(0f);
+            textureCoordinates.add(height);
         }
 
         private ChunkMeshSectionData build() {

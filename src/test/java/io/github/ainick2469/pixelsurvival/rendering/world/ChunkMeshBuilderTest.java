@@ -15,6 +15,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChunkMeshBuilderTest {
@@ -117,6 +118,60 @@ class ChunkMeshBuilderTest {
         assertEquals(1, faceCount(result, BlockTextureFace.LEFT));
         assertEquals(1, faceCount(result, BlockTextureFace.RIGHT));
         assertEquals(1, faceCount(result, BlockTextureFace.FRONT));
+    }
+
+    @Test
+    void keepsGrassSideTexturesUprightOnFacesWhoseVerticalSpanRunsAlongMeshU() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        Map<ChunkCoord, ChunkData> chunks = new HashMap<>();
+        ChunkData centerChunk = new ChunkData(new ChunkCoord(0, 0), AIR);
+        centerChunk.setBlock(4, 10, 4, GRASS);
+        chunks.put(centerChunk.chunkCoord(), centerChunk);
+        loadNeighborAirChunks(chunks);
+
+        AuthoritativeWorldService worldService =
+                new AuthoritativeWorldService(registries, mapBackedGenerator(chunks));
+        chunks.keySet().forEach(worldService::loadChunk);
+
+        ChunkMeshBuildResult result = new ChunkMeshBuilder(worldService, registries).buildChunkMesh(centerChunk);
+        ChunkMeshSectionData rightFaceSection = result.sections().get(TerrainMaterialKey.textured(
+                BlockFaceTextureReference.cubeNet(
+                        "Textures/BlockCubeNets/grass_block_cube_net.png",
+                        CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                        BlockTextureFace.RIGHT),
+                "grass"));
+
+        assertArrayEquals(
+                new float[] {0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f},
+                rightFaceSection.textureCoordinates(),
+                0.0001f);
+    }
+
+    @Test
+    void keepsGrassSideTexturesUprightOnFacesWhoseVerticalSpanRunsAlongMeshV() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        Map<ChunkCoord, ChunkData> chunks = new HashMap<>();
+        ChunkData centerChunk = new ChunkData(new ChunkCoord(0, 0), AIR);
+        centerChunk.setBlock(4, 10, 4, GRASS);
+        chunks.put(centerChunk.chunkCoord(), centerChunk);
+        loadNeighborAirChunks(chunks);
+
+        AuthoritativeWorldService worldService =
+                new AuthoritativeWorldService(registries, mapBackedGenerator(chunks));
+        chunks.keySet().forEach(worldService::loadChunk);
+
+        ChunkMeshBuildResult result = new ChunkMeshBuilder(worldService, registries).buildChunkMesh(centerChunk);
+        ChunkMeshSectionData frontFaceSection = result.sections().get(TerrainMaterialKey.textured(
+                BlockFaceTextureReference.cubeNet(
+                        "Textures/BlockCubeNets/grass_block_cube_net.png",
+                        CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                        BlockTextureFace.FRONT),
+                "grass"));
+
+        assertArrayEquals(
+                new float[] {0f, 1f, 1f, 1f, 1f, 0f, 0f, 0f},
+                frontFaceSection.textureCoordinates(),
+                0.0001f);
     }
 
     private static int faceCount(ChunkMeshBuildResult result, BlockTextureFace face) {

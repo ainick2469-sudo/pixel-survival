@@ -1,5 +1,42 @@
 # Devlog
 
+## 2026-03-15 11:34:50 MDT
+
+- Date/Time: 2026-03-15 11:34:50 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Restore the grass wall lip on the live grass block cube-net and correct side-face orientation so cliff and ledge walls connect to the grass top correctly.
+- Completed Work:
+  - Verified the cube-net face mapping code was correct and isolated the actual issue to the shipped `grass_block_cube_net.png` file still using dirt-only side tiles.
+  - Regenerated the live grass cube-net from the correct `grass_side.png` asset so the four side faces now include the grassy lip again.
+  - Regenerated `grass_side.png` alongside the cube-net to keep the side texture source and the shipped cube-net asset in sync.
+  - Corrected side-face UV orientation for both side-face orientations so the grass lip stays at the top of the wall instead of rotating into a vertical stripe or flipping to the bottom on opposite faces.
+  - Added renderer regression tests covering both upright side-face UV paths.
+- Files Changed:
+  - `DEVLOG.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/main/resources/Textures/BlockCubeNets/grass_block_cube_net.png`
+  - `src/main/resources/Textures/Terrain/grass_side.png`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - terrain block art bundle
+  - cube-net terrain asset output
+  - grass block side-face presentation
+  - side-face UV orientation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - Grass block side faces now include the green lip again, and the side texture stays upright instead of rotating the lip into a vertical stripe on some walls.
+- Known Issues:
+  - The grass wall lip is back, but the long-horizon renderer still needs more batching and queue tuning for very high render distances.
+- Next Tasks:
+  - Add terrain atlas batching/material consolidation to reduce high-distance draw-call and material-section pressure.
+  - Tighten chunk queue prioritization and back-pressure once the terrain material path is more consolidated.
+- Risks/Technical Debt:
+  - The texture generator is still a placeholder-content tool; final authored terrain PNGs should eventually replace generated stand-ins directly in source control.
+
 ## 2026-03-15 11:17:13 MDT
 
 - Date/Time: 2026-03-15 11:17:13 MDT

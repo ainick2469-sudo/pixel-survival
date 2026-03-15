@@ -44,10 +44,10 @@ public final class GenerateTerrainTextures {
                 dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("grass_block_cube_net.png"), cubeNetTextureCenterTopSurroundingSidesOuterBottom(
                 grassTopTexture,
-                dirtTexture,
-                dirtTexture,
-                dirtTexture,
-                dirtTexture,
+                grassSideTexture,
+                grassSideTexture,
+                grassSideTexture,
+                grassSideTexture,
                 dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("stone_cube_net.png"), cubeNetTexture(
                 stoneTexture,
