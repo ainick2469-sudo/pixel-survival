@@ -137,6 +137,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `ChunkRenderManager` is now the production path. It keeps separate load, render, and simulation radii and streams chunks around the camera.
 - Chunk selection now stays centered on the player chunk in a buffered circular radius instead of a camera-facing cone. That keeps the nearby world stable when the player turns around and avoids full horizon reloads on fast view changes.
 - Runtime chunk scheduling is capped and chunk completion work is batched per update so high render-distance settings do not enqueue or attach unbounded work in one frame.
+- Chunk target planning is now cached by radius and refreshed only when the player crosses into a new chunk or changes runtime settings, which avoids rebuilding and sorting thousands of targets every frame while stationary.
 - `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
 - The mesh builder now greedily merges adjacent coplanar faces that share the same material key, which reduces quad count dramatically on flat terrain and cliff bands.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
@@ -144,6 +145,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
 - The terrain material path now uses crisp close-up filtering with mipmaps and reusable shared materials rather than one-off block-instance materials.
+- Rendered face totals are now tracked incrementally when chunk meshes attach/detach instead of rescanning every rendered geometry every frame.
 
 ## Block visual pipeline
 
@@ -196,6 +198,7 @@ Why this matters:
 - `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
 - Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
 - The current ceiling is `48` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
+- The load-radius buffer is now intentionally smaller at high render distances so horizon rendering does not automatically keep an oversized extra ring of chunks resident.
 - The HUD now reports chunk-memory usage and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
 
 ## Registry model

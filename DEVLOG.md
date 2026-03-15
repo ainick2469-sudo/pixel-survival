@@ -629,6 +629,52 @@
   - Palette storage currently tracks memory correctly for generated chunks, but future in-game block edits will eventually need a clean way to refresh aggregate memory metrics if chunk palettes grow after load.
   - The current telemetry is good enough for live tuning, but a deeper profiling overlay or external profiler is still needed for detailed render-path attribution.
 
+## 2026-03-15 10:04:00 MDT
+
+- Date/Time: 2026-03-15 10:04:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Remove steady-state chunk-runtime CPU waste at high render distance.
+- Completed Work:
+  - Reworked chunk target planning so radius-offset ordering is cached by radius and full target sets are only rebuilt when the player crosses into a new chunk or changes runtime settings.
+  - Stopped refreshing load-target retention for every active chunk every frame; retained targets now only track stale chunks that are temporarily kept after movement.
+  - Switched rendered-face metrics to incremental accounting when chunk meshes attach or detach instead of rescanning every rendered chunk node every frame.
+  - Added a lighter high-distance load-buffer formula so render distance `48` no longer carries the previous oversized extra chunk ring by default.
+  - Exposed a weakly consistent loaded-chunk view so the chunk manager can stop snapshot-copying the full loaded chunk set during unload checks.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkVisibilityPlanner.java`
+  - `src/main/java/.../settings/GraphicsSettings.java`
+  - `src/main/java/.../world/sim/AuthoritativeWorldService.java`
+  - `src/test/java/.../settings/GraphicsSettingsTest.java`
+- Systems Touched:
+  - chunk target planning
+  - chunk load retention
+  - runtime metrics collection
+  - high-distance buffer tuning
+  - automated validation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+- Current Playable State:
+  - The game still supports render distances up to `48` chunks.
+  - Buffered chunk residency and turn-around stability remain intact.
+  - The chunk runtime should now spend far less time in steady-state target planning and HUD metric gathering while stationary or moving within the same chunk.
+- Known Issues:
+  - The chunk runtime is now leaner, but very high render distances can still become expensive because far-horizon draw work and per-chunk material sections still add up.
+  - The current HUD timing split is still lightweight and should be treated as directional telemetry rather than a full profiler.
+- Next Tasks:
+  - Batch terrain rendering harder through a texture atlas or equivalent terrain-material consolidation so the number of chunk-section draw calls falls at high horizon settings.
+  - Add stricter queue prioritization and back-pressure tuning to the concurrent chunk pipeline once the reduced CPU overhead is confirmed in practice.
+  - Profile whether frustum-aware far-chunk meshing or LOD gives better return after the current chunk-runtime CPU waste is removed.
+- Risks/Technical Debt:
+  - The smaller load buffer saves work and memory, but if player movement speed rises dramatically later, the buffer may need to become configurable.
+  - Runtime target caching assumes chunk residency only needs to change on chunk transitions or setting changes, which is correct for the current planar chunk model but should be revisited if topology-aware streaming grows more complex later.
+
 ## Entry Template
 
 - Date/Time:

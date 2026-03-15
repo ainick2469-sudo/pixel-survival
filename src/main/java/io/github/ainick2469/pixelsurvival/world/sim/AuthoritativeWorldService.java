@@ -57,6 +57,10 @@ public final class AuthoritativeWorldService {
         return Set.copyOf(loadedChunks.keySet());
     }
 
+    public Iterable<ChunkCoord> loadedChunkCoordsView() {
+        return loadedChunks.keySet();
+    }
+
     public int getLoadedChunkCount() {
         return loadedChunks.size();
     }

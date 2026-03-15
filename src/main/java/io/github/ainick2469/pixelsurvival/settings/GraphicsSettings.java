@@ -27,7 +27,7 @@ public record GraphicsSettings(int renderDistanceChunks) {
     }
 
     public ChunkRuntimeConfig toChunkRuntimeConfig() {
-        int loadRadius = renderDistanceChunks + Math.max(3, renderDistanceChunks / 6);
+        int loadRadius = renderDistanceChunks + Math.max(2, Math.min(4, renderDistanceChunks / 16));
         int simulationRadius = Math.min(4, Math.max(2, renderDistanceChunks / 4));
         return new ChunkRuntimeConfig(loadRadius, renderDistanceChunks, simulationRadius);
     }

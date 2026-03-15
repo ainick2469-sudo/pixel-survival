@@ -7,63 +7,74 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ChunkVisibilityPlanner {
+    private final Map<Integer, List<ChunkOffset>> orderedOffsetsByRadius = new ConcurrentHashMap<>();
+
     public RuntimeTargets plan(
             Vector3f cameraLocation,
             Vector3f cameraDirection,
             float horizontalViewDegrees,
             ChunkRuntimeConfig runtimeConfig) {
-        ChunkCoord centerChunk = chunkCoordFor(cameraLocation);
-        return new RuntimeTargets(
-                orderedTargets(centerChunk, runtimeConfig.loadRadius()),
-                orderedTargets(centerChunk, runtimeConfig.renderRadius()),
-                orderedTargets(centerChunk, runtimeConfig.simulationRadius()));
+        return plan(centerChunkFor(cameraLocation), runtimeConfig);
     }
 
-    private Set<ChunkCoord> orderedTargets(ChunkCoord centerChunk, int radius) {
-        LinkedHashSet<ChunkCoord> orderedTargets = new LinkedHashSet<>();
-        if (radius < 0) {
-            return orderedTargets;
-        }
+    public RuntimeTargets plan(ChunkCoord centerChunk, ChunkRuntimeConfig runtimeConfig) {
+        return new RuntimeTargets(
+                applyOffsets(centerChunk, orderedOffsets(runtimeConfig.loadRadius())),
+                applyOffsets(centerChunk, orderedOffsets(runtimeConfig.renderRadius())),
+                applyOffsets(centerChunk, orderedOffsets(runtimeConfig.simulationRadius())));
+    }
 
-        List<TargetCandidate> candidates = new ArrayList<>();
+    public ChunkCoord centerChunkFor(Vector3f location) {
+        return new ChunkCoord(
+                Math.floorDiv((int) Math.floor(location.x), ChunkData.SIZE_X),
+                Math.floorDiv((int) Math.floor(location.z), ChunkData.SIZE_Z));
+    }
+
+    private Set<ChunkCoord> applyOffsets(ChunkCoord centerChunk, List<ChunkOffset> orderedOffsets) {
+        LinkedHashSet<ChunkCoord> orderedTargets = new LinkedHashSet<>(orderedOffsets.size());
+        for (ChunkOffset offset : orderedOffsets) {
+            orderedTargets.add(new ChunkCoord(centerChunk.x() + offset.deltaChunkX(), centerChunk.z() + offset.deltaChunkZ()));
+        }
+        return orderedTargets;
+    }
+
+    private List<ChunkOffset> orderedOffsets(int radius) {
+        if (radius < 0) {
+            return List.of();
+        }
+        return orderedOffsetsByRadius.computeIfAbsent(radius, this::buildOrderedOffsets);
+    }
+
+    private List<ChunkOffset> buildOrderedOffsets(int radius) {
+        List<ChunkOffset> candidates = new ArrayList<>();
         int radiusSquared = radius * radius;
-        for (int chunkX = centerChunk.x() - radius; chunkX <= centerChunk.x() + radius; chunkX++) {
-            for (int chunkZ = centerChunk.z() - radius; chunkZ <= centerChunk.z() + radius; chunkZ++) {
-                int deltaChunkX = chunkX - centerChunk.x();
-                int deltaChunkZ = chunkZ - centerChunk.z();
+        for (int deltaChunkX = -radius; deltaChunkX <= radius; deltaChunkX++) {
+            for (int deltaChunkZ = -radius; deltaChunkZ <= radius; deltaChunkZ++) {
                 int chunkDistanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
                 if (chunkDistanceSquared > radiusSquared) {
                     continue;
                 }
 
-                candidates.add(new TargetCandidate(
-                        new ChunkCoord(chunkX, chunkZ),
-                        chunkDistanceSquared,
-                        Math.abs(deltaChunkX) + Math.abs(deltaChunkZ),
+                candidates.add(new ChunkOffset(
                         deltaChunkX,
-                        deltaChunkZ));
+                        deltaChunkZ,
+                        chunkDistanceSquared,
+                        Math.abs(deltaChunkX) + Math.abs(deltaChunkZ)));
             }
         }
 
-        candidates.sort(Comparator.comparingInt(TargetCandidate::chunkDistanceSquared)
-                .thenComparingInt(TargetCandidate::manhattanDistance)
-                .thenComparingInt(TargetCandidate::ringPriority)
-                .thenComparingInt(TargetCandidate::deltaChunkX)
-                .thenComparingInt(TargetCandidate::deltaChunkZ));
+        candidates.sort(Comparator.comparingInt(ChunkOffset::chunkDistanceSquared)
+                .thenComparingInt(ChunkOffset::manhattanDistance)
+                .thenComparingInt(ChunkOffset::ringPriority)
+                .thenComparingInt(ChunkOffset::deltaChunkX)
+                .thenComparingInt(ChunkOffset::deltaChunkZ));
 
-        for (TargetCandidate candidate : candidates) {
-            orderedTargets.add(candidate.chunkCoord());
-        }
-        return orderedTargets;
-    }
-
-    private ChunkCoord chunkCoordFor(Vector3f location) {
-        return new ChunkCoord(
-                Math.floorDiv((int) Math.floor(location.x), ChunkData.SIZE_X),
-                Math.floorDiv((int) Math.floor(location.z), ChunkData.SIZE_Z));
+        return List.copyOf(candidates);
     }
 
     public record RuntimeTargets(
@@ -72,12 +83,11 @@ public final class ChunkVisibilityPlanner {
             Set<ChunkCoord> simulationTargets) {
     }
 
-    private record TargetCandidate(
-            ChunkCoord chunkCoord,
-            int chunkDistanceSquared,
-            int manhattanDistance,
+    private record ChunkOffset(
             int deltaChunkX,
-            int deltaChunkZ) {
+            int deltaChunkZ,
+            int chunkDistanceSquared,
+            int manhattanDistance) {
         private int ringPriority() {
             if (deltaChunkX == 0 && deltaChunkZ == 0) {
                 return 0;

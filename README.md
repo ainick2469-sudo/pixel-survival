@@ -52,6 +52,9 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
+- Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
+- Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.
+- High-distance load buffering is now leaner, so `48` chunk render distance no longer silently implies the older oversized load radius.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 

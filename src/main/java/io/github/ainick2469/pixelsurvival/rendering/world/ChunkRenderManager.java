@@ -11,12 +11,11 @@ import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +30,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private static final int MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE = 12;
     private static final int MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE = 6;
     private static final long LOAD_RETENTION_NANOS = 1_500_000_000L;
+    private static final long METRICS_REFRESH_NANOS = 250_000_000L;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
@@ -42,10 +42,17 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final Map<ChunkCoord, CompletableFuture<ChunkData>> pendingChunkLoads = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> pendingMeshBuilds = new ConcurrentHashMap<>();
     private final Map<ChunkCoord, Node> renderedChunkNodes = new HashMap<>();
+    private final Map<ChunkCoord, Integer> renderedChunkFaceCounts = new HashMap<>();
     private final Map<ChunkCoord, Long> retainedLoadTargets = new ConcurrentHashMap<>();
     private final Set<ChunkCoord> dirtyChunks = ConcurrentHashMap.newKeySet();
     private volatile ChunkRuntimeConfig runtimeConfig;
+    private ChunkVisibilityPlanner.RuntimeTargets activeTargets =
+            new ChunkVisibilityPlanner.RuntimeTargets(Set.of(), Set.of(), Set.of());
+    private ChunkCoord activeCenterChunk;
+    private ChunkRuntimeConfig activeTargetRuntimeConfig;
     private ChunkRuntimeMetrics metrics = ChunkRuntimeMetrics.empty();
+    private int totalRenderedFaceCount;
+    private long nextMetricsRefreshNanos;
 
     public ChunkRenderManager(
             Node rootNode,
@@ -65,33 +72,42 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     public void primeAround(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
+        ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
         ChunkVisibilityPlanner.RuntimeTargets initialTargets =
-                visibilityPlanner.plan(
-                        cameraLocation,
-                        cameraDirection,
-                        horizontalViewDegrees,
-                        runtimeConfig.startupPrimeConfig());
+                visibilityPlanner.plan(centerChunk, runtimeConfig.startupPrimeConfig());
         for (ChunkCoord chunkCoord : initialTargets.loadTargets()) {
             worldService.loadChunk(chunkCoord);
         }
         dirtyChunks.addAll(initialTargets.renderTargets());
         buildRenderTargetsSynchronously(initialTargets.renderTargets());
-        metrics = buildMetrics(
-                visibilityPlanner.plan(cameraLocation, cameraDirection, horizontalViewDegrees, runtimeConfig));
+        refreshActiveTargets(centerChunk, System.nanoTime());
+        metrics = buildMetrics(activeTargets.simulationTargets());
+        nextMetricsRefreshNanos = System.nanoTime() + METRICS_REFRESH_NANOS;
     }
 
     public void update(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
-        ChunkVisibilityPlanner.RuntimeTargets targets =
-                visibilityPlanner.plan(cameraLocation, cameraDirection, horizontalViewDegrees, runtimeConfig);
         long now = System.nanoTime();
-        Set<ChunkCoord> effectiveLoadTargets = effectiveLoadTargets(targets.loadTargets(), now);
-        cancelAndUnloadFarChunks(effectiveLoadTargets, targets.renderTargets());
+        boolean targetsChanged = refreshActiveTargets(visibilityPlanner.centerChunkFor(cameraLocation), now);
+        boolean retainedTargetsChanged = purgeExpiredRetainedLoadTargets(now);
+        Set<ChunkCoord> effectiveLoadTargets = effectiveLoadTargets(activeTargets.loadTargets());
+        if (targetsChanged || retainedTargetsChanged) {
+            cancelAndUnloadFarChunks(effectiveLoadTargets, activeTargets.renderTargets());
+        }
         attachCompletedLoads();
-        enqueueChunkLoads(effectiveLoadTargets);
-        enqueueMeshBuilds(targets.renderTargets());
-        attachCompletedMeshes(targets.renderTargets());
-        detachRenderedChunksOutside(targets.renderTargets());
-        metrics = buildMetrics(targets);
+        if (!pendingChunkLoads.isEmpty() || worldService.getLoadedChunkCount() < effectiveLoadTargets.size()) {
+            enqueueChunkLoads(effectiveLoadTargets);
+        }
+        if (!dirtyChunks.isEmpty() || !pendingMeshBuilds.isEmpty()) {
+            enqueueMeshBuilds(activeTargets.renderTargets());
+        }
+        attachCompletedMeshes(activeTargets.renderTargets());
+        if (targetsChanged) {
+            detachRenderedChunksOutside(activeTargets.renderTargets());
+        }
+        if (now >= nextMetricsRefreshNanos || targetsChanged || !pendingChunkLoads.isEmpty() || !pendingMeshBuilds.isEmpty()) {
+            metrics = buildMetrics(activeTargets.simulationTargets());
+            nextMetricsRefreshNanos = now + METRICS_REFRESH_NANOS;
+        }
     }
 
     public ChunkRuntimeMetrics metrics() {
@@ -104,6 +120,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     public void setRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
+        this.activeTargetRuntimeConfig = null;
         retainedLoadTargets.clear();
     }
 
@@ -124,8 +141,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void cancelAndUnloadFarChunks(Set<ChunkCoord> loadTargets, Set<ChunkCoord> renderTargets) {
-        List<ChunkCoord> loadedChunkCoords = new ArrayList<>(worldService.getLoadedChunkCoords());
-        for (ChunkCoord chunkCoord : loadedChunkCoords) {
+        for (ChunkCoord chunkCoord : worldService.loadedChunkCoordsView()) {
             if (!loadTargets.contains(chunkCoord)) {
                 cancelFuture(pendingMeshBuilds.remove(chunkCoord));
                 cancelFuture(pendingChunkLoads.remove(chunkCoord));
@@ -137,12 +153,12 @@ public final class ChunkRenderManager implements AutoCloseable {
             }
         }
 
-        for (ChunkCoord chunkCoord : new ArrayList<>(pendingChunkLoads.keySet())) {
+        for (ChunkCoord chunkCoord : Set.copyOf(pendingChunkLoads.keySet())) {
             if (!loadTargets.contains(chunkCoord)) {
                 cancelFuture(pendingChunkLoads.remove(chunkCoord));
             }
         }
-        for (ChunkCoord chunkCoord : new ArrayList<>(pendingMeshBuilds.keySet())) {
+        for (ChunkCoord chunkCoord : Set.copyOf(pendingMeshBuilds.keySet())) {
             if (!renderTargets.contains(chunkCoord)) {
                 cancelFuture(pendingMeshBuilds.remove(chunkCoord));
             }
@@ -172,7 +188,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void attachCompletedLoads() {
         int attachedLoads = 0;
-        for (Map.Entry<ChunkCoord, CompletableFuture<ChunkData>> entry : new ArrayList<>(pendingChunkLoads.entrySet())) {
+        for (Map.Entry<ChunkCoord, CompletableFuture<ChunkData>> entry : Set.copyOf(pendingChunkLoads.entrySet())) {
             if (attachedLoads >= MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE) {
                 break;
             }
@@ -219,8 +235,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void attachCompletedMeshes(Set<ChunkCoord> renderTargets) {
         int attachedMeshes = 0;
-        for (Map.Entry<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> entry :
-                new ArrayList<>(pendingMeshBuilds.entrySet())) {
+        for (Map.Entry<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> entry : Set.copyOf(pendingMeshBuilds.entrySet())) {
             if (attachedMeshes >= MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE) {
                 break;
             }
@@ -274,11 +289,13 @@ public final class ChunkRenderManager implements AutoCloseable {
         if (chunkNode.getQuantity() > 0) {
             terrainRoot.attachChild(chunkNode);
             renderedChunkNodes.put(meshBuildResult.chunkCoord(), chunkNode);
+            renderedChunkFaceCounts.put(meshBuildResult.chunkCoord(), meshBuildResult.faceCount());
+            totalRenderedFaceCount += meshBuildResult.faceCount();
         }
     }
 
     private void detachRenderedChunksOutside(Set<ChunkCoord> renderTargets) {
-        for (ChunkCoord chunkCoord : new ArrayList<>(renderedChunkNodes.keySet())) {
+        for (ChunkCoord chunkCoord : Set.copyOf(renderedChunkNodes.keySet())) {
             if (!renderTargets.contains(chunkCoord)) {
                 detachRenderedChunk(chunkCoord);
             }
@@ -287,25 +304,20 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void detachRenderedChunk(ChunkCoord chunkCoord) {
         Node existingNode = renderedChunkNodes.remove(chunkCoord);
+        Integer removedFaceCount = renderedChunkFaceCounts.remove(chunkCoord);
+        if (removedFaceCount != null) {
+            totalRenderedFaceCount -= removedFaceCount;
+        }
         if (existingNode != null) {
             existingNode.removeFromParent();
         }
     }
 
-    private ChunkRuntimeMetrics buildMetrics(ChunkVisibilityPlanner.RuntimeTargets targets) {
+    private ChunkRuntimeMetrics buildMetrics(Set<ChunkCoord> simulationTargets) {
         int simulatedLoaded = 0;
-        for (ChunkCoord chunkCoord : targets.simulationTargets()) {
+        for (ChunkCoord chunkCoord : simulationTargets) {
             if (worldService.isChunkLoaded(chunkCoord)) {
                 simulatedLoaded++;
-            }
-        }
-
-        int renderedFaceCount = 0;
-        for (Node chunkNode : renderedChunkNodes.values()) {
-            for (int childIndex = 0; childIndex < chunkNode.getQuantity(); childIndex++) {
-                Geometry geometry = (Geometry) chunkNode.getChild(childIndex);
-                Mesh mesh = geometry.getMesh();
-                renderedFaceCount += mesh.getTriangleCount() / 2;
             }
         }
 
@@ -315,7 +327,7 @@ public final class ChunkRenderManager implements AutoCloseable {
                 simulatedLoaded,
                 pendingChunkLoads.size(),
                 pendingMeshBuilds.size(),
-                renderedFaceCount,
+                totalRenderedFaceCount,
                 worldService.estimatedLoadedChunkStorageBytes());
     }
 
@@ -325,20 +337,51 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
     }
 
-    private Set<ChunkCoord> effectiveLoadTargets(Set<ChunkCoord> activeLoadTargets, long now) {
-        for (ChunkCoord chunkCoord : activeLoadTargets) {
-            retainedLoadTargets.put(chunkCoord, now + LOAD_RETENTION_NANOS);
+    private Set<ChunkCoord> effectiveLoadTargets(Set<ChunkCoord> activeLoadTargets) {
+        if (retainedLoadTargets.isEmpty()) {
+            return activeLoadTargets;
         }
 
         LinkedHashSet<ChunkCoord> effectiveTargets = new LinkedHashSet<>(activeLoadTargets);
-        for (Map.Entry<ChunkCoord, Long> retainedEntry : new ArrayList<>(retainedLoadTargets.entrySet())) {
+        effectiveTargets.addAll(retainedLoadTargets.keySet());
+        return effectiveTargets;
+    }
+
+    private boolean refreshActiveTargets(ChunkCoord centerChunk, long now) {
+        if (Objects.equals(centerChunk, activeCenterChunk) && Objects.equals(runtimeConfig, activeTargetRuntimeConfig)) {
+            return false;
+        }
+
+        Set<ChunkCoord> previousLoadTargets = activeTargets.loadTargets();
+        Set<ChunkCoord> previousRenderTargets = activeTargets.renderTargets();
+        activeTargets = visibilityPlanner.plan(centerChunk, runtimeConfig);
+        if (!previousLoadTargets.isEmpty()) {
+            for (ChunkCoord chunkCoord : previousLoadTargets) {
+                if (!activeTargets.loadTargets().contains(chunkCoord)) {
+                    retainedLoadTargets.put(chunkCoord, now + LOAD_RETENTION_NANOS);
+                }
+            }
+        }
+        retainedLoadTargets.keySet().removeAll(activeTargets.loadTargets());
+        for (ChunkCoord chunkCoord : activeTargets.renderTargets()) {
+            if (!previousRenderTargets.contains(chunkCoord)) {
+                dirtyChunks.add(chunkCoord);
+            }
+        }
+        activeCenterChunk = centerChunk;
+        activeTargetRuntimeConfig = runtimeConfig;
+        return true;
+    }
+
+    private boolean purgeExpiredRetainedLoadTargets(long now) {
+        boolean removedAny = false;
+        for (Map.Entry<ChunkCoord, Long> retainedEntry : Set.copyOf(retainedLoadTargets.entrySet())) {
             if (retainedEntry.getValue() <= now) {
                 retainedLoadTargets.remove(retainedEntry.getKey());
-                continue;
+                removedAny = true;
             }
-            effectiveTargets.add(retainedEntry.getKey());
         }
-        return effectiveTargets;
+        return removedAny;
     }
 
     private void markChunkAndNeighborsDirty(ChunkCoord chunkCoord) {
