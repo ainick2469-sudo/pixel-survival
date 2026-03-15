@@ -1,10 +1,11 @@
 plugins {
     application
     java
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "io.github.ainick2469"
-version = "0.001"
+version = "0.002"
 
 repositories {
     mavenCentral()
@@ -42,6 +43,20 @@ tasks.test {
 tasks.processResources {
     from("data") {
         into("data")
+    }
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = application.mainClass.get()
+    }
+}
+
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    archiveClassifier.set("desktop")
+    mergeServiceFiles()
+    manifest {
+        attributes["Main-Class"] = application.mainClass.get()
     }
 }
 

@@ -78,6 +78,56 @@
 - Risks/Technical Debt:
   - The launcher currently depends on the current sibling folder layout between the repo and `pixel-survival-tools`.
 
+## 2026-03-15 01:05:00 MDT
+
+- Date/Time: 2026-03-15 01:05:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.002`
+- Milestone: Fix desktop launch UX and replace the flat world with deterministic height differences.
+- Completed Work:
+  - Added a hidden desktop launcher flow that builds a fat desktop jar and starts the game with `javaw.exe` instead of leaving a foreground command prompt.
+  - Updated the desktop shim to hand off to the hidden launcher script immediately.
+  - Removed the default jME `Esc` exit behavior and replaced it with mouse-capture toggle behavior.
+  - Added an intentional `F10` quit action and updated the HUD controls text.
+  - Implemented `HeightmapWorldGenerator`, switched the local host session to it, and expanded startup loading to a 3x3 chunk area.
+  - Added surface lookup support for camera placement and validation tests for deterministic terrain variation.
+- Files Changed:
+  - `build.gradle.kts`
+  - `README.md`
+  - `LAUNCHER.md`
+  - `DEVLOG.md`
+  - `src/main/java/.../app/*`
+  - `src/main/java/.../session/LocalHostSession.java`
+  - `src/main/java/.../world/gen/HeightmapWorldGenerator.java`
+  - `src/main/java/.../world/sim/AuthoritativeWorldService.java`
+  - `src/test/java/.../world/gen/HeightmapWorldGeneratorTest.java`
+  - local desktop file `C:\Users\nickb\OneDrive\Desktop\Pixel Survival.cmd`
+- Systems Touched:
+  - desktop launch workflow
+  - application input and HUD behavior
+  - world generation
+  - camera placement
+  - automated validation
+- Tests Run:
+  - `./gradlew test`
+  - `./gradlew shadowJar`
+  - launcher smoke tests
+  - `./gradlew run` to verify the `Esc` and `F10` behavior on the updated build
+- Current Playable State:
+  - The game opens into a multi-chunk dirt landscape with visible height differences.
+  - `Esc` toggles mouse capture instead of closing the game.
+  - `F10` exits intentionally.
+  - The desktop launcher no longer keeps a command prompt in front of the game window.
+- Known Issues:
+  - Terrain still uses only dirt because stone and grass are reserved for `0.003` and `0.004`.
+  - Chunk rendering still emits per-block geometry and treats chunk borders as exposed.
+- Next Tasks:
+  - Implement `0.003` stone depth layering under the heightmap surface.
+  - Keep the current generator contracts intact while introducing material bands.
+- Risks/Technical Debt:
+  - The desktop launcher currently rebuilds the desktop jar on launch, which is reliable but not yet optimized for zero-wait startup.
+  - The hidden launcher depends on the current sibling folder layout between the repo and `pixel-survival-tools`.
+
 ## Entry Template
 
 - Date/Time:

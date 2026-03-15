@@ -17,6 +17,7 @@ public final class PixelSurvivalLauncher {
         PixelSurvivalApplication application = new PixelSurvivalApplication();
         application.setShowSettings(false);
         application.setSettings(settings);
+        application.setPauseOnLostFocus(false);
         application.start();
     }
 }

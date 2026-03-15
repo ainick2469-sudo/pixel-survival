@@ -4,9 +4,9 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 ## Current milestone
 
-- Version target: `0.001`
-- Milestone: spawn visible blocks in a runnable 3D world
-- Status: repository foundation, docs, registry scaffolding, settings presets, and initial block-world bootstrap
+- Version target: `0.002`
+- Milestone: deterministic height differences on top of the production foundation
+- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, and a runnable multi-chunk heightmap world
 
 ## Technology stack
 
@@ -27,14 +27,15 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 gradlew.bat run
 ```
 
-For this machine, there is also a desktop double-click launcher that calls the versioned repo script at `scripts\run_local.cmd`.
+For this machine, there is also a desktop double-click launcher that uses a hidden launcher flow so the game window can take focus without a foreground command prompt.
 
 ## Controls
 
 - `WASD`: move the debug fly camera
 - `Mouse`: look around
 - `Shift`: move faster
-- `Esc`: exit
+- `Esc`: toggle mouse capture
+- `F10`: quit the game intentionally
 
 ## Project principles
 
