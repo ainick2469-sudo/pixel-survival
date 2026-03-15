@@ -10,14 +10,19 @@ public final class HeightmapWorldGenerator implements WorldGenerator {
     private static final int BASE_HEIGHT = 22;
     private static final int MIN_SURFACE_HEIGHT = 14;
     private static final int MAX_SURFACE_HEIGHT = 40;
+    private static final int DIRT_LAYER_DEPTH = 3;
 
     private static final BlockId AIR = BlockId.of("pixel_survival:air");
     private static final BlockId DIRT = BlockId.of("pixel_survival:dirt");
+    private static final BlockId STONE = BlockId.of("pixel_survival:stone");
+    private static final BlockId GRASS_BLOCK = BlockId.of("pixel_survival:grass_block");
 
     @Override
     public ChunkData generateChunk(ChunkCoord chunkCoord, GameRegistries registries) {
         registries.requireBlockDefinition(AIR);
         registries.requireBlockDefinition(DIRT);
+        registries.requireBlockDefinition(STONE);
+        registries.requireBlockDefinition(GRASS_BLOCK);
 
         ChunkData chunkData = new ChunkData(chunkCoord, AIR);
         for (int localX = 0; localX < ChunkData.SIZE_X; localX++) {
@@ -25,9 +30,16 @@ public final class HeightmapWorldGenerator implements WorldGenerator {
                 int worldX = chunkData.toWorldX(localX);
                 int worldZ = chunkData.toWorldZ(localZ);
                 int surfaceHeight = sampleSurfaceHeight(worldX, worldZ);
-                for (int y = 0; y <= surfaceHeight; y++) {
+                int stoneTopY = Math.max(0, surfaceHeight - DIRT_LAYER_DEPTH - 1);
+                int dirtStartY = stoneTopY + 1;
+
+                for (int y = 0; y <= stoneTopY; y++) {
+                    chunkData.setBlock(localX, y, localZ, STONE);
+                }
+                for (int y = dirtStartY; y < surfaceHeight; y++) {
                     chunkData.setBlock(localX, y, localZ, DIRT);
                 }
+                chunkData.setBlock(localX, surfaceHeight, localZ, GRASS_BLOCK);
             }
         }
         return chunkData;

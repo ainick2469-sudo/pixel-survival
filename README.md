@@ -4,9 +4,9 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 ## Current milestone
 
-- Version target: `0.002`
-- Milestone: deterministic height differences on top of the production foundation
-- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, and a runnable multi-chunk heightmap world
+- Version target: `0.005`
+- Milestone: layered grass, dirt, and stone terrain on top of the deterministic heightmap foundation
+- Status: repository foundation, docs, registry scaffolding, settings presets, desktop launcher workflow, and a runnable multi-chunk layered terrain world
 
 ## Technology stack
 

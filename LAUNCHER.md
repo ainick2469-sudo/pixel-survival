@@ -27,6 +27,6 @@ with:
 - Temurin JDK 21 in `jdk-21.0.10+7`
 - the repo at `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival`
 
-The hidden launcher builds a desktop fat jar with Gradle and then starts it with `javaw.exe`.
+The hidden launcher builds a stable desktop fat jar at `build\libs\pixel-survival-desktop.jar` and then starts it with `javaw.exe`.
 
 If those local paths change later, update `scripts\run_local.cmd` and `scripts\launch_desktop.vbs`.

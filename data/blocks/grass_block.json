@@ -1,0 +1,9 @@
+{
+  "id": "pixel_survival:grass_block",
+  "displayName": "Grass Block",
+  "materialFamily": "soil",
+  "solid": true,
+  "opaque": true,
+  "debugColor": "#5D9C45",
+  "tags": ["terrain", "surface_layer"]
+}

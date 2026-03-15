@@ -17,8 +17,10 @@ class BlockRegistryLoaderTest {
 
         Map<BlockId, BlockDefinition> blocks = loader.loadDirectory(Path.of("data", "blocks"));
 
-        assertEquals(2, blocks.size());
+        assertEquals(4, blocks.size());
         assertTrue(blocks.containsKey(BlockId.of("pixel_survival:air")));
         assertEquals("Dirt", blocks.get(BlockId.of("pixel_survival:dirt")).displayName());
+        assertEquals("Stone", blocks.get(BlockId.of("pixel_survival:stone")).displayName());
+        assertEquals("Grass Block", blocks.get(BlockId.of("pixel_survival:grass_block")).displayName());
     }
 }

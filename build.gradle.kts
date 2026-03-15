@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.ainick2469"
-version = "0.002"
+version = "0.005"
 
 repositories {
     mavenCentral()
@@ -53,6 +53,7 @@ tasks.jar {
 }
 
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    archiveFileName.set("pixel-survival-desktop.jar")
     archiveClassifier.set("desktop")
     mergeServiceFiles()
     manifest {

@@ -154,6 +154,51 @@
 - Risks/Technical Debt:
   - The desktop launcher still depends on the current local folder layout and Windows Script Host availability.
 
+## 2026-03-15 01:16:48 MDT
+
+- Date/Time: 2026-03-15 01:16:48 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.005`
+- Milestone: Layer the terrain with grass blocks on top, dirt beneath, and stone below that.
+- Completed Work:
+  - Added `stone` and `grass_block` block definitions to the block registry.
+  - Updated the heightmap generator to produce grass on the surface, a dirt band directly below it, and stone deeper underground.
+  - Bumped the game/build version to `0.005`.
+  - Made the desktop launcher target a stable fat-jar filename so future milestone version bumps do not break launcher paths.
+  - Updated terrain and block registry tests to validate the new layered output.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `LAUNCHER.md`
+  - `build.gradle.kts`
+  - `scripts/launch_desktop.vbs`
+  - `data/blocks/stone.json`
+  - `data/blocks/grass_block.json`
+  - `src/main/java/.../app/GameVersion.java`
+  - `src/main/java/.../world/gen/HeightmapWorldGenerator.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../world/gen/HeightmapWorldGeneratorTest.java`
+- Systems Touched:
+  - terrain generation
+  - block registry content
+  - desktop launcher artifact naming
+  - automated validation
+- Tests Run:
+  - `./gradlew test`
+  - `./gradlew shadowJar`
+  - `java -jar build/libs/pixel-survival-desktop.jar` smoke launch
+- Current Playable State:
+  - The world now spawns as layered terrain with green grass blocks on top, dirt just below the surface, and stone deeper underground across the loaded chunk area.
+- Known Issues:
+  - The grass block currently uses a single debug color on all exposed faces because the renderer is still debug-geometry based rather than texture-driven.
+  - Old versioned desktop jars may still exist in `build/libs` until the build directory is cleaned.
+- Next Tasks:
+  - Add dedicated stone exposure checks at cliff faces if needed.
+  - Move to vegetation or surface detail only after the block layering is stable.
+- Risks/Technical Debt:
+  - The debug renderer still draws one geometry per exposed block and does not yet optimize chunk mesh generation.
+  - Layer depths are currently hardcoded constants inside the generator rather than externalized terrain config.
+
 ## Entry Template
 
 - Date/Time:

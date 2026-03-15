@@ -31,14 +31,18 @@ class HeightmapWorldGeneratorTest {
     }
 
     @Test
-    void generatesDirtToTheSurfaceAndAirAbove() {
+    void generatesLayeredStoneDirtAndGrassTerrain() {
         GameRegistries registries = GameRegistries.load(Path.of("data"));
         HeightmapWorldGenerator generator = new HeightmapWorldGenerator();
 
         ChunkData chunkData = generator.generateChunk(new ChunkCoord(0, 0), registries);
         int sampledHeight = generator.sampleSurfaceHeight(5, 9);
 
-        assertEquals(BlockId.of("pixel_survival:dirt"), chunkData.getBlock(5, sampledHeight, 9));
+        assertEquals(BlockId.of("pixel_survival:grass_block"), chunkData.getBlock(5, sampledHeight, 9));
+        assertEquals(BlockId.of("pixel_survival:dirt"), chunkData.getBlock(5, sampledHeight - 1, 9));
+        assertEquals(BlockId.of("pixel_survival:dirt"), chunkData.getBlock(5, sampledHeight - 2, 9));
+        assertEquals(BlockId.of("pixel_survival:dirt"), chunkData.getBlock(5, sampledHeight - 3, 9));
+        assertEquals(BlockId.of("pixel_survival:stone"), chunkData.getBlock(5, sampledHeight - 4, 9));
         assertEquals(BlockId.of("pixel_survival:air"), chunkData.getBlock(5, sampledHeight + 1, 9));
         assertTrue(sampledHeight >= 14);
         assertTrue(sampledHeight <= 40);

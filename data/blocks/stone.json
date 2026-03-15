@@ -1,0 +1,9 @@
+{
+  "id": "pixel_survival:stone",
+  "displayName": "Stone",
+  "materialFamily": "stone",
+  "solid": true,
+  "opaque": true,
+  "debugColor": "#7A7D86",
+  "tags": ["terrain", "deep_layer"]
+}

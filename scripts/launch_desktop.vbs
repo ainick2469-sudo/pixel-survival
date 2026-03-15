@@ -16,7 +16,7 @@ javawPath = javaHome & "\bin\javaw.exe"
 gradlePath = repoDir & "\gradlew.bat"
 buildDir = repoDir & "\build\launcher"
 logPath = buildDir & "\desktop-launch.log"
-jarPath = repoDir & "\build\libs\pixel-survival-0.002-desktop.jar"
+jarPath = repoDir & "\build\libs\pixel-survival-desktop.jar"
 buildOnly = False
 
 If WScript.Arguments.Count > 0 Then
