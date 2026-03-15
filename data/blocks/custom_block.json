@@ -1,0 +1,15 @@
+{
+  "id" : "pixel_survival:custom_block",
+  "displayName" : "Custom Block",
+  "materialFamily" : "decorative",
+  "solid" : true,
+  "opaque" : true,
+  "debugColor" : "#615B2E",
+  "visuals" : {
+    "textureMode" : "cube_net",
+    "cubeNetTexture" : "Textures/BlockCubeNets/custom_block_cube_net.png",
+    "cubeNetLayout" : "back_top_left_front_right_bottom",
+    "tintKey" : null
+  },
+  "tags" : [ "custom_block", "imported", "tile_128" ]
+}

@@ -1,5 +1,51 @@
 # Devlog
 
+## 2026-03-15 13:10:27 MDT
+
+- Date/Time: 2026-03-15 13:10:27 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add a reusable `.voxelblock` import path so externally authored custom blocks can enter the runtime registry and rendering pipeline without renderer rewrites.
+- Completed Work:
+  - Added a `VoxelBlockImporter` tool that reads `survivalcraft2.voxel-block-asset` JSON, validates the expected `cross-3x4` authoring layout, decodes per-face `imageDataUrl` payloads, applies stored face transforms, and bakes a runtime cube-net PNG plus a normal block registry JSON.
+  - Added a Gradle `importVoxelBlock` task so the import path can be run directly from the repo instead of only through ad hoc scripts, with a Windows-friendly `-Pvoxel...` property path in addition to raw `--args`.
+  - Added importer regression coverage for both a successful import and a clean failure on unsupported authoring layouts.
+  - Imported the sample `custom-block.voxelblock` file into the repo as `pixel_survival:custom_block`, generating a runtime cube-net asset and registry definition without introducing any special-case runtime rendering path.
+  - Updated registry/docs so imported blocks are treated as normal block content and still flow through hidden-face culling, greedy meshing, far-chunk surface LOD, chunk streaming, and palette-compressed chunk storage.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `build.gradle.kts`
+  - `docs/CONTENT_REGISTRY.md`
+  - `data/blocks/custom_block.json`
+  - `src/main/java/.../tools/VoxelBlockImporter.java`
+  - `src/main/resources/Textures/BlockCubeNets/custom_block_cube_net.png`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../tools/VoxelBlockImporterTest.java`
+- Systems Touched:
+  - custom block authoring/import pipeline
+  - block registry content expansion
+  - cube-net asset generation
+  - importer validation
+  - content pipeline documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\custom-block.voxelblock -PvoxelBlockId=pixel_survival:custom_block -PvoxelMaterialFamily=decorative`
+- Current Playable State:
+  - The playable world is unchanged, but the repo can now ingest externally authored block assets and turn them into normal runtime-ready block definitions and cube-net textures.
+  - Imported blocks do not bypass optimization systems; once spawned later, they will use the same chunk meshing and streaming path as other blocks.
+- Known Issues:
+  - The importer currently targets the `.voxelblock` `cross-3x4` authoring layout only and intentionally rejects other layouts until they are explicitly supported.
+  - Imported blocks are registry content only for now; `pixel_survival:custom_block` does not spawn in worldgen yet.
+- Next Tasks:
+  - Add terrain/material batching so large horizons pay fewer terrain draw calls.
+  - Tighten chunk pipeline prioritization and back-pressure after the current batching step lands.
+  - If the block-maker app format stabilizes, expand importer support for more metadata such as tint hints or authoring tags.
+- Risks/Technical Debt:
+  - The importer currently bakes runtime PNGs directly into the repo, which is correct for now, but a future content pipeline may want an intermediate generated-assets manifest if block volume grows heavily.
+  - Additional `.voxelblock` layout support should stay explicit; silent layout guessing would create wrong face mapping and artist confusion.
+
 ## 2026-03-15 12:05:00 MDT
 
 - Date/Time: 2026-03-15 12:05:00 MDT

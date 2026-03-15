@@ -74,3 +74,33 @@ distributions {
 tasks.named<JavaExec>("run") {
     workingDir = projectDir
 }
+
+tasks.register<JavaExec>("importVoxelBlock") {
+    group = "tools"
+    description = "Imports a .voxelblock authoring asset into runtime cube-net textures and a block registry definition."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.github.ainick2469.pixelsurvival.tools.VoxelBlockImporter")
+    workingDir = projectDir
+    doFirst {
+        if (!(args ?: emptyList<String>()).isEmpty()) {
+            return@doFirst
+        }
+
+        val inputPath = project.findProperty("voxelInput")?.toString()
+            ?: throw org.gradle.api.GradleException(
+                "Missing voxel import input. Use -PvoxelInput=<path> or pass explicit --args to importVoxelBlock.")
+
+        args("--input", inputPath)
+
+        val repoRoot = project.findProperty("voxelRepoRoot")?.toString() ?: projectDir.absolutePath
+        args("--repo-root", repoRoot)
+
+        project.findProperty("voxelBlockId")?.toString()?.let { args("--block-id", it) }
+        project.findProperty("voxelDisplayName")?.toString()?.let { args("--display-name", it) }
+        project.findProperty("voxelMaterialFamily")?.toString()?.let { args("--material-family", it) }
+        project.findProperty("voxelTintKey")?.toString()?.let { args("--tint-key", it) }
+        project.findProperty("voxelSolid")?.toString()?.let { args("--solid", it) }
+        project.findProperty("voxelOpaque")?.toString()?.let { args("--opaque", it) }
+        project.findProperty("voxelTags")?.toString()?.let { args("--tags", it) }
+    }
+}

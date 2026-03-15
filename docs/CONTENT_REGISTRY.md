@@ -40,6 +40,7 @@ Current shipped terrain blocks:
 - `pixel_survival:stone`
 - `pixel_survival:sand`
 - `pixel_survival:cloud_solid` (reserved for future walkable-cloud worldgen, not spawned yet)
+- `pixel_survival:custom_block` (sample imported `.voxelblock` asset, not spawned by worldgen)
 
 ## Active block definition shape
 
@@ -192,6 +193,66 @@ Current reference block:
 - replacing that file with a higher-quality authored stone cube net should not require any rendering-code change
 - `pixel_survival:dirt` now points at `Textures/BlockCubeNets/dirt_cube_net.png`
 - `pixel_survival:grass_block` now points at `Textures/BlockCubeNets/grass_block_cube_net.png`
+
+## `.voxelblock` authoring import
+
+The repo now supports importing `.voxelblock` assets produced by the external block-maker app into normal runtime block content.
+
+Supported current authoring file shape:
+
+- `type: "survivalcraft2.voxel-block-asset"`
+- `version: 1`
+- `tileSize`
+- `layout` (`cross-3x4` currently required by the importer)
+- `faces.back`
+- `faces.top`
+- `faces.left`
+- `faces.front`
+- `faces.right`
+- `faces.bottom`
+
+Each face entry may declare:
+
+- `sourceName`
+- `rotation`
+- `zoom`
+- `offsetX`
+- `offsetY`
+- `fitMode`
+- `imageDataUrl`
+
+Current importer behavior:
+
+- reads the `.voxelblock` JSON
+- validates the asset type, version, and expected `cross-3x4` authoring layout
+- decodes each face image from `imageDataUrl`
+- applies the stored transform fields per face
+- bakes a runtime cube-net PNG in the standard `back_top_left_front_right_bottom` layout
+- writes a normal block definition JSON in `data/blocks`
+
+Current import command:
+
+```bat
+gradlew.bat importVoxelBlock -PvoxelInput=C:\path\to\block.voxelblock -PvoxelBlockId=pixel_survival:my_block -PvoxelDisplayName="My Block" -PvoxelMaterialFamily=decorative
+```
+
+Direct `--args` are still supported for the importer task, but the `-Pvoxel...` property path is the recommended Windows workflow because it avoids fragile shell quoting.
+
+The important architecture rule is that `.voxelblock` is an authoring/import format, not a special runtime rendering format. After import, the block still uses the same optimized game path as every other block:
+
+- registry loading
+- face-texture resolution
+- hidden-face culling
+- greedy chunk meshing
+- far-chunk surface LOD
+- chunk streaming and unload rules
+
+Current imported sample:
+
+- source: local `custom-block.voxelblock` authoring file imported during this session
+- runtime block id: `pixel_survival:custom_block`
+- generated block definition: `data/blocks/custom_block.json`
+- generated cube net: `src/main/resources/Textures/BlockCubeNets/custom_block_cube_net.png`
 
 ## Asset conventions
 

@@ -6,7 +6,7 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 
 - Version target: `0.008`
 - Milestone: fullscreen-first launch, stable buffered horizon streaming with a 48-chunk default, 96-chunk experimental horizon cap, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, and a Minecraft-style pause/options flow
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -29,6 +29,41 @@ gradlew.bat run
 
 For this machine, there is also a desktop double-click launcher that uses a hidden launcher flow so the game window can take focus without a foreground command prompt.
 The game now boots fullscreen by default and the launcher retries focus activation so the window is brought to the front more reliably on startup.
+
+## Block import pipeline
+
+Custom blocks can now be authored outside the game as `.voxelblock` assets and imported into the repo as normal optimized runtime content.
+
+Current import command:
+
+```bat
+gradlew.bat importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\custom-block.voxelblock -PvoxelBlockId=pixel_survival:custom_block -PvoxelDisplayName="Custom Block" -PvoxelMaterialFamily=decorative
+```
+
+What the importer does:
+
+- decodes the per-face images from the `.voxelblock` file
+- validates the expected `survivalcraft2.voxel-block-asset` / `version 1` / `cross-3x4` authoring format
+- applies face transforms such as rotation, zoom, and offsets
+- bakes a runtime cube-net PNG into `src/main/resources/Textures/BlockCubeNets/`
+- writes a normal block registry JSON into `data/blocks/`
+
+The Gradle task also still accepts explicit `--args` if you want direct CLI control, but the `-Pvoxel...` properties are the recommended Windows-friendly path.
+
+That means the runtime still uses the same optimized path after import:
+
+- hidden-face culling
+- greedy chunk meshing
+- far-chunk surface LOD
+- chunk streaming
+- palette-compressed chunk storage
+
+The authoring format can evolve, but the shipped runtime block path stays stable.
+
+The repo now also includes a sample imported block generated from a local `custom-block.voxelblock` authoring file during this session:
+
+- block definition: `data/blocks/custom_block.json`
+- cube-net asset: `src/main/resources/Textures/BlockCubeNets/custom_block_cube_net.png`
 
 ## Controls
 

@@ -20,13 +20,14 @@ class BlockRegistryLoaderTest {
 
         Map<BlockId, BlockDefinition> blocks = loader.loadDirectory(Path.of("data", "blocks"));
 
-        assertEquals(6, blocks.size());
+        assertEquals(7, blocks.size());
         assertTrue(blocks.containsKey(BlockId.of("pixel_survival:air")));
         assertEquals("Dirt", blocks.get(BlockId.of("pixel_survival:dirt")).displayName());
         assertEquals("Stone", blocks.get(BlockId.of("pixel_survival:stone")).displayName());
         assertEquals("Grass Block", blocks.get(BlockId.of("pixel_survival:grass_block")).displayName());
         assertEquals("Sand", blocks.get(BlockId.of("pixel_survival:sand")).displayName());
         assertEquals("Solid Cloud", blocks.get(BlockId.of("pixel_survival:cloud_solid")).displayName());
+        assertEquals("Custom Block", blocks.get(BlockId.of("pixel_survival:custom_block")).displayName());
         assertEquals(
                 BlockTextureMode.CUBE_NET,
                 blocks.get(BlockId.of("pixel_survival:dirt")).visuals().textureMode());
@@ -57,6 +58,12 @@ class BlockRegistryLoaderTest {
         assertEquals(
                 "Textures/Terrain/cloud_solid.png",
                 blocks.get(BlockId.of("pixel_survival:cloud_solid")).visuals().topTexture());
+        assertEquals(
+                "Textures/BlockCubeNets/custom_block_cube_net.png",
+                blocks.get(BlockId.of("pixel_survival:custom_block")).visuals().cubeNetTexture());
+        assertEquals(
+                CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM,
+                blocks.get(BlockId.of("pixel_survival:custom_block")).visuals().cubeNetLayout());
         assertNotNull(blocks.get(BlockId.of("pixel_survival:air")).visuals());
     }
 }
