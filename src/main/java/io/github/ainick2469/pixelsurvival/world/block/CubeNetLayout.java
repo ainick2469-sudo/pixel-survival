@@ -5,7 +5,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Locale;
 
 public enum CubeNetLayout {
-    BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM("back_top_left_front_right_bottom");
+    BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM("back_top_left_front_right_bottom"),
+    CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM("center_top_surrounding_sides_outer_bottom");
 
     private final String id;
 
@@ -45,20 +46,35 @@ public enum CubeNetLayout {
     }
 
     public int tileX(BlockTextureFace face) {
-        return switch (face) {
-            case BACK, TOP, BOTTOM -> 1;
-            case LEFT -> 0;
-            case FRONT -> 1;
-            case RIGHT -> 2;
+        return switch (this) {
+            case BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM -> switch (face) {
+                case BACK, TOP, BOTTOM -> 1;
+                case LEFT -> 0;
+                case FRONT -> 1;
+                case RIGHT -> 2;
+            };
+            case CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM -> switch (face) {
+                case BACK, TOP, BOTTOM, FRONT -> 1;
+                case LEFT -> 0;
+                case RIGHT -> 2;
+            };
         };
     }
 
     public int tileY(BlockTextureFace face) {
-        return switch (face) {
-            case BACK -> 0;
-            case TOP -> 1;
-            case LEFT, FRONT, RIGHT -> 2;
-            case BOTTOM -> 3;
+        return switch (this) {
+            case BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM -> switch (face) {
+                case BACK -> 0;
+                case TOP -> 1;
+                case LEFT, FRONT, RIGHT -> 2;
+                case BOTTOM -> 3;
+            };
+            case CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM -> switch (face) {
+                case BOTTOM -> 0;
+                case BACK -> 1;
+                case LEFT, TOP, RIGHT -> 2;
+                case FRONT -> 3;
+            };
         };
     }
 }

@@ -23,4 +23,23 @@ class CubeNetLayoutTest {
         assertEquals(3, layout.tileY(BlockTextureFace.BOTTOM));
         assertEquals(128, layout.faceSize(384, 512));
     }
+
+    @Test
+    void mapsCenterTopLayoutToTheExpectedTiles() {
+        CubeNetLayout layout = CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM;
+
+        assertEquals(1, layout.tileX(BlockTextureFace.BOTTOM));
+        assertEquals(0, layout.tileY(BlockTextureFace.BOTTOM));
+        assertEquals(1, layout.tileX(BlockTextureFace.BACK));
+        assertEquals(1, layout.tileY(BlockTextureFace.BACK));
+        assertEquals(0, layout.tileX(BlockTextureFace.LEFT));
+        assertEquals(2, layout.tileY(BlockTextureFace.LEFT));
+        assertEquals(1, layout.tileX(BlockTextureFace.TOP));
+        assertEquals(2, layout.tileY(BlockTextureFace.TOP));
+        assertEquals(2, layout.tileX(BlockTextureFace.RIGHT));
+        assertEquals(2, layout.tileY(BlockTextureFace.RIGHT));
+        assertEquals(1, layout.tileX(BlockTextureFace.FRONT));
+        assertEquals(3, layout.tileY(BlockTextureFace.FRONT));
+        assertEquals(128, layout.faceSize(384, 512));
+    }
 }

@@ -8,7 +8,7 @@
   "visuals": {
     "textureMode": "cube_net",
     "cubeNetTexture": "Textures/BlockCubeNets/dirt_cube_net.png",
-    "cubeNetLayout": "back_top_left_front_right_bottom",
+    "cubeNetLayout": "center_top_surrounding_sides_outer_bottom",
     "tintKey": null
   },
   "tags": ["terrain", "surface_seed"]

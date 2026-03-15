@@ -33,12 +33,19 @@ public final class GenerateTerrainTextures {
         writeTexture(terrainOutputDirectory.resolve("sand.png"), sandTexture());
         writeTexture(terrainOutputDirectory.resolve("cloud_solid.png"), cloudSolidTexture());
         writeTexture(terrainOutputDirectory.resolve("missing_block.png"), missingTexture());
-        writeTexture(cubeNetOutputDirectory.resolve("dirt_cube_net.png"), cubeNetTexture(
+        writeTexture(cubeNetOutputDirectory.resolve("dirt_cube_net.png"), cubeNetTextureCenterTopSurroundingSidesOuterBottom(
                 dirtTexture,
                 dirtTexture,
                 dirtTexture,
                 dirtTexture,
                 dirtTexture,
+                dirtTexture));
+        writeTexture(cubeNetOutputDirectory.resolve("grass_block_cube_net.png"), cubeNetTextureCenterTopSurroundingSidesOuterBottom(
+                grassTopTexture(),
+                grassSideTexture(),
+                grassSideTexture(),
+                grassSideTexture(),
+                grassSideTexture(),
                 dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("stone_cube_net.png"), cubeNetTexture(
                 stoneTexture,
@@ -228,6 +235,25 @@ public final class GenerateTerrainTextures {
         graphics.drawImage(front, SIZE, SIZE * 2, null);
         graphics.drawImage(right, SIZE * 2, SIZE * 2, null);
         graphics.drawImage(bottom, SIZE, SIZE * 3, null);
+        graphics.dispose();
+        return image;
+    }
+
+    private static BufferedImage cubeNetTextureCenterTopSurroundingSidesOuterBottom(
+            BufferedImage top,
+            BufferedImage back,
+            BufferedImage left,
+            BufferedImage right,
+            BufferedImage front,
+            BufferedImage bottom) {
+        BufferedImage image = new BufferedImage(SIZE * 3, SIZE * 4, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = graphics(image);
+        graphics.drawImage(bottom, SIZE, 0, null);
+        graphics.drawImage(back, SIZE, SIZE, null);
+        graphics.drawImage(left, 0, SIZE * 2, null);
+        graphics.drawImage(top, SIZE, SIZE * 2, null);
+        graphics.drawImage(right, SIZE * 2, SIZE * 2, null);
+        graphics.drawImage(front, SIZE, SIZE * 3, null);
         graphics.dispose();
         return image;
     }

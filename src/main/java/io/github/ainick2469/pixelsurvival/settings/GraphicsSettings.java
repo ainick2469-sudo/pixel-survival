@@ -4,8 +4,8 @@ import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRuntimeConfig;
 
 public record GraphicsSettings(int renderDistanceChunks) {
     public static final int MIN_RENDER_DISTANCE_CHUNKS = 2;
-    public static final int DEFAULT_RENDER_DISTANCE_CHUNKS = 12;
-    public static final int MAX_RENDER_DISTANCE_CHUNKS = 48;
+    public static final int DEFAULT_RENDER_DISTANCE_CHUNKS = 48;
+    public static final int MAX_RENDER_DISTANCE_CHUNKS = 96;
 
     public GraphicsSettings {
         if (renderDistanceChunks < MIN_RENDER_DISTANCE_CHUNKS

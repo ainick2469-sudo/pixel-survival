@@ -3,6 +3,7 @@ package io.github.ainick2469.pixelsurvival.registry;
 import io.github.ainick2469.pixelsurvival.world.block.BlockDefinition;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
 import io.github.ainick2469.pixelsurvival.world.block.BlockTextureMode;
+import io.github.ainick2469.pixelsurvival.world.block.CubeNetLayout;
 import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -33,17 +34,23 @@ class BlockRegistryLoaderTest {
                 "Textures/BlockCubeNets/dirt_cube_net.png",
                 blocks.get(BlockId.of("pixel_survival:dirt")).visuals().cubeNetTexture());
         assertEquals(
+                CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                blocks.get(BlockId.of("pixel_survival:dirt")).visuals().cubeNetLayout());
+        assertEquals(
                 BlockTextureMode.CUBE_NET,
                 blocks.get(BlockId.of("pixel_survival:stone")).visuals().textureMode());
         assertEquals(
                 "Textures/BlockCubeNets/stone_cube_net.png",
                 blocks.get(BlockId.of("pixel_survival:stone")).visuals().cubeNetTexture());
         assertEquals(
-                "Textures/Terrain/grass_top.png",
-                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().topTexture());
+                BlockTextureMode.CUBE_NET,
+                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().textureMode());
         assertEquals(
-                "Textures/Terrain/grass_side.png",
-                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().sideTexture());
+                "Textures/BlockCubeNets/grass_block_cube_net.png",
+                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().cubeNetTexture());
+        assertEquals(
+                CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().cubeNetLayout());
         assertEquals(
                 "Textures/Terrain/sand.png",
                 blocks.get(BlockId.of("pixel_survival:sand")).visuals().topTexture());

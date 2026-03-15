@@ -25,7 +25,7 @@ public record ChunkRuntimeConfig(
     }
 
     public static ChunkRuntimeConfig productionDefaults() {
-        return new ChunkRuntimeConfig(15, 12, 3);
+        return new ChunkRuntimeConfig(51, 48, 4);
     }
 
     public ChunkRuntimeConfig startupPrimeConfig() {

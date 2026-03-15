@@ -156,10 +156,37 @@ World-face mapping:
 
 The engine does not guess face placement. If artists follow this layout, the block will map correctly with no renderer rewrite.
 
+An additional artist-friendly layout is also supported for the newer terrain cube nets:
+
+```text
+    [bottom]
+    [back]
+[left][top][right]
+    [front]
+```
+
+Use `center_top_surrounding_sides_outer_bottom` for that layout.
+
+This maps as:
+
+- center tile: `top`
+- tile directly above center: `back`
+- tile directly left of center: `left`
+- tile directly right of center: `right`
+- tile directly below center: `front`
+- extra outer tile above `back`: `bottom`
+
+This is the layout currently used by:
+
+- `pixel_survival:dirt`
+- `pixel_survival:grass_block`
+
 Current reference block:
 
 - `pixel_survival:stone` now points at `Textures/BlockCubeNets/stone_cube_net.png`
 - replacing that file with a higher-quality authored stone cube net should not require any rendering-code change
+- `pixel_survival:dirt` now points at `Textures/BlockCubeNets/dirt_cube_net.png`
+- `pixel_survival:grass_block` now points at `Textures/BlockCubeNets/grass_block_cube_net.png`
 
 ## Asset conventions
 

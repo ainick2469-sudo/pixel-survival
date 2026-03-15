@@ -3,6 +3,8 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.block.BlockFaceTextureReference;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
+import io.github.ainick2469.pixelsurvival.world.block.BlockTextureFace;
+import io.github.ainick2469.pixelsurvival.world.block.CubeNetLayout;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.gen.WorldGenerator;
@@ -37,16 +39,13 @@ class ChunkMeshBuilderTest {
 
         assertEquals(1, result.visibleBlockCount());
         assertEquals(6, result.faceCount());
-        assertEquals(3, result.sections().size());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/grass_top.png"), "grass"))
-                .faceCount());
-        assertEquals(4, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/grass_side.png"), "grass"))
-                .faceCount());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/dirt.png"), "grass"))
-                .faceCount());
+        assertEquals(6, result.sections().size());
+        assertEquals(1, faceCount(result, BlockTextureFace.TOP));
+        assertEquals(1, faceCount(result, BlockTextureFace.BOTTOM));
+        assertEquals(1, faceCount(result, BlockTextureFace.BACK));
+        assertEquals(1, faceCount(result, BlockTextureFace.LEFT));
+        assertEquals(1, faceCount(result, BlockTextureFace.RIGHT));
+        assertEquals(1, faceCount(result, BlockTextureFace.FRONT));
     }
 
     @Test
@@ -112,15 +111,22 @@ class ChunkMeshBuilderTest {
 
         assertEquals(4, result.visibleBlockCount());
         assertEquals(6, result.faceCount());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/grass_top.png"), "grass"))
-                .faceCount());
-        assertEquals(4, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/grass_side.png"), "grass"))
-                .faceCount());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
-                        BlockFaceTextureReference.direct("Textures/Terrain/dirt.png"), "grass"))
-                .faceCount());
+        assertEquals(1, faceCount(result, BlockTextureFace.TOP));
+        assertEquals(1, faceCount(result, BlockTextureFace.BOTTOM));
+        assertEquals(1, faceCount(result, BlockTextureFace.BACK));
+        assertEquals(1, faceCount(result, BlockTextureFace.LEFT));
+        assertEquals(1, faceCount(result, BlockTextureFace.RIGHT));
+        assertEquals(1, faceCount(result, BlockTextureFace.FRONT));
+    }
+
+    private static int faceCount(ChunkMeshBuildResult result, BlockTextureFace face) {
+        ChunkMeshSectionData section = result.sections().get(TerrainMaterialKey.textured(
+                BlockFaceTextureReference.cubeNet(
+                        "Textures/BlockCubeNets/grass_block_cube_net.png",
+                        CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                        face),
+                "grass"));
+        return section == null ? 0 : section.faceCount();
     }
 
     private static void loadNeighborAirChunks(Map<ChunkCoord, ChunkData> chunks) {

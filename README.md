@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered horizon streaming up to 48 chunks, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance up to 48 chunks, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, and a Minecraft-style pause/options flow
+- Milestone: fullscreen-first launch, stable buffered horizon streaming with a 48-chunk default, 96-chunk experimental horizon cap, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, and a Minecraft-style pause/options flow
 
 ## Technology stack
 
@@ -46,17 +46,18 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
 - Chunk meshes now greedily merge adjacent coplanar faces that share the same material, which cuts quad count sharply on large terrain surfaces.
 - Chunk storage is now palette-compressed instead of storing a raw `BlockId` reference per voxel, which lowers world-memory cost at high loaded-chunk counts.
-- Grass, dirt, stone, and sand now use 128x128 terrain textures with separate top/side/bottom support in the block registry.
+- Grass, dirt, stone, and sand now use 128x128 terrain textures with data-driven support for single-texture, top/side/bottom, explicit six-face, and cube-net block visuals.
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
-- The chunk runtime now supports adjustable render distance up to `48` chunks while rate-limiting background load and mesh work.
+- Dirt and grass now ship through the new center-top cube-net import path, while stone remains supported on the older explicit cross layout.
+- The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.
-- High-distance load buffering is now leaner, so `48` chunk render distance no longer silently implies the older oversized load radius.
+- High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` captures the current in-game frame directly from the render pipeline instead of relying on the desktop or launcher window timing.

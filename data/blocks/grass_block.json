@@ -6,9 +6,9 @@
   "opaque": true,
   "debugColor": "#5D9C45",
   "visuals": {
-    "topTexture": "Textures/Terrain/grass_top.png",
-    "sideTexture": "Textures/Terrain/grass_side.png",
-    "bottomTexture": "Textures/Terrain/dirt.png",
+    "textureMode": "cube_net",
+    "cubeNetTexture": "Textures/BlockCubeNets/grass_block_cube_net.png",
+    "cubeNetLayout": "center_top_surrounding_sides_outer_bottom",
     "tintKey": "grass"
   },
   "tags": ["terrain", "surface_layer"]

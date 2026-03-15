@@ -1,5 +1,53 @@
 # Devlog
 
+## 2026-03-15 11:02:00 MDT
+
+- Date/Time: 2026-03-15 11:02:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add the new center-top cube-net import layout, move grass onto it, and raise horizon settings to a 48-chunk default with a 96-chunk experimental cap.
+- Completed Work:
+  - Added a second supported cube-net layout where the center tile is the top face, the surrounding tiles are the sides, and the extra outer tile is the bottom face.
+  - Moved `dirt` and `grass_block` onto that new cube-net layout while keeping `stone` supported through the older cross layout for backwards compatibility.
+  - Added a generated `grass_block_cube_net.png` asset slot so grass now ships through the same data-driven six-face import pipeline as dirt and stone.
+  - Raised the default render distance to `48` chunks and the maximum configurable render distance to `96` chunks.
+  - Updated graphics-setting validation and cube-net layout tests to cover the new layout and horizon range.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `data/blocks/dirt.json`
+  - `data/blocks/grass_block.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeConfig.java`
+  - `src/main/java/.../settings/GraphicsSettings.java`
+  - `src/main/java/.../world/block/CubeNetLayout.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../settings/GraphicsSettingsTest.java`
+  - `src/test/java/.../world/block/CubeNetLayoutTest.java`
+- Systems Touched:
+  - cube-net texture import pipeline
+  - terrain block visual definitions
+  - graphics settings limits
+  - texture generation tooling
+  - registry validation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup on the updated cube-net/render-distance build
+- Current Playable State:
+  - The game now boots with a much longer default horizon and the options menu can be pushed to `96` chunks for extreme-distance testing.
+  - Dirt and grass are both routed through the new center-top cube-net path, so future terrain block uploads can follow the same format without renderer edits.
+- Known Issues:
+  - `96` chunks is intentionally experimental and will still need more optimization work to become comfortable on all machines.
+  - The repo-local grass cube-net is a generated working slot in the correct layout, not yet the exact raw attachment bytes from chat.
+- Next Tasks:
+  - Keep optimizing the far-horizon runtime with stronger batching, queue prioritization, and eventually LOD/atlas work.
+  - Drop in the final hand-authored grass and dirt cube-net art when the exact files are available on disk.
+- Risks/Technical Debt:
+  - A 48-chunk default is user-driven and intentionally aggressive; startup and streaming pressure will stay high until deeper batching and far-distance optimization land.
+  - Supporting two cube-net layouts is the right flexibility, but future artist docs need to keep one recommended default to avoid unnecessary format churn.
+
 ## 2026-03-15 10:35:31 MDT
 
 - Date/Time: 2026-03-15 10:35:31 MDT
