@@ -9,6 +9,8 @@ import io.github.ainick2469.pixelsurvival.world.gen.pipeline.SurfaceHeightPass;
 import io.github.ainick2469.pixelsurvival.world.gen.pipeline.SurfaceHeightProfile;
 import io.github.ainick2469.pixelsurvival.world.gen.pipeline.TerrainLayerPass;
 import io.github.ainick2469.pixelsurvival.world.gen.pipeline.WorldGenerationStage;
+import io.github.ainick2469.pixelsurvival.world.gen.topology.PlanarPrototypeTopologyProfile;
+import io.github.ainick2469.pixelsurvival.world.gen.topology.WorldTopologyProfile;
 import java.util.List;
 
 public final class HeightmapWorldGenerator implements WorldGenerator {
@@ -53,6 +55,11 @@ public final class HeightmapWorldGenerator implements WorldGenerator {
 
     public int sampleSurfaceHeight(int worldX, int worldZ) {
         return surfaceHeightProfile.sampleSurfaceHeight(worldX, worldZ);
+    }
+
+    @Override
+    public WorldTopologyProfile topologyProfile() {
+        return PlanarPrototypeTopologyProfile.INSTANCE;
     }
 
     public List<WorldGenerationStage> configuredStages() {

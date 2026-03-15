@@ -1,22 +1,22 @@
 package io.github.ainick2469.pixelsurvival.rendering.world;
 
+import io.github.ainick2469.pixelsurvival.world.block.BlockFaceTextureReference;
 import java.util.Objects;
 
 public record TerrainMaterialKey(
-        String texturePath,
+        BlockFaceTextureReference textureReference,
         String tintKey,
         String debugColor) {
     public TerrainMaterialKey {
-        if ((texturePath == null || texturePath.isBlank()) && (debugColor == null || debugColor.isBlank())) {
-            throw new IllegalArgumentException("A terrain material key needs either a texture path or a fallback color.");
+        if (textureReference == null && (debugColor == null || debugColor.isBlank())) {
+            throw new IllegalArgumentException("A terrain material key needs either a texture reference or a fallback color.");
         }
-        texturePath = texturePath == null || texturePath.isBlank() ? null : texturePath;
         tintKey = tintKey == null || tintKey.isBlank() ? null : tintKey;
         debugColor = debugColor == null || debugColor.isBlank() ? null : debugColor;
     }
 
-    public static TerrainMaterialKey textured(String texturePath, String tintKey) {
-        return new TerrainMaterialKey(Objects.requireNonNull(texturePath, "texturePath"), tintKey, null);
+    public static TerrainMaterialKey textured(BlockFaceTextureReference textureReference, String tintKey) {
+        return new TerrainMaterialKey(Objects.requireNonNull(textureReference, "textureReference"), tintKey, null);
     }
 
     public static TerrainMaterialKey debugColor(String debugColor) {
@@ -24,6 +24,6 @@ public record TerrainMaterialKey(
     }
 
     public boolean usesTexture() {
-        return texturePath != null;
+        return textureReference != null;
     }
 }

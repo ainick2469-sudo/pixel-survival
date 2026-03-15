@@ -19,7 +19,10 @@
 - `0.007`: add a Minecraft-style pause/options menu and adjustable high-distance horizon settings on top of the new runtime.
 - `0.008`: move to fullscreen-first startup, camera-visible chunk streaming/unloading, and a stronger terrain art pass that can hold up at higher render distances.
 - Prepare the pass-based overworld generator so future terrain systems can be layered without rewriting the current milestone terrain.
+- Prepare a topology seam so the project can safely migrate from the planar prototype to a later cube-sphere planetary world.
+- Prepare the block visual pipeline for `single`, `top_side_bottom`, `explicit_faces`, and `cube_net` block textures.
 - Better noise stacks and macro terrain control
+- Planetary topology and climate migration planning
 - Biome masks and biome families
 - Cave generation by depth band:
   - shallow cave entrances and tunnel networks
@@ -38,20 +41,33 @@
 
 Long-term overworld expansion should continue in this order unless there is a strong reason to change it:
 
-1. base terrain height generation
-2. terrain material layering
-3. biome mask distribution
-4. cave carving
-5. landmark generation
-6. floating landforms
-7. cloud-region eligibility
-8. walkable cloud generation
-9. sky structures
-10. vegetation and props
-11. structures and POIs
-12. ecology and creature spawn rules
+1. planetary topology / coordinate model
+2. base terrain height generation
+3. terrain material layering
+4. biome mask distribution
+5. cave carving
+6. landmark generation
+7. floating landforms
+8. cloud-region eligibility
+9. walkable cloud generation
+10. sky structures
+11. vegetation and props
+12. structures and POIs
+13. settlement placement
+14. ecology and creature spawn rules
 
 That order keeps exploration features integrated with chunk generation instead of becoming bolt-on gimmicks.
+
+## Block content pipeline rule
+
+Block/material growth should continue through data and assets, not renderer rewrites.
+
+Priority support path:
+
+1. add or replace texture assets
+2. define the block in `data/blocks`
+3. load it through the registry
+4. let chunk meshing and material resolution handle the rest
 
 ## Phase D: Building Systems
 

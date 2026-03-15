@@ -1,6 +1,7 @@
 package io.github.ainick2469.pixelsurvival.world.gen.pipeline;
 
 public enum WorldGenerationStage {
+    PLANETARY_TOPOLOGY,
     BASE_TERRAIN,
     TERRAIN_LAYERING,
     BIOME_MASKS,

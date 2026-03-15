@@ -23,9 +23,47 @@ Long-term session modes:
 - Session 1 uses `16 x 64 x 16` chunks.
 - Authoritative chunk data is kept independent from jMonkeyEngine scene objects.
 
+## Planetary world direction
+
+The current build is still a planar terrain prototype. That is intentional for the early milestone ladder. The long-term world is not planned to stay a fake infinite flat plane forever.
+
+Long-term direction:
+
+- the mature overworld should become a streamed planetary surface
+- traveling far enough in one direction should eventually bring the player back around the planet
+- the preferred long-term topology is a chunk-friendly cube-sphere style planet rather than a naive perfect sphere mesh
+
+Current code seam:
+
+- `WorldGenerator` now exposes a `WorldTopologyProfile`
+- the live generator reports `PLANAR_PROTOTYPE`
+- a reserved `CUBE_SPHERE_PLANET` topology profile now exists for the later migration path
+
+Why cube-sphere is the preferred target:
+
+- six chunk-addressable faces are easier to stream than a naive spherical voxel shell
+- climate, latitude, and regional masks can be distributed per face and then blended at edges
+- cave carving, landmarks, floating landforms, and cloud eligibility can still operate as deterministic passes on streamed chunk data
+- it avoids a fake teleport seam while remaining more practical than treating the whole planet as one active volume
+
+Safe migration path from the current prototype:
+
+1. keep the early milestone terrain on planar chunk space
+2. move worldgen logic into ordered topology-aware passes
+3. add macro climate and regional masks that are conceptually topology-agnostic
+4. introduce topology-aware addressing and streaming behind generator/service seams
+5. migrate from planar chunk coordinates to cube-sphere surface addressing only after chunk streaming, meshing, and content passes are mature enough
+
+Important rule:
+
+- no giant always-loaded planet mesh
+- no teleport seam gimmick
+- no full-planet active memory model
+- world state and render state remain separate
+
 ## World generation model
 
-The current shipped overworld still only generates surface terrain layering, but the generator is no longer treated as a single monolithic class. The long-term target is an ordered pass pipeline that stays chunk-deterministic and chunk-mesh friendly.
+The current shipped overworld still only generates surface terrain layering, but the generator is no longer treated as a single monolithic class. The long-term target is an ordered pass pipeline that stays chunk-deterministic, topology-aware, and chunk-mesh friendly.
 
 Current implementation details:
 
@@ -33,27 +71,31 @@ Current implementation details:
 - `PipelineWorldGenerator` applies ordered `ChunkGenerationPass` instances to a `ChunkGenerationContext`.
 - `ChunkGenerationContext` owns the authoritative `ChunkData` plus a worldgen scratchpad for intermediate fields.
 - The scratchpad already supports named integer, float, and boolean column fields so future systems can share data without rewriting the generator again.
+- `WorldGenerationStage` now reserves `PLANETARY_TOPOLOGY` ahead of terrain generation so the mature pipeline can move to planetary surface addressing later without reordering the rest of the world stack.
 - The current live passes are only:
   - `BASE_TERRAIN`
   - `TERRAIN_LAYERING`
 
 Reserved long-term pass order:
 
-1. `BASE_TERRAIN`
-2. `TERRAIN_LAYERING`
-3. `BIOME_MASKS`
-4. `CAVE_CARVING`
-5. `LANDMARKS`
-6. `FLOATING_LANDFORMS`
-7. `CLOUD_ELIGIBILITY`
-8. `WALKABLE_CLOUDS`
-9. `SKY_STRUCTURES`
-10. `VEGETATION_AND_PROPS`
-11. `STRUCTURES_AND_POIS`
-12. `ECOLOGY`
+1. `PLANETARY_TOPOLOGY`
+2. `BASE_TERRAIN`
+3. `TERRAIN_LAYERING`
+4. `BIOME_MASKS`
+5. `CAVE_CARVING`
+6. `LANDMARKS`
+7. `FLOATING_LANDFORMS`
+8. `CLOUD_ELIGIBILITY`
+9. `WALKABLE_CLOUDS`
+10. `SKY_STRUCTURES`
+11. `VEGETATION_AND_PROPS`
+12. `STRUCTURES_AND_POIS`
+13. `ECOLOGY`
 
 Reserved field channels already named in code:
 
+- `planetary_latitude`
+- `planetary_macro_region`
 - `surface_height`
 - `temperature_mask`
 - `moisture_mask`
@@ -72,6 +114,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - The pass should operate only in eligible regions or altitude bands so it does not spam expensive suspended terrain across the whole world.
 - Shapes should remain procedural and chunk-continuous so they mesh naturally with the existing block/chunk pipeline.
 - Future content on these landforms can include rare resources, ruins, nests, shrines, traversal routes, and cloud-adjacent exploration.
+- They should be driven by regional rarity and world seed logic, not stored as manual block dumps or scene props.
 
 ### Cave path
 
@@ -86,6 +129,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Walkable clouds are planned as rare solid voxel content that only appears in eligible sky regions through `CLOUD_ELIGIBILITY` and `WALKABLE_CLOUDS` passes.
 - A reserved `cloud` material family now exists in the block registry for future solid cloud platforms and cloud-city foundations.
 - A later `SKY_STRUCTURES` pass can layer shrines, cloud bridges, sky ruins, and eventually a rare cloud realm or cloud city on top of those eligible zones.
+- Cloud-city or cloud-realm content is an advanced exploration layer and should remain rare enough to feel like a major discovery.
 
 ## Rendering model
 
@@ -98,6 +142,50 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
 - The terrain material path now uses crisp close-up filtering with mipmaps and reusable shared materials rather than one-off block-instance materials.
 
+## Block visual pipeline
+
+The block visual system is now being treated as content architecture, not only a terrain hack.
+
+Supported visual modes:
+
+- `single`
+- `top_side_bottom`
+- `explicit_faces`
+- `cube_net`
+
+Current runtime behavior:
+
+- block definitions resolve face textures through `BlockVisualDefinition`
+- `ChunkMeshBuilder` requests the correct face texture per visible block face
+- `TerrainMaterialLibrary` caches reusable materials and can now slice a face out of a cube-net source image at runtime
+- per-block-instance materials are still avoided
+
+Supported cube-net format:
+
+```text
+    [back]
+    [top]
+[left][front][right]
+    [bottom]
+```
+
+World-face mapping:
+
+- `NORTH -> back`
+- `SOUTH -> front`
+- `WEST -> left`
+- `EAST -> right`
+- `UP -> top`
+- `DOWN -> bottom`
+
+The cube-net path is deterministic and does not guess face assignments.
+
+Why this matters:
+
+- artists can author one cube-net image and define a block in data
+- stone, dirt, grass, logs, bricks, and later specialty blocks can all use the same import contract
+- future texture-atlas work can remain localized to the material/texture layer instead of changing every block definition
+
 ## Settings and UI model
 
 - `GraphicsSettings` owns the live render-distance setting and maps it onto chunk runtime radii.
@@ -109,7 +197,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 ## Registry model
 
 - Blocks and settings presets load from JSON files in `data/`.
-- Block definitions can now declare `visuals.topTexture`, `visuals.sideTexture`, `visuals.bottomTexture`, and `visuals.tintKey`.
+- Block definitions now support data-driven texture modes including a 6-face cube-net source path.
 - A reserved `pixel_survival:cloud_solid` block now exists so future walkable cloud content does not need a special-case material path.
 - Additional registries already have reserved directories and documentation.
 - Duplicate keys fail fast during loading.

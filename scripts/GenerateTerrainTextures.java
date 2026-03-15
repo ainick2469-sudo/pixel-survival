@@ -18,16 +18,27 @@ public final class GenerateTerrainTextures {
 
     public static void main(String[] args) throws IOException {
         Path root = Path.of(args.length > 0 ? args[0] : ".").toAbsolutePath().normalize();
-        Path outputDirectory = root.resolve("src/main/resources/Textures/Terrain");
-        Files.createDirectories(outputDirectory);
+        Path terrainOutputDirectory = root.resolve("src/main/resources/Textures/Terrain");
+        Path cubeNetOutputDirectory = root.resolve("src/main/resources/Textures/BlockCubeNets");
+        Files.createDirectories(terrainOutputDirectory);
+        Files.createDirectories(cubeNetOutputDirectory);
 
-        writeTexture(outputDirectory.resolve("grass_top.png"), grassTopTexture());
-        writeTexture(outputDirectory.resolve("grass_side.png"), grassSideTexture());
-        writeTexture(outputDirectory.resolve("dirt.png"), dirtTexture());
-        writeTexture(outputDirectory.resolve("stone.png"), stoneTexture());
-        writeTexture(outputDirectory.resolve("sand.png"), sandTexture());
-        writeTexture(outputDirectory.resolve("cloud_solid.png"), cloudSolidTexture());
-        writeTexture(outputDirectory.resolve("missing_block.png"), missingTexture());
+        BufferedImage stoneTexture = stoneTexture();
+
+        writeTexture(terrainOutputDirectory.resolve("grass_top.png"), grassTopTexture());
+        writeTexture(terrainOutputDirectory.resolve("grass_side.png"), grassSideTexture());
+        writeTexture(terrainOutputDirectory.resolve("dirt.png"), dirtTexture());
+        writeTexture(terrainOutputDirectory.resolve("stone.png"), stoneTexture);
+        writeTexture(terrainOutputDirectory.resolve("sand.png"), sandTexture());
+        writeTexture(terrainOutputDirectory.resolve("cloud_solid.png"), cloudSolidTexture());
+        writeTexture(terrainOutputDirectory.resolve("missing_block.png"), missingTexture());
+        writeTexture(cubeNetOutputDirectory.resolve("stone_cube_net.png"), cubeNetTexture(
+                stoneTexture,
+                stoneTexture,
+                stoneTexture,
+                stoneTexture,
+                stoneTexture,
+                stoneTexture));
     }
 
     private static BufferedImage grassTopTexture() {
@@ -191,6 +202,25 @@ public final class GenerateTerrainTextures {
                 image.setRGB(x, y, magenta ? rgb(179, 45, 179) : rgb(30, 30, 30));
             }
         }
+        return image;
+    }
+
+    private static BufferedImage cubeNetTexture(
+            BufferedImage back,
+            BufferedImage top,
+            BufferedImage left,
+            BufferedImage front,
+            BufferedImage right,
+            BufferedImage bottom) {
+        BufferedImage image = new BufferedImage(SIZE * 3, SIZE * 4, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = graphics(image);
+        graphics.drawImage(back, SIZE, 0, null);
+        graphics.drawImage(top, SIZE, SIZE, null);
+        graphics.drawImage(left, 0, SIZE * 2, null);
+        graphics.drawImage(front, SIZE, SIZE * 2, null);
+        graphics.drawImage(right, SIZE * 2, SIZE * 2, null);
+        graphics.drawImage(bottom, SIZE, SIZE * 3, null);
+        graphics.dispose();
         return image;
     }
 

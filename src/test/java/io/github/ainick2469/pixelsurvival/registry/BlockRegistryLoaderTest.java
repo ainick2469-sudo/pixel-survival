@@ -2,6 +2,7 @@ package io.github.ainick2469.pixelsurvival.registry;
 
 import io.github.ainick2469.pixelsurvival.world.block.BlockDefinition;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
+import io.github.ainick2469.pixelsurvival.world.block.BlockTextureMode;
 import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -29,8 +30,11 @@ class BlockRegistryLoaderTest {
                 "Textures/Terrain/dirt.png",
                 blocks.get(BlockId.of("pixel_survival:dirt")).visuals().sideTexture());
         assertEquals(
-                "Textures/Terrain/stone.png",
-                blocks.get(BlockId.of("pixel_survival:stone")).visuals().topTexture());
+                BlockTextureMode.CUBE_NET,
+                blocks.get(BlockId.of("pixel_survival:stone")).visuals().textureMode());
+        assertEquals(
+                "Textures/BlockCubeNets/stone_cube_net.png",
+                blocks.get(BlockId.of("pixel_survival:stone")).visuals().cubeNetTexture());
         assertEquals(
                 "Textures/Terrain/grass_top.png",
                 blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().topTexture());

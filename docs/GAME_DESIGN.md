@@ -6,6 +6,8 @@ Players begin vulnerable in a large procedural block world and grow into explore
 
 The long-term exploration fantasy is not only "walk around pretty terrain." The world should eventually feel huge, vertical, mysterious, and layered with discoveries that change how players travel and what they believe is possible.
 
+The mature target is a real explorable planetary survival world with meaningful underground, surface, and sky layers rather than a permanent flat terrain test.
+
 ## Pillars
 
 ### Worldgen and exploration first
@@ -14,6 +16,7 @@ Travel should become rewarding over time through terrain variety, vertical layer
 
 Long-term exploration targets include:
 
+- full planets with wraparound-scale travel later
 - rare floating mountains and floating islands
 - dramatic overhangs and suspended terrain masses
 - deep layered caves with real depth bands
@@ -40,6 +43,7 @@ Animals, predators, tameable creatures, villagers, villages, towns, and cities a
 
 ### Surface world
 
+- eventually planetary-scale travel with climate regions and major landmasses
 - readable survival terrain
 - biome identity
 - landmarks and traversal routes
@@ -88,6 +92,21 @@ Important rule:
 
 The cloud realm / cloud city should feel like a major discovery moment, not background scenery.
 
+## Planetary world intent
+
+The long-term world should eventually behave like a real planet:
+
+- keep traveling long enough and the world should wrap back around
+- climate and biome logic should scale across the globe
+- floating landforms, caves, settlements, and sky destinations should all be part of one planetary exploration stack
+
+The preferred long-term technical direction is a chunk-friendly cube-sphere style planet, not a naive whole-sphere mesh.
+
+Important boundary:
+
+- this is a long-term destination, not a permission slip to skip the early terrain roadmap
+- the current game should continue to grow through safe staged milestones until the runtime and content systems are ready for topology migration
+
 ## Floating mountain design intent
 
 - rare, regional, and visually majestic
@@ -95,11 +114,30 @@ The cloud realm / cloud city should feel like a major discovery moment, not back
 - useful for traversal, resources, ruins, nests, and future high-altitude content
 - shaped with cliff shelves, undersides, erosion, and hanging root-like stone rather than cubes or bland blobs
 
+## Block and material identity
+
+Long-term exploration only works if the world reads clearly.
+
+The block/content pipeline should support:
+
+- strong material identity
+- custom authored block textures
+- cube-net style block art for high-detail custom blocks
+- rapid block-family expansion without rendering rewrites
+
+Stone, dirt, grass, clouds, wood, brick, clay, peat, mossy variants, and future special materials should all live in the same data-driven visual system.
+
 ## Current implementation boundary
 
 The current shipped build still only generates surface terrain layering. Floating mountains, complex caves, and walkable cloud systems are intentionally deferred until later milestones.
 
-This session only prepares the architecture so those systems can enter the worldgen pipeline cleanly without rewriting the current terrain milestone.
+This session prepares:
+
+- long-term planetary architecture seams
+- deeper worldgen pass planning
+- cube-net texture support for future custom block assets
+
+It does not fully ship planets, deep caves, floating mountains, or cloud cities yet.
 
 ## Session 1 scope
 

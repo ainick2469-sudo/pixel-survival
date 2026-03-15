@@ -5,6 +5,7 @@ import io.github.ainick2469.pixelsurvival.world.block.BlockId;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.gen.pipeline.WorldGenerationStage;
+import io.github.ainick2469.pixelsurvival.world.gen.topology.WorldTopologyKind;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -57,5 +58,6 @@ class HeightmapWorldGeneratorTest {
         assertEquals(
                 List.of(WorldGenerationStage.BASE_TERRAIN, WorldGenerationStage.TERRAIN_LAYERING),
                 generator.configuredStages());
+        assertEquals(WorldTopologyKind.PLANAR_PROTOTYPE, generator.topologyProfile().kind());
     }
 }

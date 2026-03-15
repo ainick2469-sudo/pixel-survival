@@ -6,9 +6,9 @@
   "opaque": true,
   "debugColor": "#7A7D86",
   "visuals": {
-    "topTexture": "Textures/Terrain/stone.png",
-    "sideTexture": "Textures/Terrain/stone.png",
-    "bottomTexture": "Textures/Terrain/stone.png",
+    "textureMode": "cube_net",
+    "cubeNetTexture": "Textures/BlockCubeNets/stone_cube_net.png",
+    "cubeNetLayout": "back_top_left_front_right_bottom",
     "tintKey": null
   },
   "tags": ["terrain", "deep_layer"]

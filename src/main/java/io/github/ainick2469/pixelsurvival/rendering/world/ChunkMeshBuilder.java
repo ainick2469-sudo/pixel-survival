@@ -3,6 +3,7 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.block.BlockDefinition;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
+import io.github.ainick2469.pixelsurvival.world.block.BlockTextureFace;
 import io.github.ainick2469.pixelsurvival.world.block.BlockVisualDefinition;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
@@ -71,14 +72,22 @@ public final class ChunkMeshBuilder {
     private TerrainMaterialKey materialKeyFor(BlockDefinition definition, BlockFace face) {
         BlockVisualDefinition visuals = definition.visuals();
         if (visuals != null) {
-            String texturePath = switch (face) {
-                case UP -> visuals.topTexture();
-                case DOWN -> visuals.bottomTexture();
-                case EAST, WEST, SOUTH, NORTH -> visuals.sideTexture();
-            };
-            return TerrainMaterialKey.textured(texturePath, visuals.tintKey());
+            return TerrainMaterialKey.textured(
+                    visuals.textureReferenceFor(textureFaceFor(face)),
+                    visuals.tintKey());
         }
         return TerrainMaterialKey.debugColor(definition.debugColor());
+    }
+
+    private BlockTextureFace textureFaceFor(BlockFace face) {
+        return switch (face) {
+            case UP -> BlockTextureFace.TOP;
+            case DOWN -> BlockTextureFace.BOTTOM;
+            case WEST -> BlockTextureFace.LEFT;
+            case SOUTH -> BlockTextureFace.FRONT;
+            case EAST -> BlockTextureFace.RIGHT;
+            case NORTH -> BlockTextureFace.BACK;
+        };
     }
 
     private static final class MeshSectionBuilder {

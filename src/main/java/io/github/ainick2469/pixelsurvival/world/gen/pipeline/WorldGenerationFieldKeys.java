@@ -1,6 +1,8 @@
 package io.github.ainick2469.pixelsurvival.world.gen.pipeline;
 
 public final class WorldGenerationFieldKeys {
+    public static final String PLANETARY_LATITUDE = "planetary_latitude";
+    public static final String PLANETARY_MACRO_REGION = "planetary_macro_region";
     public static final String SURFACE_HEIGHT = "surface_height";
     public static final String TEMPERATURE_MASK = "temperature_mask";
     public static final String MOISTURE_MASK = "moisture_mask";

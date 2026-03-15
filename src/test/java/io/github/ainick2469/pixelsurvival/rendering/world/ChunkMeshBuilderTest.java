@@ -1,6 +1,7 @@
 package io.github.ainick2469.pixelsurvival.rendering.world;
 
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
+import io.github.ainick2469.pixelsurvival.world.block.BlockFaceTextureReference;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
@@ -37,11 +38,14 @@ class ChunkMeshBuilderTest {
         assertEquals(1, result.visibleBlockCount());
         assertEquals(6, result.faceCount());
         assertEquals(3, result.sections().size());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured("Textures/Terrain/grass_top.png", "grass"))
+        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/grass_top.png"), "grass"))
                 .faceCount());
-        assertEquals(4, result.sections().get(TerrainMaterialKey.textured("Textures/Terrain/grass_side.png", "grass"))
+        assertEquals(4, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/grass_side.png"), "grass"))
                 .faceCount());
-        assertEquals(1, result.sections().get(TerrainMaterialKey.textured("Textures/Terrain/dirt.png", "grass"))
+        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/dirt.png"), "grass"))
                 .faceCount());
     }
 
@@ -73,10 +77,18 @@ class ChunkMeshBuilderTest {
 
         assertEquals(1, result.visibleBlockCount());
         assertEquals(5, result.faceCount());
-        ChunkMeshSectionData stoneSection =
-                result.sections().get(TerrainMaterialKey.textured("Textures/Terrain/stone.png", null));
-        assertEquals(5, stoneSection.faceCount());
-        assertTrue(stoneSection.indices().length > 0);
+        int totalStoneFaces = result.sections().entrySet().stream()
+                .filter(entry -> entry.getKey().textureReference() != null)
+                .filter(entry -> "Textures/BlockCubeNets/stone_cube_net.png".equals(
+                        entry.getKey().textureReference().cubeNetTexturePath()))
+                .mapToInt(entry -> entry.getValue().faceCount())
+                .sum();
+        long stoneSectionCount = result.sections().keySet().stream()
+                .filter(key -> key.textureReference() != null)
+                .filter(key -> "Textures/BlockCubeNets/stone_cube_net.png".equals(key.textureReference().cubeNetTexturePath()))
+                .count();
+        assertEquals(5, totalStoneFaces);
+        assertTrue(stoneSectionCount >= 1);
     }
 
     private static void loadNeighborAirChunks(Map<ChunkCoord, ChunkData> chunks) {

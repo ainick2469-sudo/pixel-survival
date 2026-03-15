@@ -430,6 +430,70 @@
   - The pass pipeline is now in place, but future worldgen growth will still need careful profiling once caves and floating landforms start increasing visible surface area.
   - Walkable cloud blocks exist structurally now, but atmospheric clouds and solid cloud content still need a dedicated split in the future sky rendering/gameplay systems.
 
+## 2026-03-15 09:18:00 MDT
+
+- Date/Time: 2026-03-15 09:18:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Prepare long-term planetary world architecture and add the first 6-face cube-net block texture pipeline without breaking the active terrain roadmap.
+- Completed Work:
+  - Added a topology-profile seam so the current generator explicitly declares itself as a planar prototype while reserving a future cube-sphere planetary path.
+  - Extended the worldgen stage model with `PLANETARY_TOPOLOGY` and reserved planetary scratch fields for latitude and macro-region logic.
+  - Refactored the block visual definition contract to support `single`, `top_side_bottom`, `explicit_faces`, and `cube_net` texture modes through data instead of hardcoded renderer cases.
+  - Added an exact supported cube-net layout for block textures using the documented `back / top / left-front-right / bottom` cross.
+  - Updated the terrain material pipeline so chunk rendering can crop and bind individual cube-net faces at runtime while still reusing materials by face-texture key.
+  - Switched the live `stone` block definition to the cube-net path and generated a repo-local `stone_cube_net.png` source asset in the supported format as the drop-in slot for future artist-authored replacements.
+  - Expanded architecture and content-registry docs to explain staged migration from the current flat prototype toward deterministic streamed planetary worlds, deep caves, rare floating mountains, and rare walkable cloud systems.
+- Files Changed:
+  - `DEVLOG.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `docs/GAME_DESIGN.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `data/blocks/stone.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/resources/Textures/BlockCubeNets/stone_cube_net.png`
+  - `src/main/java/.../world/block/*`
+  - `src/main/java/.../world/gen/topology/*`
+  - `src/main/java/.../world/gen/WorldGenerator.java`
+  - `src/main/java/.../world/gen/HeightmapWorldGenerator.java`
+  - `src/main/java/.../world/gen/pipeline/*`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialKey.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialLibrary.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+  - `src/test/java/.../world/block/*`
+  - `src/test/java/.../world/gen/HeightmapWorldGeneratorTest.java`
+- Systems Touched:
+  - long-term world topology architecture
+  - worldgen pipeline staging
+  - block registry visual contracts
+  - terrain material loading and texture cropping
+  - chunk mesh texture binding
+  - documentation and content-pipeline guidance
+- Tests Run:
+  - `java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\cscript.exe //nologo scripts\launch_desktop.vbs /buildonly`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup and registry load with the cube-net stone pipeline active
+- Current Playable State:
+  - The live world is still the same streamed planar terrain prototype with layered grass, dirt, and stone.
+  - Stone now resolves through the new cube-net-capable block visual path instead of only the older direct-texture path.
+  - No full planetary traversal, deep cave systems, floating mountains, walkable cloud structures, or sky settlements spawn yet.
+- Known Issues:
+  - The current repo-local `stone_cube_net.png` is a generated placeholder in the correct import format, not the exact raw chat attachment bytes.
+  - The topology seam is architectural only; the current terrain still uses planar chunk coordinates.
+  - Future artist-authored dirt and grass cube nets still need to be dropped into the new asset path and referenced from data.
+- Next Tasks:
+  - Build biome-mask and macro-region passes so planetary climate logic, cave style, floating-landform rarity, and cloud eligibility all have shared regional inputs.
+  - Add cave-foundation passes before floating-landform or walkable-cloud generation becomes active.
+  - Replace the generated stone cube-net source with the final hand-authored asset once it is available on disk in the repo asset path.
+- Risks/Technical Debt:
+  - Runtime cube-net cropping currently happens per unique face texture key at load time; it is cached, but future atlas support will still be the better long-term scaling path.
+  - Planetary support is now planned around topology-aware chunk addressing, but the actual migration from planar coordinates to cube-sphere regions will need careful save-data and traversal planning later.
+  - The worldgen stage list is clearer now, but deeper cave and sky-landform passes will increase surface area and mesh churn if greedy meshing and stronger worker scheduling do not land first.
+
 ## Entry Template
 
 - Date/Time:
