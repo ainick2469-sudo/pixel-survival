@@ -50,6 +50,7 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
 - Dirt and grass now ship through the new center-top cube-net import path, while stone remains supported on the older explicit cross layout.
+- The shipped grass and dirt textures were refreshed again to follow the newer block-asset direction more closely: pebbly tan dirt and grass blocks with plain dirt sides instead of the older grassy-lip side treatment.
 - The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.

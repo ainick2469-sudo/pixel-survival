@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-03-15 11:17:13 MDT
+
+- Date/Time: 2026-03-15 11:17:13 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Refresh the shipped grass and dirt block textures so the live terrain actually matches the newer block asset direction.
+- Completed Work:
+  - Reworked the generated `dirt` texture away from the older dark root-thread look and toward a lighter pebbly brown closer to the newer block asset reference.
+  - Reworked the generated `grass_top` texture away from the older flower-heavy meadow look toward a simpler wavy grass surface closer to the newer cube-net block reference.
+  - Changed the generated `grass_block_cube_net` so its side faces now use dirt instead of the older grassy-lip side texture, matching the newer grass block asset layout.
+  - Regenerated the terrain and cube-net PNGs so the repo now ships the refreshed grass/dirt assets instead of only updated generator code.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `scripts/GenerateTerrainTextures.java`
+  - regenerated textures under `src/main/resources/Textures/Terrain/`
+  - regenerated textures under `src/main/resources/Textures/BlockCubeNets/`
+- Systems Touched:
+  - terrain texture generation
+  - cube-net block asset content
+  - shipped terrain art bundle
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup after regenerating the terrain bundle
+- Current Playable State:
+  - Grass blocks now use the newer cube-net layout with grass only on top and dirt on the sides/bottom.
+  - Dirt blocks now use the lighter pebbly dirt bundle instead of the older darker root-thread look.
+- Known Issues:
+  - These are still generated stand-ins shaped toward the current asset direction, not direct imports of every raw chat attachment byte.
+- Next Tasks:
+  - Continue render/runtime optimization so the now-longer horizons cost less CPU and fewer draw calls.
+  - Swap in final hand-authored grass/dirt textures directly if exact asset files are later placed in the repo.
+- Risks/Technical Debt:
+  - The asset generator remains useful for placeholders, but the final art path should eventually prefer source-controlled authored PNGs over regenerated approximations for shipped content.
+
 ## 2026-03-15 11:12:00 MDT
 
 - Date/Time: 2026-03-15 11:12:00 MDT

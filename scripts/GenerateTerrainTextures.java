@@ -23,11 +23,13 @@ public final class GenerateTerrainTextures {
         Files.createDirectories(terrainOutputDirectory);
         Files.createDirectories(cubeNetOutputDirectory);
 
+        BufferedImage grassTopTexture = grassTopTexture();
         BufferedImage dirtTexture = dirtTexture();
+        BufferedImage grassSideTexture = grassSideTexture(dirtTexture);
         BufferedImage stoneTexture = stoneTexture();
 
-        writeTexture(terrainOutputDirectory.resolve("grass_top.png"), grassTopTexture());
-        writeTexture(terrainOutputDirectory.resolve("grass_side.png"), grassSideTexture());
+        writeTexture(terrainOutputDirectory.resolve("grass_top.png"), grassTopTexture);
+        writeTexture(terrainOutputDirectory.resolve("grass_side.png"), grassSideTexture);
         writeTexture(terrainOutputDirectory.resolve("dirt.png"), dirtTexture);
         writeTexture(terrainOutputDirectory.resolve("stone.png"), stoneTexture);
         writeTexture(terrainOutputDirectory.resolve("sand.png"), sandTexture());
@@ -41,11 +43,11 @@ public final class GenerateTerrainTextures {
                 dirtTexture,
                 dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("grass_block_cube_net.png"), cubeNetTextureCenterTopSurroundingSidesOuterBottom(
-                grassTopTexture(),
-                grassSideTexture(),
-                grassSideTexture(),
-                grassSideTexture(),
-                grassSideTexture(),
+                grassTopTexture,
+                dirtTexture,
+                dirtTexture,
+                dirtTexture,
+                dirtTexture,
                 dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("stone_cube_net.png"), cubeNetTexture(
                 stoneTexture,
@@ -59,56 +61,48 @@ public final class GenerateTerrainTextures {
     private static BufferedImage grassTopTexture() {
         BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
         forEachPixel(image, (x, y) -> {
-            double meadow = fbm(x * 0.042, y * 0.042, 101);
-            double detail = fbm(x * 0.12, y * 0.12, 109);
-            double shadow = fbm(x * 0.022, y * 0.022, 113);
+            double meadow = fbm(x * 0.034, y * 0.034, 101);
+            double fine = fbm(x * 0.12, y * 0.12, 109);
+            double sway = Math.sin((x * 0.16) + (y * 0.12) + (fbm(x * 0.014, y * 0.014, 113) * 5.6));
+            double shadow = fbm(x * 0.022, y * 0.022, 127);
 
-            double tone = clamp01(0.5 + (meadow * 0.28) + (detail * 0.18) - (shadow * 0.06));
-            int color = lerpColor(rgb(28, 67, 26), rgb(72, 128, 44), tone);
-            color = lerpColor(color, rgb(102, 157, 71), clamp01((detail - 0.08) * 0.48));
-            color = lerpColor(color, rgb(21, 52, 20), clamp01((shadow - 0.42) * 0.55));
+            double tone = clamp01(0.48 + (meadow * 0.18) + (fine * 0.11) + (sway * 0.08) - (shadow * 0.05));
+            int color = lerpColor(rgb(40, 92, 34), rgb(83, 149, 57), tone);
+            color = lerpColor(color, rgb(113, 173, 74), clamp01((sway + 0.12) * 0.22));
+            color = lerpColor(color, rgb(27, 63, 25), clamp01((shadow - 0.44) * 0.34));
             return color;
         });
 
         Graphics2D graphics = graphics(image);
-        drawLeafClusters(graphics, 280, 1201, new Color(34, 89, 28, 210), new Color(106, 167, 72, 195));
-        drawCloverClusters(graphics, 42, 1213);
-        drawFlowers(graphics, 16, 1231);
-        drawMicroPebbles(graphics, 150, 1237, new Color(26, 52, 22, 72), 0.8f, 1.6f);
+        drawTopGrassStrokes(graphics, 210, 1201);
+        drawTopGrassFlecks(graphics, 90, 1213);
         graphics.dispose();
         return image;
     }
 
-    private static BufferedImage grassSideTexture() {
-        BufferedImage image = dirtTexture();
+    private static BufferedImage grassSideTexture(BufferedImage dirtBaseTexture) {
+        BufferedImage image = copyImage(dirtBaseTexture);
         Graphics2D graphics = graphics(image);
 
         for (int x = 0; x < SIZE; x++) {
-            int grassLip = 16 + (int) Math.round(noise01(x * 0.08, 4.6, 1301) * 8.0);
-            int canopyDepth = grassLip + 5 + (int) Math.round(noise01(x * 0.055, 8.2, 1303) * 6.0);
+            int grassLip = 10 + (int) Math.round(noise01(x * 0.08, 4.6, 1301) * 5.0);
+            int canopyDepth = grassLip + 3 + (int) Math.round(noise01(x * 0.055, 8.2, 1303) * 4.0);
             for (int y = 0; y < canopyDepth; y++) {
                 double falloff = 1.0 - (y / (double) Math.max(1, canopyDepth));
                 double detail = fbm(x * 0.085, y * 0.11, 1309);
-                double grassTone = clamp01(0.34 + (falloff * 0.46) + (detail * 0.12));
-                int grassColor = lerpColor(rgb(31, 74, 26), rgb(92, 147, 58), grassTone);
-                grassColor = lerpColor(grassColor, rgb(118, 165, 76), clamp01((detail - 0.08) * 0.28));
-                double soilBlend = clamp01((y - (grassLip * 0.68)) / Math.max(1.0, canopyDepth - (grassLip * 0.68)));
-                int mixedColor = lerpColor(grassColor, image.getRGB(x, y), soilBlend * 0.62);
+                double grassTone = clamp01(0.35 + (falloff * 0.44) + (detail * 0.1));
+                int grassColor = lerpColor(rgb(34, 83, 30), rgb(95, 154, 63), grassTone);
+                grassColor = lerpColor(grassColor, rgb(121, 171, 79), clamp01((detail - 0.08) * 0.22));
+                double soilBlend = clamp01((y - (grassLip * 0.75)) / Math.max(1.0, canopyDepth - (grassLip * 0.75)));
+                int mixedColor = lerpColor(grassColor, image.getRGB(x, y), soilBlend * 0.82);
                 if (y >= grassLip - 1 && y <= grassLip + 2) {
-                    mixedColor = lerpColor(mixedColor, rgb(42, 55, 28), 0.28);
+                    mixedColor = lerpColor(mixedColor, rgb(54, 69, 35), 0.22);
                 }
                 image.setRGB(x, y, mixedColor);
             }
         }
 
-        drawGrassFringe(graphics, 96, 1319);
-        drawRootThreads(graphics, 22, 1343, new Color(96, 73, 47, 150));
-        drawPebbles(graphics, 84, 1351, new Color[] {
-            new Color(55, 40, 27, 235),
-            new Color(78, 57, 36, 235),
-            new Color(102, 74, 48, 235),
-            new Color(89, 92, 94, 215)
-        }, 1.8f, 4.8f);
+        drawGrassFringe(graphics, 84, 1319);
         graphics.dispose();
         return image;
     }
@@ -116,26 +110,26 @@ public final class GenerateTerrainTextures {
     private static BufferedImage dirtTexture() {
         BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
         forEachPixel(image, (x, y) -> {
-            double clump = fbm(x * 0.05, y * 0.05, 1401);
-            double grain = fbm(x * 0.17, y * 0.17, 1409);
-            double darkPockets = fbm(x * 0.025, y * 0.025, 1417);
+            double body = fbm(x * 0.042, y * 0.042, 1401);
+            double grain = fbm(x * 0.15, y * 0.15, 1409);
+            double clumps = fbm(x * 0.08, y * 0.08, 1417);
 
-            double tone = clamp01(0.44 + (clump * 0.22) + (grain * 0.12) - (darkPockets * 0.1));
-            int color = lerpColor(rgb(50, 31, 19), rgb(97, 63, 38), tone);
-            color = lerpColor(color, rgb(134, 95, 58), clamp01((grain - 0.08) * 0.4));
-            color = lerpColor(color, rgb(31, 19, 12), clamp01((darkPockets - 0.45) * 0.6));
+            double tone = clamp01(0.52 + (body * 0.18) + (grain * 0.16) - (clumps * 0.04));
+            int color = lerpColor(rgb(112, 73, 40), rgb(171, 123, 74), tone);
+            color = lerpColor(color, rgb(201, 162, 109), clamp01((grain - 0.02) * 0.24));
+            color = lerpColor(color, rgb(86, 55, 30), clamp01((clumps - 0.38) * 0.24));
             return color;
         });
 
         Graphics2D graphics = graphics(image);
-        drawPebbles(graphics, 120, 1423, new Color[] {
-            new Color(58, 37, 23, 240),
-            new Color(84, 57, 35, 240),
-            new Color(118, 84, 55, 220),
-            new Color(98, 103, 106, 210)
-        }, 1.7f, 4.6f);
-        drawRootThreads(graphics, 34, 1439, new Color(116, 88, 54, 155));
-        drawMicroPebbles(graphics, 280, 1453, new Color(188, 157, 121, 96), 0.6f, 1.35f);
+        drawPebbles(graphics, 220, 1423, new Color[] {
+            new Color(95, 63, 36, 235),
+            new Color(123, 86, 50, 235),
+            new Color(154, 116, 71, 230),
+            new Color(187, 151, 103, 220),
+            new Color(205, 170, 122, 210)
+        }, 1.2f, 3.6f);
+        drawMicroPebbles(graphics, 320, 1453, new Color(221, 192, 151, 88), 0.5f, 1.1f);
         graphics.dispose();
         return image;
     }
@@ -352,6 +346,50 @@ public final class GenerateTerrainTextures {
                 blade.moveTo(drawX, drawY + length * 0.1f);
                 blade.quadTo(drawX + (bend * 4f), drawY - length * 0.1f, drawX + (bend * 8f), drawY - length);
                 graphics.draw(blade);
+            });
+        }
+    }
+
+    private static void drawTopGrassStrokes(Graphics2D graphics, int count, int seed) {
+        Random random = new Random(seed);
+        for (int index = 0; index < count; index++) {
+            float x = random.nextFloat() * SIZE;
+            float y = random.nextFloat() * SIZE;
+            float radius = 11f + (random.nextFloat() * 9f);
+            withWrapPositions(x, y, radius, (drawX, drawY) -> {
+                float angle = (float) Math.toRadians(18f + (random.nextFloat() * 40f));
+                float length = 8f + (random.nextFloat() * 10f);
+                float offsetX = (float) Math.cos(angle) * length;
+                float offsetY = (float) Math.sin(angle) * length;
+
+                graphics.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                graphics.setColor(new Color(32, 92, 33, 64));
+                graphics.drawLine(
+                        Math.round(drawX - (offsetX * 0.45f)),
+                        Math.round(drawY - (offsetY * 0.45f)),
+                        Math.round(drawX + offsetX),
+                        Math.round(drawY + offsetY));
+
+                graphics.setStroke(new BasicStroke(1.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                graphics.setColor(new Color(118, 178, 82, 58));
+                graphics.drawLine(
+                        Math.round(drawX - (offsetX * 0.25f)),
+                        Math.round(drawY - (offsetY * 0.25f)),
+                        Math.round(drawX + (offsetX * 0.72f)),
+                        Math.round(drawY + (offsetY * 0.72f)));
+            });
+        }
+    }
+
+    private static void drawTopGrassFlecks(Graphics2D graphics, int count, int seed) {
+        Random random = new Random(seed);
+        for (int index = 0; index < count; index++) {
+            float x = random.nextFloat() * SIZE;
+            float y = random.nextFloat() * SIZE;
+            float size = 1.1f + (random.nextFloat() * 1.6f);
+            withWrapPositions(x, y, size + 1f, (drawX, drawY) -> {
+                graphics.setColor(new Color(153, 193, 97, 78));
+                graphics.fill(new Ellipse2D.Float(drawX - size * 0.5f, drawY - size * 0.5f, size, size));
             });
         }
     }
@@ -673,6 +711,14 @@ public final class GenerateTerrainTextures {
             positions[index] = coordinate - SIZE;
         }
         return positions;
+    }
+
+    private static BufferedImage copyImage(BufferedImage source) {
+        BufferedImage copy = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = graphics(copy);
+        graphics.drawImage(source, 0, 0, null);
+        graphics.dispose();
+        return copy;
     }
 
     private static void writeTexture(Path path, BufferedImage image) throws IOException {
