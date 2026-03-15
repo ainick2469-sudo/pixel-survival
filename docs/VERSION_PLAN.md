@@ -15,14 +15,34 @@
 
 ## After `0.008`
 
-- biome masks
-- caves
+The early locked sequence remains unchanged. Future worldgen expansion should build on top of it rather than rewriting it.
+
+Structural prep now in place:
+
+- pass-based worldgen pipeline
+- scratch fields reserved for biome masks, cave density bands, floating-landform eligibility, and cloud eligibility
+- reserved solid cloud block/material family for future walkable cloud content
+
+Planned next worldgen direction after `0.008`:
+
+- biome masks and regional identity
+- cave foundations
 - water systems
 - vegetation
-- chunk streaming
-- structures
-- settlement seeding
+- landmark and floating-landform eligibility
+- walkable cloud eligibility and sky-structure planning
+- structures and settlement seeding
+
+Future exploration systems are planned to land in this rough order:
+
+1. biome masks and macro region control
+2. shallow-to-deep cave generation
+3. landmark distribution
+4. floating mountains / floating islands
+5. cloud-region eligibility and rare walkable cloud generation
+6. sky structures, shrines, and eventually cloud-city content
+7. ecology, creatures, and high-altitude/underground content
 
 ## Session 1 target
 
-Deliver each early terrain milestone in a way that does not need a rewrite for chunk streaming, textured terrain, and later world detail.
+Deliver each early terrain milestone in a way that does not need a rewrite for chunk streaming, textured terrain, deep cave systems, floating landforms, walkable clouds, and later world detail.

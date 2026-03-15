@@ -4,8 +4,10 @@ import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.block.BlockId;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
+import io.github.ainick2469.pixelsurvival.world.gen.pipeline.WorldGenerationStage;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -46,5 +48,14 @@ class HeightmapWorldGeneratorTest {
         assertEquals(BlockId.of("pixel_survival:air"), chunkData.getBlock(5, sampledHeight + 1, 9));
         assertTrue(sampledHeight >= 14);
         assertTrue(sampledHeight <= 40);
+    }
+
+    @Test
+    void exposesCurrentPipelineStagesWithoutPrematureFutureFeatureInjection() {
+        HeightmapWorldGenerator generator = new HeightmapWorldGenerator();
+
+        assertEquals(
+                List.of(WorldGenerationStage.BASE_TERRAIN, WorldGenerationStage.TERRAIN_LAYERING),
+                generator.configuredStages());
     }
 }

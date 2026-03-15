@@ -378,6 +378,58 @@
   - High render-distance settings are much more controlled now, but the current face-per-quad mesh path is still the main scaling ceiling.
   - Camera-heading chunk selection saves RAM, but it makes fast large-angle turns more dependent on the short retention buffer and load queue tuning.
 
+## 2026-03-15 03:10:00 MDT
+
+- Date/Time: 2026-03-15 03:10:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Prepare the overworld architecture for future floating mountains, deep caves, and rare walkable cloud systems without breaking the current terrain roadmap.
+- Completed Work:
+  - Refactored the active overworld generator into an ordered pass pipeline instead of leaving all terrain logic in one monolithic class.
+  - Added `ChunkGenerationContext`, typed worldgen scratch fields, and ordered `WorldGenerationStage` seams so future biome, cave, floating-landform, and cloud passes can plug in without rewriting current terrain generation.
+  - Moved the live surface-height and terrain-layering logic into dedicated worldgen passes while preserving the current world output.
+  - Reserved named scratch fields for future biome masks, depth-banded cave density, floating-landform eligibility, and cloud-region eligibility.
+  - Added a reserved `pixel_survival:cloud_solid` block and texture so future walkable cloud systems have a real material family instead of needing a hack later.
+  - Updated architecture, roadmap, game-design, and version-plan docs to spell out how floating mountains, deep caves, walkable clouds, and a later cloud realm/cloud city fit into the long-term worldgen path.
+- Files Changed:
+  - `DEVLOG.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `docs/GAME_DESIGN.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `data/blocks/cloud_solid.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/resources/Textures/Terrain/cloud_solid.png`
+  - `src/main/java/.../world/gen/HeightmapWorldGenerator.java`
+  - `src/main/java/.../world/gen/pipeline/*`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../world/gen/HeightmapWorldGeneratorTest.java`
+- Systems Touched:
+  - overworld generation architecture
+  - block registry preparation for future sky content
+  - documentation and roadmap planning
+  - automated validation
+- Tests Run:
+  - `java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\cscript.exe //nologo scripts\launch_desktop.vbs /buildonly`
+  - `java -jar build/libs/pixel-survival-desktop.jar` smoke launch, verified jME startup and registry load on the refactored generator path
+- Current Playable State:
+  - The live world still generates the same surface terrain layering as before.
+  - No floating mountains, advanced caves, or walkable cloud structures spawn yet.
+  - The current build is now structurally prepared for those systems to enter later as deterministic worldgen passes instead of one-off hacks.
+- Known Issues:
+  - The new pipeline only ships `BASE_TERRAIN` and `TERRAIN_LAYERING` passes today.
+  - Cave generation, floating landforms, and walkable cloud content remain deferred and must be added in future milestones.
+  - The new `cloud_solid` block is reserved content and is not yet reachable in normal play.
+- Next Tasks:
+  - Add biome-mask passes so future cave, floating-landform, and cloud eligibility rules have regional inputs.
+  - Begin cave-foundation planning with deterministic shallow/mid/deep carving rules.
+  - Define rarity and regional gating rules for floating mountains and walkable cloud zones before they enter generation.
+- Risks/Technical Debt:
+  - The pass pipeline is now in place, but future worldgen growth will still need careful profiling once caves and floating landforms start increasing visible surface area.
+  - Walkable cloud blocks exist structurally now, but atmospheric clouds and solid cloud content still need a dedicated split in the future sky rendering/gameplay systems.
+
 ## Entry Template
 
 - Date/Time:

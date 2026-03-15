@@ -23,6 +23,70 @@ Long-term session modes:
 - Session 1 uses `16 x 64 x 16` chunks.
 - Authoritative chunk data is kept independent from jMonkeyEngine scene objects.
 
+## World generation model
+
+The current shipped overworld still only generates surface terrain layering, but the generator is no longer treated as a single monolithic class. The long-term target is an ordered pass pipeline that stays chunk-deterministic and chunk-mesh friendly.
+
+Current implementation details:
+
+- `HeightmapWorldGenerator` now runs through a pass-driven pipeline instead of baking every rule into one method.
+- `PipelineWorldGenerator` applies ordered `ChunkGenerationPass` instances to a `ChunkGenerationContext`.
+- `ChunkGenerationContext` owns the authoritative `ChunkData` plus a worldgen scratchpad for intermediate fields.
+- The scratchpad already supports named integer, float, and boolean column fields so future systems can share data without rewriting the generator again.
+- The current live passes are only:
+  - `BASE_TERRAIN`
+  - `TERRAIN_LAYERING`
+
+Reserved long-term pass order:
+
+1. `BASE_TERRAIN`
+2. `TERRAIN_LAYERING`
+3. `BIOME_MASKS`
+4. `CAVE_CARVING`
+5. `LANDMARKS`
+6. `FLOATING_LANDFORMS`
+7. `CLOUD_ELIGIBILITY`
+8. `WALKABLE_CLOUDS`
+9. `SKY_STRUCTURES`
+10. `VEGETATION_AND_PROPS`
+11. `STRUCTURES_AND_POIS`
+12. `ECOLOGY`
+
+Reserved field channels already named in code:
+
+- `surface_height`
+- `temperature_mask`
+- `moisture_mask`
+- `shallow_cave_density`
+- `mid_cave_density`
+- `deep_cave_density`
+- `floating_landform_eligibility`
+- `cloud_region_eligibility`
+- `walkable_cloud_eligibility`
+
+This matters because future caves, floating mountains, and walkable cloud regions should be expressed as deterministic generation passes that operate on chunk data and field masks, not as manual scene props or post-render hacks.
+
+### Floating mountain path
+
+- Floating mountains and floating islands are planned as a rare `FLOATING_LANDFORMS` pass, not part of every biome.
+- The pass should operate only in eligible regions or altitude bands so it does not spam expensive suspended terrain across the whole world.
+- Shapes should remain procedural and chunk-continuous so they mesh naturally with the existing block/chunk pipeline.
+- Future content on these landforms can include rare resources, ruins, nests, shrines, traversal routes, and cloud-adjacent exploration.
+
+### Cave path
+
+- Caves are planned as chunk-data carving, not as separate visible cave objects.
+- The architecture already reserves separate shallow, mid, and deep cave-density fields so cave logic can evolve by depth band instead of becoming one noisy tunnel layer.
+- Long-term cave passes can branch into tunnels, shafts, chambers, underground water, dens, dungeon entrances, and dangerous deep zones without bypassing chunk storage or chunk meshing.
+
+### Walkable cloud path
+
+- Atmospheric sky clouds and walkable cloud structures are intentionally separate systems.
+- Atmospheric clouds should stay lightweight and mostly visual.
+- Walkable clouds are planned as rare solid voxel content that only appears in eligible sky regions through `CLOUD_ELIGIBILITY` and `WALKABLE_CLOUDS` passes.
+- A reserved `cloud` material family now exists in the block registry for future solid cloud platforms and cloud-city foundations.
+- A later `SKY_STRUCTURES` pass can layer shrines, cloud bridges, sky ruins, and eventually a rare cloud realm or cloud city on top of those eligible zones.
+
 ## Rendering model
 
 - The old prototype renderer emitted one geometry per exposed block and relied on flat debug colors. That made the terrain look washed out, over-bright, and low-detail because the lighting had no real surface breakup to work with.
@@ -46,6 +110,7 @@ Long-term session modes:
 
 - Blocks and settings presets load from JSON files in `data/`.
 - Block definitions can now declare `visuals.topTexture`, `visuals.sideTexture`, `visuals.bottomTexture`, and `visuals.tintKey`.
+- A reserved `pixel_survival:cloud_solid` block now exists so future walkable cloud content does not need a special-case material path.
 - Additional registries already have reserved directories and documentation.
 - Duplicate keys fail fast during loading.
 
@@ -54,3 +119,4 @@ Long-term session modes:
 - `InteractionRequest` is the future entry point for right-click block upgrades and other network-safe interaction requests.
 - `GameSettings` already models survival presets so later systems can read tunable values instead of hardcoded constants.
 - The world service is isolated behind `AuthoritativeWorldService` so chunk sync and remote queries can layer on top later.
+- The new worldgen pass pipeline is the seam that future biome masks, cave carvers, floating landforms, cloud-region passes, and sky-structure injectors should plug into.

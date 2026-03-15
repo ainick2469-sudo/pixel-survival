@@ -39,6 +39,7 @@ Current shipped terrain blocks:
 - `pixel_survival:dirt`
 - `pixel_survival:stone`
 - `pixel_survival:sand`
+- `pixel_survival:cloud_solid` (reserved for future walkable-cloud worldgen, not spawned yet)
 
 ## Active block definition shape
 

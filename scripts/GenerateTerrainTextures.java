@@ -26,6 +26,7 @@ public final class GenerateTerrainTextures {
         writeTexture(outputDirectory.resolve("dirt.png"), dirtTexture());
         writeTexture(outputDirectory.resolve("stone.png"), stoneTexture());
         writeTexture(outputDirectory.resolve("sand.png"), sandTexture());
+        writeTexture(outputDirectory.resolve("cloud_solid.png"), cloudSolidTexture());
         writeTexture(outputDirectory.resolve("missing_block.png"), missingTexture());
     }
 
@@ -157,6 +158,27 @@ public final class GenerateTerrainTextures {
             new Color(164, 145, 117, 220),
             new Color(164, 172, 185, 205)
         }, 1.2f, 4.2f);
+        graphics.dispose();
+        return image;
+    }
+
+    private static BufferedImage cloudSolidTexture() {
+        BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
+        forEachPixel(image, (x, y) -> {
+            double billow = fbm(x * 0.034, y * 0.034, 1701);
+            double swirl = fbm(x * 0.08, y * 0.08, 1717);
+            double shadow = fbm(x * 0.02, y * 0.02, 1729);
+
+            double tone = clamp01(0.58 + (billow * 0.22) + (swirl * 0.12));
+            int color = lerpColor(rgb(194, 208, 218), rgb(245, 247, 252), tone);
+            color = lerpColor(color, rgb(172, 188, 201), clamp01((shadow - 0.45) * 0.3));
+            color = lerpColor(color, rgb(255, 255, 255), clamp01((swirl - 0.06) * 0.22));
+            return color;
+        });
+
+        Graphics2D graphics = graphics(image);
+        drawCloudPuffs(graphics, 46, 1733);
+        drawCloudVeins(graphics, 10, 1741);
         graphics.dispose();
         return image;
     }
@@ -461,6 +483,51 @@ public final class GenerateTerrainTextures {
             }
             graphics.setColor(new Color(138, 121, 87, 42));
             graphics.draw(ripple);
+        }
+    }
+
+    private static void drawCloudPuffs(Graphics2D graphics, int count, int seed) {
+        Random random = new Random(seed);
+        for (int index = 0; index < count; index++) {
+            float x = random.nextFloat() * SIZE;
+            float y = random.nextFloat() * SIZE;
+            float radius = 10f + (random.nextFloat() * 10f);
+            withWrapPositions(x, y, radius, (drawX, drawY) -> {
+                for (int lobe = 0; lobe < 4; lobe++) {
+                    float offsetX = (-radius * 0.45f) + (random.nextFloat() * radius * 0.9f);
+                    float offsetY = (-radius * 0.25f) + (random.nextFloat() * radius * 0.5f);
+                    float width = radius * (0.7f + (random.nextFloat() * 0.45f));
+                    float height = radius * (0.48f + (random.nextFloat() * 0.3f));
+                    graphics.setColor(new Color(204, 219, 230, 84));
+                    graphics.fill(new Ellipse2D.Float(
+                            drawX + offsetX - (width * 0.5f),
+                            drawY + offsetY - (height * 0.5f),
+                            width,
+                            height));
+                    graphics.setColor(new Color(248, 249, 253, 54));
+                    graphics.fill(new Ellipse2D.Float(
+                            drawX + offsetX - (width * 0.22f),
+                            drawY + offsetY - (height * 0.18f),
+                            width * 0.44f,
+                            height * 0.36f));
+                }
+            });
+        }
+    }
+
+    private static void drawCloudVeins(Graphics2D graphics, int count, int seed) {
+        Random random = new Random(seed);
+        for (int index = 0; index < count; index++) {
+            float y = 10f + (index * (SIZE / (float) count)) + (random.nextFloat() * 8f);
+            Path2D.Float vein = new Path2D.Float();
+            vein.moveTo(-4f, y);
+            for (int x = 0; x <= SIZE + 8; x += 10) {
+                float offsetY = y + (float) Math.sin((x * 0.14f) + (index * 0.72f)) * (1.8f + random.nextFloat() * 1.2f);
+                vein.lineTo(x, offsetY);
+            }
+            graphics.setStroke(new BasicStroke(2.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            graphics.setColor(new Color(255, 255, 255, 22));
+            graphics.draw(vein);
         }
     }
 

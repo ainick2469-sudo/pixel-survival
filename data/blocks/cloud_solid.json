@@ -1,0 +1,15 @@
+{
+  "id": "pixel_survival:cloud_solid",
+  "displayName": "Solid Cloud",
+  "materialFamily": "cloud",
+  "solid": true,
+  "opaque": true,
+  "debugColor": "#E7EDF4",
+  "visuals": {
+    "topTexture": "Textures/Terrain/cloud_solid.png",
+    "sideTexture": "Textures/Terrain/cloud_solid.png",
+    "bottomTexture": "Textures/Terrain/cloud_solid.png",
+    "tintKey": "cloud"
+  },
+  "tags": ["sky", "walkable_cloud", "deferred_worldgen"]
+}
