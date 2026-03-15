@@ -138,6 +138,8 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Chunk selection now stays centered on the player chunk in a buffered circular radius instead of a camera-facing cone. That keeps the nearby world stable when the player turns around and avoids full horizon reloads on fast view changes.
 - Runtime chunk scheduling is capped and chunk completion work is batched per update so high render-distance settings do not enqueue or attach unbounded work in one frame.
 - `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
+- The mesh builder now greedily merges adjacent coplanar faces that share the same material key, which reduces quad count dramatically on flat terrain and cliff bands.
+- Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
 - The terrain material path now uses crisp close-up filtering with mipmaps and reusable shared materials rather than one-off block-instance materials.

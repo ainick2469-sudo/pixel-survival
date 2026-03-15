@@ -540,6 +540,50 @@
   - Stable radial residency fixes the turn-around hitch, but it necessarily keeps more chunks available than the old cone-based path.
   - The current smoothing work reduces spikes, but the real long-term solution is still lower face count and stronger chunk mesh efficiency.
 
+## 2026-03-15 09:36:00 MDT
+
+- Date/Time: 2026-03-15 09:36:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Reduce terrain render cost with greedy chunk meshing on the live runtime path.
+- Completed Work:
+  - Replaced the old one-quad-per-visible-face chunk mesh path with greedy face merging that combines adjacent coplanar quads sharing the same material key.
+  - Kept the existing block visual pipeline intact so top/side/bottom textures and cube-net texture references still resolve correctly through the merged mesh path.
+  - Updated face visibility lookup so interior neighbor checks stay inside local `ChunkData` whenever possible and only hit the world service at chunk boundaries.
+  - Added a regression test that proves a 2x2 grass patch now collapses from sixteen exposed unit faces down to six greedy quads.
+  - Updated runtime docs to reflect greedy chunk meshing as the current optimization path for large terrain surfaces.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - chunk mesh generation
+  - terrain face visibility lookup
+  - terrain UV tiling on merged quads
+  - renderer/runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup after the greedy-mesh change
+- Current Playable State:
+  - The world still streams in buffered chunk radii up to `48` chunks.
+  - Terrain surfaces now render through greedy merged quads instead of emitting a separate quad for every visible block face.
+  - Large flat terrain bands and cliff layers should cost materially fewer rendered quads than before.
+- Known Issues:
+  - Greedy meshing reduces quad count, but chunk memory still uses raw `BlockId[]` storage and has not been palette-compressed yet.
+  - The runtime still uses one material section per distinct visible face texture key and has not moved to texture atlasing yet.
+- Next Tasks:
+  - Add chunk/block storage compaction so loaded chunk memory scales better at higher distances.
+  - Evaluate texture atlas support once more block families are added and the material key count starts to climb.
+  - Keep profiling the mesh rebuild path before caves, vegetation, and larger landmark passes increase visible terrain complexity.
+- Risks/Technical Debt:
+  - Greedy meshing helps most on large uniform surfaces; noisy future terrain or decorative blocks will still need additional optimization layers.
+  - UV tiling now repeats across merged quads, which is correct for current terrain textures but needs to remain compatible with future atlas packing rules.
+
 ## Entry Template
 
 - Date/Time:

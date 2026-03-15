@@ -91,6 +91,38 @@ class ChunkMeshBuilderTest {
         assertTrue(stoneSectionCount >= 1);
     }
 
+    @Test
+    void greedilyMergesAdjacentFacesWithTheSameMaterial() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        Map<ChunkCoord, ChunkData> chunks = new HashMap<>();
+        ChunkData centerChunk = new ChunkData(new ChunkCoord(0, 0), AIR);
+        for (int x = 4; x <= 5; x++) {
+            for (int z = 4; z <= 5; z++) {
+                centerChunk.setBlock(x, 10, z, GRASS);
+            }
+        }
+        chunks.put(centerChunk.chunkCoord(), centerChunk);
+        loadNeighborAirChunks(chunks);
+
+        AuthoritativeWorldService worldService =
+                new AuthoritativeWorldService(registries, mapBackedGenerator(chunks));
+        chunks.keySet().forEach(worldService::loadChunk);
+
+        ChunkMeshBuildResult result = new ChunkMeshBuilder(worldService, registries).buildChunkMesh(centerChunk);
+
+        assertEquals(4, result.visibleBlockCount());
+        assertEquals(6, result.faceCount());
+        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/grass_top.png"), "grass"))
+                .faceCount());
+        assertEquals(4, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/grass_side.png"), "grass"))
+                .faceCount());
+        assertEquals(1, result.sections().get(TerrainMaterialKey.textured(
+                        BlockFaceTextureReference.direct("Textures/Terrain/dirt.png"), "grass"))
+                .faceCount());
+    }
+
     private static void loadNeighborAirChunks(Map<ChunkCoord, ChunkData> chunks) {
         chunks.put(new ChunkCoord(1, 0), new ChunkData(new ChunkCoord(1, 0), AIR));
         chunks.put(new ChunkCoord(-1, 0), new ChunkData(new ChunkCoord(-1, 0), AIR));
