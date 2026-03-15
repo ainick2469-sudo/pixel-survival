@@ -227,7 +227,11 @@ Current importer behavior:
 - validates the asset type, version, and expected `cross-3x4` authoring layout
 - decodes each face image from `imageDataUrl`
 - applies the stored transform fields per face
-- bakes a runtime cube-net PNG in the standard `back_top_left_front_right_bottom` layout
+- interprets the current block-maker export convention as:
+  - center tile = `top`
+  - surrounding tiles = wall faces
+  - far tile = `bottom`
+- bakes a runtime cube-net PNG in the `center_top_surrounding_sides_outer_bottom` layout
 - writes a normal block definition JSON in `data/blocks`
 
 Current import command:
@@ -253,6 +257,10 @@ Current imported sample:
 - runtime block id: `pixel_survival:custom_block`
 - generated block definition: `data/blocks/custom_block.json`
 - generated cube net: `src/main/resources/Textures/BlockCubeNets/custom_block_cube_net.png`
+
+Current live terrain use:
+
+- `pixel_survival:grass_block` is now also imported from the `.voxelblock` authoring pipeline and uses the same center-top layout convention as the block-maker app.
 
 ## Asset conventions
 

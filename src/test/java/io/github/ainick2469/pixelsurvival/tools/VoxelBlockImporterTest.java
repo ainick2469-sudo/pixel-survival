@@ -49,7 +49,7 @@ class VoxelBlockImporterTest {
         assertEquals("pixel_survival:test_imported_block", result.blockId());
         assertTrue(Files.exists(result.blockDefinitionPath()));
         assertTrue(Files.exists(result.cubeNetTexturePath()));
-        assertEquals(CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM, result.cubeNetLayout());
+        assertEquals(CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM, result.cubeNetLayout());
 
         JsonNode blockJson = OBJECT_MAPPER.readTree(result.blockDefinitionPath().toFile());
         assertEquals("pixel_survival:test_imported_block", blockJson.get("id").asText());
@@ -94,8 +94,8 @@ class VoxelBlockImporterTest {
 
     private void assertFaceCenterColor(BufferedImage cubeNetImage, BlockTextureFace face, Color expected) {
         int tileSize = cubeNetImage.getWidth() / 3;
-        int sampleX = (CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM.tileX(face) * tileSize) + (tileSize / 2);
-        int sampleY = (CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM.tileY(face) * tileSize) + (tileSize / 2);
+        int sampleX = (CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM.tileX(face) * tileSize) + (tileSize / 2);
+        int sampleY = (CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM.tileY(face) * tileSize) + (tileSize / 2);
         Color actual = new Color(cubeNetImage.getRGB(sampleX, sampleY), true);
         assertEquals(expected.getRed(), actual.getRed());
         assertEquals(expected.getGreen(), actual.getGreen());
@@ -104,12 +104,12 @@ class VoxelBlockImporterTest {
 
     private String sampleVoxelBlockJson() throws Exception {
         Map<String, Color> faceColors = Map.of(
-                "back", new Color(220, 20, 60),
-                "top", new Color(60, 179, 113),
+                "back", new Color(210, 180, 140),
+                "top", new Color(220, 20, 60),
                 "left", new Color(65, 105, 225),
-                "front", new Color(255, 165, 0),
+                "front", new Color(60, 179, 113),
                 "right", new Color(138, 43, 226),
-                "bottom", new Color(210, 180, 140));
+                "bottom", new Color(255, 165, 0));
 
         StringBuilder builder = new StringBuilder();
         builder.append("{\n");

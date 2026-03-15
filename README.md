@@ -84,8 +84,8 @@ The repo now also includes a sample imported block generated from a local `custo
 - Grass, dirt, stone, and sand now use 128x128 terrain textures with data-driven support for single-texture, top/side/bottom, explicit six-face, and cube-net block visuals.
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
-- Dirt and grass now ship through the new center-top cube-net import path, while stone remains supported on the older explicit cross layout.
-- The shipped grass and dirt textures were refreshed again to follow the newer block-asset direction more closely: pebbly tan dirt, a cleaner grass top, and corrected grassy wall lips that stay aligned across all four side directions.
+- Dirt and the live `grass_block` now both use the center-top terrain cube-net path, while stone remains on the standard `back_top_left_front_right_bottom` cross layout.
+- The live `grass_block` now comes from the imported `.voxelblock` authoring asset instead of the older generated grass cube net. The importer now follows the block-maker app convention where the center tile is the top face, the surrounding tiles are the wall faces, and the far tile is the bottom face.
 - The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.

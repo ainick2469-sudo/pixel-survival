@@ -62,7 +62,7 @@ class BlockRegistryLoaderTest {
                 "Textures/BlockCubeNets/custom_block_cube_net.png",
                 blocks.get(BlockId.of("pixel_survival:custom_block")).visuals().cubeNetTexture());
         assertEquals(
-                CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM,
+                CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
                 blocks.get(BlockId.of("pixel_survival:custom_block")).visuals().cubeNetLayout());
         assertNotNull(blocks.get(BlockId.of("pixel_survival:air")).visuals());
     }

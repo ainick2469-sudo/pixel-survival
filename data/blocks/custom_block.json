@@ -4,11 +4,11 @@
   "materialFamily" : "decorative",
   "solid" : true,
   "opaque" : true,
-  "debugColor" : "#615B2E",
+  "debugColor" : "#307420",
   "visuals" : {
     "textureMode" : "cube_net",
     "cubeNetTexture" : "Textures/BlockCubeNets/custom_block_cube_net.png",
-    "cubeNetLayout" : "back_top_left_front_right_bottom",
+    "cubeNetLayout" : "center_top_surrounding_sides_outer_bottom",
     "tintKey" : null
   },
   "tags" : [ "custom_block", "imported", "tile_128" ]

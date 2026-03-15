@@ -1,15 +1,15 @@
 {
-  "id": "pixel_survival:grass_block",
-  "displayName": "Grass Block",
-  "materialFamily": "soil",
-  "solid": true,
-  "opaque": true,
-  "debugColor": "#5D9C45",
-  "visuals": {
-    "textureMode": "cube_net",
-    "cubeNetTexture": "Textures/BlockCubeNets/grass_block_cube_net.png",
-    "cubeNetLayout": "center_top_surrounding_sides_outer_bottom",
-    "tintKey": "grass"
+  "id" : "pixel_survival:grass_block",
+  "displayName" : "Grass Block",
+  "materialFamily" : "soil",
+  "solid" : true,
+  "opaque" : true,
+  "debugColor" : "#307420",
+  "visuals" : {
+    "textureMode" : "cube_net",
+    "cubeNetTexture" : "Textures/BlockCubeNets/grass_block_cube_net.png",
+    "cubeNetLayout" : "center_top_surrounding_sides_outer_bottom",
+    "tintKey" : "grass"
   },
-  "tags": ["terrain", "surface_layer"]
+  "tags" : [ "terrain", "surface_layer", "imported", "tile_128" ]
 }

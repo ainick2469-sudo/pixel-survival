@@ -1,5 +1,50 @@
 # Devlog
 
+## 2026-03-15 13:45:41 MDT
+
+- Date/Time: 2026-03-15 13:45:41 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Fix `.voxelblock` face interpretation so the block-maker export convention imports correctly, then switch the live grass block to the imported asset.
+- Completed Work:
+  - Diagnosed the bad grass import as a layout-contract mismatch rather than a texture decode failure: the block-maker export expects the center tile to become the top face, but the importer was declaring the older `back_top_left_front_right_bottom` cross.
+  - Updated `VoxelBlockImporter` so `.voxelblock` assets from the current block-maker app are interpreted with the center-top convention and written back out as `center_top_surrounding_sides_outer_bottom`.
+  - Updated importer regression coverage to validate the new face remap and emitted cube-net layout.
+  - Re-imported both `pixel_survival:grass_block` and the sample `pixel_survival:custom_block` through the fixed importer.
+  - Switched the live `grass_block` registry entry to the imported asset path with the corrected center-top layout, so the shipped terrain now matches the block-maker output instead of the older generated grass cube net.
+  - Updated content docs so future block imports follow the actual block-maker convention instead of the older cross-layout assumption.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `data/blocks/grass_block.json`
+  - `data/blocks/custom_block.json`
+  - `src/main/java/.../tools/VoxelBlockImporter.java`
+  - `src/main/resources/Textures/BlockCubeNets/grass_block_cube_net.png`
+  - `src/main/resources/Textures/BlockCubeNets/custom_block_cube_net.png`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../tools/VoxelBlockImporterTest.java`
+- Systems Touched:
+  - `.voxelblock` import contract
+  - grass block visual content
+  - sample imported block content
+  - registry validation
+  - content pipeline documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\custom-block.voxelblock -PvoxelBlockId=pixel_survival:grass_block -PvoxelMaterialFamily=soil -PvoxelTintKey=grass -PvoxelTags=terrain,surface_layer`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\custom-block.voxelblock -PvoxelBlockId=pixel_survival:custom_block -PvoxelMaterialFamily=decorative`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - The live grass terrain now resolves through the imported `.voxelblock` asset path using the block-maker’s center-top convention.
+  - The sample imported block remains in the registry as a non-worldgen content example and now follows the same corrected layout contract.
+- Known Issues:
+  - The importer currently targets the current block-maker export convention specifically. If the app’s face contract changes later, the importer must be updated explicitly rather than silently guessing.
+- Next Tasks:
+  - Continue terrain/runtime optimization with terrain batching and material consolidation so large horizons cost fewer draw calls.
+  - Tighten chunk pipeline prioritization after batching lands.
+- Risks/Technical Debt:
+  - The importer contract is now aligned with the current tool, but the project should eventually version the `.voxelblock` layout semantics explicitly so future tool revisions cannot drift silently.
+
 ## 2026-03-15 13:10:27 MDT
 
 - Date/Time: 2026-03-15 13:10:27 MDT

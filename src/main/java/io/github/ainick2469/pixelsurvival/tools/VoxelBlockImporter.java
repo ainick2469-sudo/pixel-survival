@@ -30,7 +30,7 @@ public final class VoxelBlockImporter {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
     private static final String SUPPORTED_INPUT_LAYOUT = "cross-3x4";
-    private static final CubeNetLayout OUTPUT_LAYOUT = CubeNetLayout.BACK_TOP_LEFT_FRONT_RIGHT_BOTTOM;
+    private static final CubeNetLayout OUTPUT_LAYOUT = CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM;
     private static final List<BlockTextureFace> REQUIRED_FACES = List.of(
             BlockTextureFace.BACK,
             BlockTextureFace.TOP,
@@ -38,6 +38,13 @@ public final class VoxelBlockImporter {
             BlockTextureFace.FRONT,
             BlockTextureFace.RIGHT,
             BlockTextureFace.BOTTOM);
+    private static final Map<BlockTextureFace, String> INPUT_FACE_FIELDS = Map.of(
+            BlockTextureFace.BACK, "top",
+            BlockTextureFace.TOP, "front",
+            BlockTextureFace.LEFT, "left",
+            BlockTextureFace.FRONT, "bottom",
+            BlockTextureFace.RIGHT, "right",
+            BlockTextureFace.BOTTOM, "back");
 
     public static void main(String[] args) throws Exception {
         ImportOptions options = ImportOptions.parse(args);
@@ -131,7 +138,7 @@ public final class VoxelBlockImporter {
     }
 
     private static VoxelBlockFaceAsset faceAssetFor(VoxelBlockAssetDocument assetDocument, BlockTextureFace face) {
-        return assetDocument.faces().get(face.name().toLowerCase(Locale.ROOT));
+        return assetDocument.faces().get(INPUT_FACE_FIELDS.get(face));
     }
 
     private static BufferedImage renderFace(VoxelBlockFaceAsset faceAsset, int tileSize) throws IOException {
