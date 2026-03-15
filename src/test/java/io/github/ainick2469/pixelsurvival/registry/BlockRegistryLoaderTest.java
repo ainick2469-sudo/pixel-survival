@@ -27,8 +27,11 @@ class BlockRegistryLoaderTest {
         assertEquals("Sand", blocks.get(BlockId.of("pixel_survival:sand")).displayName());
         assertEquals("Solid Cloud", blocks.get(BlockId.of("pixel_survival:cloud_solid")).displayName());
         assertEquals(
-                "Textures/Terrain/dirt.png",
-                blocks.get(BlockId.of("pixel_survival:dirt")).visuals().sideTexture());
+                BlockTextureMode.CUBE_NET,
+                blocks.get(BlockId.of("pixel_survival:dirt")).visuals().textureMode());
+        assertEquals(
+                "Textures/BlockCubeNets/dirt_cube_net.png",
+                blocks.get(BlockId.of("pixel_survival:dirt")).visuals().cubeNetTexture());
         assertEquals(
                 BlockTextureMode.CUBE_NET,
                 blocks.get(BlockId.of("pixel_survival:stone")).visuals().textureMode());

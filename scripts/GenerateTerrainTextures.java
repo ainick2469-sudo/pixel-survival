@@ -23,15 +23,23 @@ public final class GenerateTerrainTextures {
         Files.createDirectories(terrainOutputDirectory);
         Files.createDirectories(cubeNetOutputDirectory);
 
+        BufferedImage dirtTexture = dirtTexture();
         BufferedImage stoneTexture = stoneTexture();
 
         writeTexture(terrainOutputDirectory.resolve("grass_top.png"), grassTopTexture());
         writeTexture(terrainOutputDirectory.resolve("grass_side.png"), grassSideTexture());
-        writeTexture(terrainOutputDirectory.resolve("dirt.png"), dirtTexture());
+        writeTexture(terrainOutputDirectory.resolve("dirt.png"), dirtTexture);
         writeTexture(terrainOutputDirectory.resolve("stone.png"), stoneTexture);
         writeTexture(terrainOutputDirectory.resolve("sand.png"), sandTexture());
         writeTexture(terrainOutputDirectory.resolve("cloud_solid.png"), cloudSolidTexture());
         writeTexture(terrainOutputDirectory.resolve("missing_block.png"), missingTexture());
+        writeTexture(cubeNetOutputDirectory.resolve("dirt_cube_net.png"), cubeNetTexture(
+                dirtTexture,
+                dirtTexture,
+                dirtTexture,
+                dirtTexture,
+                dirtTexture,
+                dirtTexture));
         writeTexture(cubeNetOutputDirectory.resolve("stone_cube_net.png"), cubeNetTexture(
                 stoneTexture,
                 stoneTexture,

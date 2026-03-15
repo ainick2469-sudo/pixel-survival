@@ -1,5 +1,52 @@
 # Devlog
 
+## 2026-03-15 10:35:31 MDT
+
+- Date/Time: 2026-03-15 10:35:31 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add reliable in-game screenshots, live F11 display toggling, and move dirt onto the cube-net content path.
+- Completed Work:
+  - Added an in-game screenshot processor that captures the actual rendered frame and writes PNGs into a local `screenshots/` folder under the repo.
+  - Bound `F2` to screenshot capture and added transient HUD status feedback for saved or failed screenshot attempts.
+  - Bound `F11` to live fullscreen/windowed toggling through the active LWJGL window instead of requiring a restart or relying on the desktop launcher state.
+  - Switched `dirt` to the cube-net block visual path and generated a repo-local `dirt_cube_net.png` asset slot so dirt now uses the same scalable six-face pipeline as stone.
+  - Updated the block registry validation to reflect the dirt cube-net path and ignored local screenshot output in git.
+- Files Changed:
+  - `.gitignore`
+  - `README.md`
+  - `DEVLOG.md`
+  - `data/blocks/dirt.json`
+  - `scripts/GenerateTerrainTextures.java`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../app/ScreenshotCaptureProcessor.java`
+  - `src/main/resources/Textures/BlockCubeNets/dirt_cube_net.png`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+- Systems Touched:
+  - input handling
+  - display mode control
+  - screenshot capture pipeline
+  - block visual asset pipeline
+  - registry validation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain shadowJar`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -jar build\libs\pixel-survival-desktop.jar` smoke launch, verified clean startup on the screenshot/fullscreen build
+- Current Playable State:
+  - The game still boots fullscreen by default and can now be switched into a smaller window with `F11`, then back to fullscreen with `F11` again.
+  - `F2` saves a screenshot of the live in-game frame without depending on desktop-window focus timing.
+  - Dirt now resolves through the cube-net content path, matching the long-term custom block import pipeline.
+- Known Issues:
+  - The repo-local `dirt_cube_net.png` is a generated placeholder asset in the correct layout, not yet the final exact hand-authored dirt art from chat attachments on disk.
+  - Fullscreen/windowed toggling depends on the active GLFW window context and still needs normal play testing across monitor setups.
+- Next Tasks:
+  - Drop in the final hand-authored grass cube-net asset and move `grass_block` onto the same cube-net path.
+  - Continue render/runtime optimization with terrain batching and stronger concurrent chunk-pipeline back-pressure.
+  - Add deeper graphics options only after the current screenshot/display controls prove stable in actual play.
+- Risks/Technical Debt:
+  - Screenshot capture reads from the live framebuffer on demand, which is correct for current needs, but future post-processing or multiple-view rendering paths may require more explicit capture targeting.
+  - Live display toggling avoids restart friction, but window-state edge cases can still vary by GPU driver and monitor configuration.
+
 ## 2026-03-15 00:41:37 MDT
 
 - Date/Time: 2026-03-15 00:41:37 MDT

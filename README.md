@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered horizon streaming up to 48 chunks, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance up to 48 chunks, buffered radial chunk streaming, and a Minecraft-style pause/options flow
+- Milestone: fullscreen-first launch, stable buffered horizon streaming up to 48 chunks, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance up to 48 chunks, buffered radial chunk streaming, in-game screenshot capture, windowed/fullscreen toggling, and a Minecraft-style pause/options flow
 
 ## Technology stack
 
@@ -37,6 +37,8 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - `Shift`: move faster
 - `Esc`: open or close the pause menu
 - `Left Click`: use the pause/options menu
+- `F2`: save a screenshot of the current frame to `screenshots/`
+- `F11`: toggle between fullscreen and windowed mode
 - `F10`: quit the game intentionally
 
 ## Current render/runtime state
@@ -57,6 +59,8 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - High-distance load buffering is now leaner, so `48` chunk render distance no longer silently implies the older oversized load radius.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
+- `F2` captures the current in-game frame directly from the render pipeline instead of relying on the desktop or launcher window timing.
+- `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.
 
 ## Project principles
 

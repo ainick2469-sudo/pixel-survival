@@ -6,9 +6,9 @@
   "opaque": true,
   "debugColor": "#7A5230",
   "visuals": {
-    "topTexture": "Textures/Terrain/dirt.png",
-    "sideTexture": "Textures/Terrain/dirt.png",
-    "bottomTexture": "Textures/Terrain/dirt.png",
+    "textureMode": "cube_net",
+    "cubeNetTexture": "Textures/BlockCubeNets/dirt_cube_net.png",
+    "cubeNetLayout": "back_top_left_front_right_bottom",
     "tintKey": null
   },
   "tags": ["terrain", "surface_seed"]

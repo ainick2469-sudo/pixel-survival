@@ -13,6 +13,9 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.scene.Spatial.CullHint;
+import com.jme3.system.AppSettings;
+import com.jme3.system.JmeContext;
+import com.jme3.system.lwjgl.LwjglWindow;
 import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManager;
 import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRuntimeMetrics;
 import io.github.ainick2469.pixelsurvival.settings.GraphicsSettings;
@@ -22,19 +25,26 @@ import io.github.ainick2469.pixelsurvival.ui.PauseMenuController;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import java.nio.file.Path;
 import java.util.List;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWVidMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class PixelSurvivalApplication extends SimpleApplication {
+public final class PixelSurvivalApplication extends SimpleApplication implements ScreenshotCaptureProcessor.ScreenshotFeedbackSink {
     private static final String INPUT_TOGGLE_PAUSE_MENU = "pixel_survival_toggle_pause_menu";
     private static final String INPUT_QUIT_GAME = "pixel_survival_quit_game";
     private static final String INPUT_MENU_SELECT = "pixel_survival_menu_select";
+    private static final String INPUT_TAKE_SCREENSHOT = "pixel_survival_take_screenshot";
+    private static final String INPUT_TOGGLE_FULLSCREEN = "pixel_survival_toggle_fullscreen";
     private static final Logger LOGGER = LoggerFactory.getLogger(PixelSurvivalApplication.class);
     private static final List<GarbageCollectorMXBean> GARBAGE_COLLECTORS = ManagementFactory.getGarbageCollectorMXBeans();
+    private static final long STATUS_MESSAGE_DURATION_NANOS = 4_000_000_000L;
 
     private LocalHostSession session;
     private ChunkRenderManager chunkRenderManager;
+    private ScreenshotCaptureProcessor screenshotCaptureProcessor;
     private PauseMenuController pauseMenuController;
     private BitmapText hud;
     private boolean mouseLookCaptured;
@@ -44,6 +54,12 @@ public final class PixelSurvivalApplication extends SimpleApplication {
     private float smoothedGarbageCollectionMilliseconds;
     private GraphicsSettings graphicsSettings;
     private long previousGarbageCollectionTimeMilliseconds = currentGarbageCollectionTimeMilliseconds();
+    private long statusMessageExpiresAtNanos;
+    private String statusMessage;
+    private int windowedWidth = 1600;
+    private int windowedHeight = 900;
+    private int windowedX = 160;
+    private int windowedY = 90;
 
     private final ActionListener inputListener = (name, isPressed, timePerFrame) -> {
         if (!isPressed) {
@@ -54,6 +70,10 @@ public final class PixelSurvivalApplication extends SimpleApplication {
             togglePauseMenu();
         } else if (INPUT_QUIT_GAME.equals(name)) {
             stop();
+        } else if (INPUT_TAKE_SCREENSHOT.equals(name)) {
+            takeScreenshot();
+        } else if (INPUT_TOGGLE_FULLSCREEN.equals(name)) {
+            toggleFullscreen();
         } else if (INPUT_MENU_SELECT.equals(name) && pauseMenuController != null && pauseMenuController.isVisible()) {
             handlePauseMenuCommand(pauseMenuController.handleClick(inputManager.getCursorPosition()));
         }
@@ -118,6 +138,9 @@ public final class PixelSurvivalApplication extends SimpleApplication {
                 graphicsSettings.renderDistanceChunks(),
                 GraphicsSettings.DEFAULT_RENDER_DISTANCE_CHUNKS,
                 GraphicsSettings.MAX_RENDER_DISTANCE_CHUNKS);
+        screenshotCaptureProcessor =
+                new ScreenshotCaptureProcessor(session.registries().dataRoot().getParent().resolve("screenshots"), this);
+        guiViewPort.addProcessor(screenshotCaptureProcessor);
 
         LOGGER.info(
                 "Loaded {} block definitions and {} settings presets from {}",
@@ -133,8 +156,16 @@ public final class PixelSurvivalApplication extends SimpleApplication {
 
         inputManager.addMapping(INPUT_TOGGLE_PAUSE_MENU, new KeyTrigger(KeyInput.KEY_ESCAPE));
         inputManager.addMapping(INPUT_QUIT_GAME, new KeyTrigger(KeyInput.KEY_F10));
+        inputManager.addMapping(INPUT_TAKE_SCREENSHOT, new KeyTrigger(KeyInput.KEY_F2));
+        inputManager.addMapping(INPUT_TOGGLE_FULLSCREEN, new KeyTrigger(KeyInput.KEY_F11));
         inputManager.addMapping(INPUT_MENU_SELECT, new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
-        inputManager.addListener(inputListener, INPUT_TOGGLE_PAUSE_MENU, INPUT_QUIT_GAME, INPUT_MENU_SELECT);
+        inputManager.addListener(
+                inputListener,
+                INPUT_TOGGLE_PAUSE_MENU,
+                INPUT_QUIT_GAME,
+                INPUT_TAKE_SCREENSHOT,
+                INPUT_TOGGLE_FULLSCREEN,
+                INPUT_MENU_SELECT);
         setMouseLookCaptured(true);
     }
 
@@ -188,7 +219,8 @@ public final class PixelSurvivalApplication extends SimpleApplication {
                 + " | UI " + String.format("%.1f", smoothedUiUpdateMilliseconds) + " ms"
                 + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"
                 + " | GC " + String.format("%.1f", smoothedGarbageCollectionMilliseconds) + " ms"
-                + "\nWASD move | Mouse look | Shift fast | Esc menu | F10 quit";
+                + "\nWASD move | Mouse look | Shift fast | F2 screenshot | F11 fullscreen | Esc menu | F10 quit"
+                + buildStatusMessageSuffix();
     }
 
     @Override
@@ -288,6 +320,7 @@ public final class PixelSurvivalApplication extends SimpleApplication {
         chunkRenderManager.setRuntimeConfig(graphicsSettings.toChunkRuntimeConfig());
         applyViewDistanceSettings();
         LOGGER.info("Updated render distance to {} chunks", graphicsSettings.renderDistanceChunks());
+        showStatusMessage("Render distance set to " + graphicsSettings.renderDistanceChunks() + " chunks");
     }
 
     private void applyViewDistanceSettings() {
@@ -304,6 +337,71 @@ public final class PixelSurvivalApplication extends SimpleApplication {
         float nearClip = Math.max(0.0001f, cam.getFrustumNear());
         float halfHorizontal = Math.max(Math.abs(cam.getFrustumLeft()), Math.abs(cam.getFrustumRight()));
         return (float) Math.toDegrees(Math.atan(halfHorizontal / nearClip) * 2.0);
+    }
+
+    private void takeScreenshot() {
+        if (screenshotCaptureProcessor == null) {
+            return;
+        }
+        screenshotCaptureProcessor.requestScreenshot();
+        showStatusMessage("Saving screenshot...");
+    }
+
+    private void toggleFullscreen() {
+        JmeContext context = getContext();
+        if (!(context instanceof LwjglWindow lwjglWindow)) {
+            showStatusMessage("Fullscreen toggle unavailable on this context");
+            return;
+        }
+
+        long windowHandle = lwjglWindow.getWindowHandle();
+        if (windowHandle == 0L) {
+            showStatusMessage("Fullscreen toggle unavailable before window init");
+            return;
+        }
+
+        if (settings.isFullscreen()) {
+            long monitor = GLFW.glfwGetPrimaryMonitor();
+            GLFWVidMode videoMode = monitor == 0L ? null : GLFW.glfwGetVideoMode(monitor);
+            if (videoMode != null) {
+                int fallbackWidth = Math.max(1280, Math.min(1600, (int) (videoMode.width() * 0.75f)));
+                int fallbackHeight = Math.max(720, Math.min(900, (int) (videoMode.height() * 0.75f)));
+                if (windowedWidth <= 0 || windowedHeight <= 0) {
+                    windowedWidth = fallbackWidth;
+                    windowedHeight = fallbackHeight;
+                }
+                windowedX = Math.max(0, (videoMode.width() - windowedWidth) / 2);
+                windowedY = Math.max(0, (videoMode.height() - windowedHeight) / 2);
+            }
+            GLFW.glfwSetWindowMonitor(windowHandle, 0L, windowedX, windowedY, windowedWidth, windowedHeight, GLFW.GLFW_DONT_CARE);
+            settings.setFullscreen(false);
+            settings.setResolution(windowedWidth, windowedHeight);
+            settings.setResizable(true);
+            showStatusMessage("Windowed mode");
+            return;
+        }
+
+        windowedWidth = context.getFramebufferWidth();
+        windowedHeight = context.getFramebufferHeight();
+        windowedX = context.getWindowXPosition();
+        windowedY = context.getWindowYPosition();
+
+        long monitor = GLFW.glfwGetPrimaryMonitor();
+        if (monitor == 0L) {
+            showStatusMessage("No fullscreen monitor detected");
+            return;
+        }
+        GLFWVidMode videoMode = GLFW.glfwGetVideoMode(monitor);
+        if (videoMode == null) {
+            showStatusMessage("No fullscreen video mode detected");
+            return;
+        }
+
+        GLFW.glfwSetWindowMonitor(windowHandle, monitor, 0, 0, videoMode.width(), videoMode.height(), videoMode.refreshRate());
+        settings.setFullscreen(true);
+        settings.setResolution(videoMode.width(), videoMode.height());
+        settings.setResizable(false);
+        showStatusMessage("Fullscreen mode");
     }
 
     private void updateGarbageCollectionTelemetry() {
@@ -332,5 +430,33 @@ public final class PixelSurvivalApplication extends SimpleApplication {
 
     private float nanosToMilliseconds(long nanoseconds) {
         return nanoseconds / 1_000_000f;
+    }
+
+    private void showStatusMessage(String message) {
+        statusMessage = message;
+        statusMessageExpiresAtNanos = System.nanoTime() + STATUS_MESSAGE_DURATION_NANOS;
+    }
+
+    private String buildStatusMessageSuffix() {
+        if (statusMessage == null) {
+            return "";
+        }
+        if (System.nanoTime() >= statusMessageExpiresAtNanos) {
+            statusMessage = null;
+            return "";
+        }
+        return "\n" + statusMessage;
+    }
+
+    @Override
+    public void onScreenshotSaved(Path screenshotPath) {
+        LOGGER.info("Saved screenshot to {}", screenshotPath);
+        showStatusMessage("Screenshot saved: " + screenshotPath.getFileName());
+    }
+
+    @Override
+    public void onScreenshotFailed(Exception exception) {
+        LOGGER.error("Failed to save screenshot", exception);
+        showStatusMessage("Screenshot failed: " + exception.getClass().getSimpleName());
     }
 }
