@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class AuthoritativeWorldService {
     private static final io.github.ainick2469.pixelsurvival.world.block.BlockId AIR =
@@ -17,6 +18,7 @@ public final class AuthoritativeWorldService {
     private final GameRegistries registries;
     private final WorldGenerator worldGenerator;
     private final Map<ChunkCoord, ChunkData> loadedChunks = new ConcurrentHashMap<>();
+    private final AtomicLong estimatedLoadedChunkStorageBytes = new AtomicLong();
 
     public AuthoritativeWorldService(GameRegistries registries, WorldGenerator worldGenerator) {
         this.registries = registries;
@@ -24,7 +26,19 @@ public final class AuthoritativeWorldService {
     }
 
     public ChunkData loadChunk(ChunkCoord chunkCoord) {
-        return loadedChunks.computeIfAbsent(chunkCoord, coord -> worldGenerator.generateChunk(coord, registries));
+        ChunkData existingChunk = loadedChunks.get(chunkCoord);
+        if (existingChunk != null) {
+            return existingChunk;
+        }
+
+        ChunkData generatedChunk = worldGenerator.generateChunk(chunkCoord, registries);
+        ChunkData priorChunk = loadedChunks.putIfAbsent(chunkCoord, generatedChunk);
+        if (priorChunk != null) {
+            return priorChunk;
+        }
+
+        estimatedLoadedChunkStorageBytes.addAndGet(generatedChunk.estimatedStorageBytes());
+        return generatedChunk;
     }
 
     public boolean isChunkLoaded(ChunkCoord chunkCoord) {
@@ -48,7 +62,14 @@ public final class AuthoritativeWorldService {
     }
 
     public void unloadChunk(ChunkCoord chunkCoord) {
-        loadedChunks.remove(chunkCoord);
+        ChunkData removedChunk = loadedChunks.remove(chunkCoord);
+        if (removedChunk != null) {
+            estimatedLoadedChunkStorageBytes.addAndGet(-removedChunk.estimatedStorageBytes());
+        }
+    }
+
+    public long estimatedLoadedChunkStorageBytes() {
+        return estimatedLoadedChunkStorageBytes.get();
     }
 
     public io.github.ainick2469.pixelsurvival.world.block.BlockId getBlockAtWorldOrAir(int worldX, int worldY, int worldZ) {

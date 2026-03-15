@@ -584,6 +584,51 @@
   - Greedy meshing helps most on large uniform surfaces; noisy future terrain or decorative blocks will still need additional optimization layers.
   - UV tiling now repeats across merged quads, which is correct for current terrain textures but needs to remain compatible with future atlas packing rules.
 
+## 2026-03-15 09:45:00 MDT
+
+- Date/Time: 2026-03-15 09:45:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Lower loaded-world memory cost and expose better runtime telemetry for high-distance tuning.
+- Completed Work:
+  - Replaced raw per-voxel `BlockId[]` chunk storage with palette-compressed indexed storage that starts at unsigned-byte density and promotes upward only if the palette grows past byte range.
+  - Added estimated loaded-chunk storage tracking in the authoritative world service so runtime metrics can report world-memory cost directly.
+  - Extended the HUD to show chunk-memory usage plus a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
+  - Added chunk-storage tests covering default palette behavior and promotion from byte-backed storage to short-backed storage when unique block count grows.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeMetrics.java`
+  - `src/main/java/.../world/chunk/ChunkData.java`
+  - `src/main/java/.../world/sim/AuthoritativeWorldService.java`
+  - `src/test/java/.../world/chunk/ChunkDataTest.java`
+- Systems Touched:
+  - chunk voxel storage
+  - loaded-world memory tracking
+  - runtime telemetry HUD
+  - runtime documentation
+  - automated validation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+- Current Playable State:
+  - The world still streams and renders through the current chunk runtime, but loaded chunk memory should now scale materially better at high render distances.
+  - The HUD now exposes more useful timing and memory data for performance tuning sessions.
+- Known Issues:
+  - Palette compression helps memory, but it does not reduce draw calls or far-horizon overdraw by itself.
+  - The timing split is intentionally lightweight and approximate for render/engine time; it is meant for tuning direction, not as a full profiler replacement.
+- Next Tasks:
+  - Add texture atlas planning and batch more terrain/material sections once more block families exist.
+  - Add stricter back-pressure and priority tuning to the concurrent chunk pipeline as horizon scale grows.
+  - Keep simulation distance decoupled and cheap until AI, creatures, and block updates actually exist.
+- Risks/Technical Debt:
+  - Palette storage currently tracks memory correctly for generated chunks, but future in-game block edits will eventually need a clean way to refresh aggregate memory metrics if chunk palettes grow after load.
+  - The current telemetry is good enough for live tuning, but a deeper profiling overlay or external profiler is still needed for detailed render-path attribution.
+
 ## Entry Template
 
 - Date/Time:

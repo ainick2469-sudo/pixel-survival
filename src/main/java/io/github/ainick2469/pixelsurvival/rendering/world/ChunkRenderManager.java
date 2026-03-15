@@ -315,7 +315,8 @@ public final class ChunkRenderManager implements AutoCloseable {
                 simulatedLoaded,
                 pendingChunkLoads.size(),
                 pendingMeshBuilds.size(),
-                renderedFaceCount);
+                renderedFaceCount,
+                worldService.estimatedLoadedChunkStorageBytes());
     }
 
     private void cancelFuture(CompletableFuture<?> future) {

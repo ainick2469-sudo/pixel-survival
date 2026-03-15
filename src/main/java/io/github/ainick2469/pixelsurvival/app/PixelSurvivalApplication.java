@@ -20,6 +20,9 @@ import io.github.ainick2469.pixelsurvival.session.LocalHostSession;
 import io.github.ainick2469.pixelsurvival.ui.PauseMenuCommand;
 import io.github.ainick2469.pixelsurvival.ui.PauseMenuController;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +31,7 @@ public final class PixelSurvivalApplication extends SimpleApplication {
     private static final String INPUT_QUIT_GAME = "pixel_survival_quit_game";
     private static final String INPUT_MENU_SELECT = "pixel_survival_menu_select";
     private static final Logger LOGGER = LoggerFactory.getLogger(PixelSurvivalApplication.class);
+    private static final List<GarbageCollectorMXBean> GARBAGE_COLLECTORS = ManagementFactory.getGarbageCollectorMXBeans();
 
     private LocalHostSession session;
     private ChunkRenderManager chunkRenderManager;
@@ -35,7 +39,11 @@ public final class PixelSurvivalApplication extends SimpleApplication {
     private BitmapText hud;
     private boolean mouseLookCaptured;
     private float smoothedFrameTimeSeconds = 1f / 60f;
+    private float smoothedChunkUpdateMilliseconds;
+    private float smoothedUiUpdateMilliseconds;
+    private float smoothedGarbageCollectionMilliseconds;
     private GraphicsSettings graphicsSettings;
+    private long previousGarbageCollectionTimeMilliseconds = currentGarbageCollectionTimeMilliseconds();
 
     private final ActionListener inputListener = (name, isPressed, timePerFrame) -> {
         if (!isPressed) {
@@ -156,6 +164,13 @@ public final class PixelSurvivalApplication extends SimpleApplication {
         Runtime runtime = Runtime.getRuntime();
         long usedHeapMegabytes = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         float framesPerSecond = 1f / Math.max(smoothedFrameTimeSeconds, 0.0001f);
+        long chunkStorageMegabytes = runtimeMetrics.estimatedLoadedChunkStorageBytes() / (1024 * 1024);
+        float approximateRenderAndEngineMilliseconds = Math.max(
+                0f,
+                (smoothedFrameTimeSeconds * 1000f)
+                        - smoothedChunkUpdateMilliseconds
+                        - smoothedUiUpdateMilliseconds
+                        - smoothedGarbageCollectionMilliseconds);
 
         return "Pixel Survival v" + GameVersion.CURRENT + " | Mode: " + session.mode().name()
                 + "\nFPS " + Math.round(framesPerSecond)
@@ -168,20 +183,44 @@ public final class PixelSurvivalApplication extends SimpleApplication {
                 + " | MeshQ " + runtimeMetrics.pendingMeshBuildCount()
                 + " | Faces " + runtimeMetrics.renderedFaceCount()
                 + " | Heap " + usedHeapMegabytes + " MB"
+                + " | ChunkMem " + chunkStorageMegabytes + " MB"
+                + "\nChunk " + String.format("%.1f", smoothedChunkUpdateMilliseconds) + " ms"
+                + " | UI " + String.format("%.1f", smoothedUiUpdateMilliseconds) + " ms"
+                + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"
+                + " | GC " + String.format("%.1f", smoothedGarbageCollectionMilliseconds) + " ms"
                 + "\nWASD move | Mouse look | Shift fast | Esc menu | F10 quit";
     }
 
     @Override
     public void simpleUpdate(float timePerFrame) {
+        long updateStartNanos = System.nanoTime();
         smoothedFrameTimeSeconds = (smoothedFrameTimeSeconds * 0.9f) + (timePerFrame * 0.1f);
         if (chunkRenderManager != null) {
+            long chunkUpdateStartNanos = System.nanoTime();
             chunkRenderManager.update(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
+            long chunkUpdateEndNanos = System.nanoTime();
+            smoothedChunkUpdateMilliseconds = smoothMilliseconds(
+                    smoothedChunkUpdateMilliseconds,
+                    nanosToMilliseconds(chunkUpdateEndNanos - chunkUpdateStartNanos));
         }
+        long uiUpdateStartNanos = System.nanoTime();
         if (pauseMenuController != null && pauseMenuController.isVisible()) {
             pauseMenuController.updateHover(inputManager.getCursorPosition());
         }
         if (hud != null) {
             hud.setText(buildHudText());
+        }
+        long uiUpdateEndNanos = System.nanoTime();
+        smoothedUiUpdateMilliseconds = smoothMilliseconds(
+                smoothedUiUpdateMilliseconds,
+                nanosToMilliseconds(uiUpdateEndNanos - uiUpdateStartNanos));
+        updateGarbageCollectionTelemetry();
+        long updateEndNanos = System.nanoTime();
+        float totalUpdateMilliseconds = nanosToMilliseconds(updateEndNanos - updateStartNanos);
+        float knownMilliseconds =
+                smoothedChunkUpdateMilliseconds + smoothedUiUpdateMilliseconds + smoothedGarbageCollectionMilliseconds;
+        if (knownMilliseconds > totalUpdateMilliseconds * 2f) {
+            smoothedUiUpdateMilliseconds = Math.max(0f, totalUpdateMilliseconds - smoothedChunkUpdateMilliseconds);
         }
     }
 
@@ -265,5 +304,33 @@ public final class PixelSurvivalApplication extends SimpleApplication {
         float nearClip = Math.max(0.0001f, cam.getFrustumNear());
         float halfHorizontal = Math.max(Math.abs(cam.getFrustumLeft()), Math.abs(cam.getFrustumRight()));
         return (float) Math.toDegrees(Math.atan(halfHorizontal / nearClip) * 2.0);
+    }
+
+    private void updateGarbageCollectionTelemetry() {
+        long currentGarbageCollectionTimeMilliseconds = currentGarbageCollectionTimeMilliseconds();
+        long deltaMilliseconds =
+                Math.max(0L, currentGarbageCollectionTimeMilliseconds - previousGarbageCollectionTimeMilliseconds);
+        previousGarbageCollectionTimeMilliseconds = currentGarbageCollectionTimeMilliseconds;
+        smoothedGarbageCollectionMilliseconds =
+                smoothMilliseconds(smoothedGarbageCollectionMilliseconds, deltaMilliseconds);
+    }
+
+    private long currentGarbageCollectionTimeMilliseconds() {
+        long collectionTimeMilliseconds = 0L;
+        for (GarbageCollectorMXBean garbageCollector : GARBAGE_COLLECTORS) {
+            long collectorTime = garbageCollector.getCollectionTime();
+            if (collectorTime >= 0L) {
+                collectionTimeMilliseconds += collectorTime;
+            }
+        }
+        return collectionTimeMilliseconds;
+    }
+
+    private float smoothMilliseconds(float previousValue, float sampleValue) {
+        return (previousValue * 0.9f) + (sampleValue * 0.1f);
+    }
+
+    private float nanosToMilliseconds(long nanoseconds) {
+        return nanoseconds / 1_000_000f;
     }
 }

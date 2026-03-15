@@ -6,8 +6,9 @@ public record ChunkRuntimeMetrics(
         int simulatedChunkCount,
         int pendingLoadCount,
         int pendingMeshBuildCount,
-        int renderedFaceCount) {
+        int renderedFaceCount,
+        long estimatedLoadedChunkStorageBytes) {
     public static ChunkRuntimeMetrics empty() {
-        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0);
+        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0L);
     }
 }

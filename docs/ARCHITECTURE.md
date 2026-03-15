@@ -140,6 +140,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `ChunkMeshBuilder` emits chunk-local mesh sections grouped by shared material keys rather than block instances.
 - The mesh builder now greedily merges adjacent coplanar faces that share the same material key, which reduces quad count dramatically on flat terrain and cliff bands.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
+- `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns reusable textured materials so block visuals remain data-driven and future atlas migration stays localized.
 - The terrain material path now uses crisp close-up filtering with mipmaps and reusable shared materials rather than one-off block-instance materials.
@@ -195,6 +196,7 @@ Why this matters:
 - `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
 - Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
 - The current ceiling is `48` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
+- The HUD now reports chunk-memory usage and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
 
 ## Registry model
 

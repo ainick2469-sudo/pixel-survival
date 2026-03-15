@@ -43,6 +43,7 @@ The game now boots fullscreen by default and the launcher retries focus activati
 
 - Terrain now renders through chunk-local meshes rather than one scene geometry per exposed block.
 - Chunk meshes now greedily merge adjacent coplanar faces that share the same material, which cuts quad count sharply on large terrain surfaces.
+- Chunk storage is now palette-compressed instead of storing a raw `BlockId` reference per voxel, which lowers world-memory cost at high loaded-chunk counts.
 - Grass, dirt, stone, and sand now use 128x128 terrain textures with separate top/side/bottom support in the block registry.
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
@@ -50,6 +51,7 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
+- The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - The HUD now exposes runtime counts for loaded, rendered, and simulated chunk targets plus render distance, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 
