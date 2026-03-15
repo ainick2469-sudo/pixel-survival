@@ -1,0 +1,10 @@
+{
+  "hungerDrainMultiplier": 1.0,
+  "temperatureMultiplier": 1.0,
+  "wetnessSeverity": 1.0,
+  "fatigueDrainMultiplier": 1.0,
+  "damageMultiplier": 1.0,
+  "deathPenaltyMode": "standard",
+  "hostileSpawnRate": 1.0,
+  "lootAbundance": 1.0
+}

@@ -1,0 +1,19 @@
+{
+  "id": "pixel_survival:basic_work_surface",
+  "displayName": "Basic Work Surface",
+  "category": "stations",
+  "stationRequired": "hand",
+  "stationTier": 0,
+  "ingredients": [
+    { "itemId": "pixel_survival:sticks", "count": 4 },
+    { "itemId": "pixel_survival:wood_scrap", "count": 8 }
+  ],
+  "outputs": [
+    { "itemId": "pixel_survival:basic_work_surface", "count": 1 }
+  ],
+  "unlockRequirement": "default",
+  "tags": ["foundational", "station"],
+  "craftTimeSeconds": 3.0,
+  "byproducts": [],
+  "notes": "Schema seed for future bench progression."
+}

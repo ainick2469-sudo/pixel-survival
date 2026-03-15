@@ -1,0 +1,9 @@
+{
+  "id": "pixel_survival:air",
+  "displayName": "Air",
+  "materialFamily": "air",
+  "solid": false,
+  "opaque": false,
+  "debugColor": "#000000",
+  "tags": ["non_rendered"]
+}

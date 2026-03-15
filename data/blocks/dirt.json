@@ -1,0 +1,9 @@
+{
+  "id": "pixel_survival:dirt",
+  "displayName": "Dirt",
+  "materialFamily": "soil",
+  "solid": true,
+  "opaque": true,
+  "debugColor": "#7A5230",
+  "tags": ["terrain", "surface_seed"]
+}
