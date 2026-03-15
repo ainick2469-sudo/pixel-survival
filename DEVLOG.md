@@ -46,6 +46,38 @@
   - Debug rendering is intentionally naive and will need chunk meshing before larger world sizes are practical.
   - Gradle reports generic future deprecation warnings that should be revisited during later build maintenance.
 
+## 2026-03-15 00:45:00 MDT
+
+- Date/Time: 2026-03-15 00:45:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.001`
+- Milestone: Add a reliable local launcher path from the Windows desktop.
+- Completed Work:
+  - Added a versioned repo launcher script at `scripts\run_local.cmd`.
+  - Added launcher documentation and updated the README to mention the desktop entrypoint.
+  - Created a Windows desktop launcher file outside the repo that forwards into the versioned script.
+- Files Changed:
+  - `README.md`
+  - `DEVLOG.md`
+  - `LAUNCHER.md`
+  - `scripts/run_local.cmd`
+  - local desktop file `C:\Users\nickb\OneDrive\Desktop\Pixel Survival.cmd`
+- Systems Touched:
+  - local developer/run workflow
+  - desktop launch entrypoint
+- Tests Run:
+  - verified launcher target paths exist
+  - verified repo launcher script path and toolchain paths resolve correctly
+- Current Playable State:
+  - The game is launchable from the repo and from the Windows desktop through the local launcher.
+- Known Issues:
+  - The desktop launcher is local-machine convenience state, not a versioned artifact.
+- Next Tasks:
+  - Keep `scripts\run_local.cmd` aligned if the tool or repo path changes.
+  - Move to `0.002` terrain height differences next.
+- Risks/Technical Debt:
+  - The launcher currently depends on the current sibling folder layout between the repo and `pixel-survival-tools`.
+
 ## Entry Template
 
 - Date/Time:

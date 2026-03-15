@@ -27,6 +27,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 gradlew.bat run
 ```
 
+For this machine, there is also a desktop double-click launcher that calls the versioned repo script at `scripts\run_local.cmd`.
+
 ## Controls
 
 - `WASD`: move the debug fly camera
