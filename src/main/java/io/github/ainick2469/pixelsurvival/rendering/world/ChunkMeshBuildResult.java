@@ -5,6 +5,7 @@ import java.util.Map;
 
 public record ChunkMeshBuildResult(
         ChunkCoord chunkCoord,
+        ChunkDetailLevel detailLevel,
         Map<TerrainMaterialKey, ChunkMeshSectionData> sections,
         int visibleBlockCount,
         int faceCount) {

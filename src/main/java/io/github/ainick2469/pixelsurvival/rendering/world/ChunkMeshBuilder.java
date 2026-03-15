@@ -23,6 +23,17 @@ public final class ChunkMeshBuilder {
     }
 
     public ChunkMeshBuildResult buildChunkMesh(ChunkData chunkData) {
+        return buildChunkMesh(chunkData, ChunkDetailLevel.FULL);
+    }
+
+    public ChunkMeshBuildResult buildChunkMesh(ChunkData chunkData, ChunkDetailLevel detailLevel) {
+        return switch (detailLevel) {
+            case FULL -> buildFullDetailMesh(chunkData);
+            case SURFACE -> buildSurfaceDetailMesh(chunkData);
+        };
+    }
+
+    private ChunkMeshBuildResult buildFullDetailMesh(ChunkData chunkData) {
         Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders = new LinkedHashMap<>();
         boolean[] visibleBlocks = new boolean[ChunkData.SIZE_X * ChunkData.SIZE_Y * ChunkData.SIZE_Z];
         int emittedFaceCount = 0;
@@ -38,6 +49,26 @@ public final class ChunkMeshBuilder {
             }
         }
 
+        return buildResult(chunkData, ChunkDetailLevel.FULL, sectionBuilders, visibleBlockCount, emittedFaceCount);
+    }
+
+    private ChunkMeshBuildResult buildSurfaceDetailMesh(ChunkData chunkData) {
+        ColumnSurface[][] surfaces = collectColumnSurfaces(chunkData);
+        int visibleColumnCount = countVisibleColumns(surfaces);
+        Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders = new LinkedHashMap<>();
+
+        int emittedFaceCount = appendSurfaceTopFaces(surfaces, sectionBuilders);
+        emittedFaceCount += appendSurfaceSideFaces(chunkData, surfaces, sectionBuilders);
+
+        return buildResult(chunkData, ChunkDetailLevel.SURFACE, sectionBuilders, visibleColumnCount, emittedFaceCount);
+    }
+
+    private ChunkMeshBuildResult buildResult(
+            ChunkData chunkData,
+            ChunkDetailLevel detailLevel,
+            Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders,
+            int visibleBlockCount,
+            int emittedFaceCount) {
         Map<TerrainMaterialKey, ChunkMeshSectionData> sections = new LinkedHashMap<>();
         for (Map.Entry<TerrainMaterialKey, MeshSectionBuilder> entry : sectionBuilders.entrySet()) {
             ChunkMeshSectionData sectionData = entry.getValue().build();
@@ -46,7 +77,12 @@ public final class ChunkMeshBuilder {
             }
         }
 
-        return new ChunkMeshBuildResult(chunkData.chunkCoord(), Map.copyOf(sections), visibleBlockCount, emittedFaceCount);
+        return new ChunkMeshBuildResult(
+                chunkData.chunkCoord(),
+                detailLevel,
+                Map.copyOf(sections),
+                visibleBlockCount,
+                emittedFaceCount);
     }
 
     private int appendGreedyFaces(
@@ -123,6 +159,174 @@ public final class ChunkMeshBuilder {
                         visibleFaceMaterialKey(chunkData, face, blockX, blockY, blockZ, visibleBlocks);
             }
         }
+    }
+
+    private ColumnSurface[][] collectColumnSurfaces(ChunkData chunkData) {
+        ColumnSurface[][] surfaces = new ColumnSurface[ChunkData.SIZE_X][ChunkData.SIZE_Z];
+        for (int x = 0; x < ChunkData.SIZE_X; x++) {
+            for (int z = 0; z < ChunkData.SIZE_Z; z++) {
+                surfaces[x][z] = topSurfaceInColumn(chunkData, x, z);
+            }
+        }
+        return surfaces;
+    }
+
+    private int countVisibleColumns(ColumnSurface[][] surfaces) {
+        int visibleColumns = 0;
+        for (int x = 0; x < ChunkData.SIZE_X; x++) {
+            for (int z = 0; z < ChunkData.SIZE_Z; z++) {
+                if (surfaces[x][z] != null) {
+                    visibleColumns++;
+                }
+            }
+        }
+        return visibleColumns;
+    }
+
+    private int appendSurfaceTopFaces(
+            ColumnSurface[][] surfaces,
+            Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders) {
+        FaceGeometry topGeometry = FACE_GEOMETRY.get(BlockFace.UP);
+        SurfaceTopKey[] mask = new SurfaceTopKey[ChunkData.SIZE_X * ChunkData.SIZE_Z];
+        int emittedQuads = 0;
+
+        for (int x = 0; x < ChunkData.SIZE_X; x++) {
+            for (int z = 0; z < ChunkData.SIZE_Z; z++) {
+                ColumnSurface surface = surfaces[x][z];
+                if (surface == null) {
+                    continue;
+                }
+                mask[(x * ChunkData.SIZE_Z) + z] = new SurfaceTopKey(surface.topY(), materialKeyFor(surface.definition(), BlockFace.UP));
+            }
+        }
+
+        for (int x = 0; x < ChunkData.SIZE_X; x++) {
+            for (int z = 0; z < ChunkData.SIZE_Z; ) {
+                SurfaceTopKey topKey = mask[(x * ChunkData.SIZE_Z) + z];
+                if (topKey == null) {
+                    z++;
+                    continue;
+                }
+
+                int widthZ = 1;
+                while (z + widthZ < ChunkData.SIZE_Z
+                        && topKey.equals(mask[(x * ChunkData.SIZE_Z) + z + widthZ])) {
+                    widthZ++;
+                }
+
+                int heightX = 1;
+                scanHeight:
+                while (x + heightX < ChunkData.SIZE_X) {
+                    for (int scanZ = 0; scanZ < widthZ; scanZ++) {
+                        if (!topKey.equals(mask[((x + heightX) * ChunkData.SIZE_Z) + z + scanZ])) {
+                            break scanHeight;
+                        }
+                    }
+                    heightX++;
+                }
+
+                int topSlice = topKey.topY();
+                int topU = topGeometry.uAxis() == 0 ? x : z;
+                int topV = topGeometry.vAxis() == 0 ? x : z;
+                int topWidth = topGeometry.uAxis() == 0 ? heightX : widthZ;
+                int topHeight = topGeometry.vAxis() == 0 ? heightX : widthZ;
+
+                sectionBuilders
+                        .computeIfAbsent(topKey.materialKey(), ignored -> new MeshSectionBuilder())
+                        .appendQuad(topGeometry, topSlice, topU, topV, topWidth, topHeight, BlockFace.UP);
+                emittedQuads++;
+
+                for (int clearX = 0; clearX < heightX; clearX++) {
+                    for (int clearZ = 0; clearZ < widthZ; clearZ++) {
+                        mask[((x + clearX) * ChunkData.SIZE_Z) + z + clearZ] = null;
+                    }
+                }
+
+                z += widthZ;
+            }
+        }
+
+        return emittedQuads;
+    }
+
+    private int appendSurfaceSideFaces(
+            ChunkData chunkData,
+            ColumnSurface[][] surfaces,
+            Map<TerrainMaterialKey, MeshSectionBuilder> sectionBuilders) {
+        int emittedQuads = 0;
+        for (int x = 0; x < ChunkData.SIZE_X; x++) {
+            for (int z = 0; z < ChunkData.SIZE_Z; z++) {
+                ColumnSurface surface = surfaces[x][z];
+                if (surface == null) {
+                    continue;
+                }
+
+                for (BlockFace face : BlockFace.values()) {
+                    if (face == BlockFace.UP || face == BlockFace.DOWN) {
+                        continue;
+                    }
+
+                    ColumnSurface neighborSurface = neighborSurface(chunkData, surfaces, x, z, face);
+                    int neighborTopY = neighborSurface == null ? -1 : neighborSurface.topY();
+                    if (surface.topY() <= neighborTopY) {
+                        continue;
+                    }
+
+                    int spanHeight = surface.topY() - neighborTopY;
+                    FaceGeometry geometry = FACE_GEOMETRY.get(face);
+                    int slice = geometry.fixedAxis() == 0 ? x : z;
+                    int horizontalCoordinate = geometry.fixedAxis() == 0 ? z : x;
+                    int verticalStart = neighborTopY + 1;
+                    int u = geometry.uAxis() == 1 ? verticalStart : horizontalCoordinate;
+                    int v = geometry.vAxis() == 1 ? verticalStart : horizontalCoordinate;
+                    int width = geometry.uAxis() == 1 ? spanHeight : 1;
+                    int height = geometry.vAxis() == 1 ? spanHeight : 1;
+
+                    sectionBuilders
+                            .computeIfAbsent(materialKeyFor(surface.definition(), face), ignored -> new MeshSectionBuilder())
+                            .appendQuad(geometry, slice, u, v, width, height, face);
+                    emittedQuads++;
+                }
+            }
+        }
+        return emittedQuads;
+    }
+
+    private ColumnSurface topSurfaceInColumn(ChunkData chunkData, int blockX, int blockZ) {
+        for (int blockY = ChunkData.SIZE_Y - 1; blockY >= 0; blockY--) {
+            BlockDefinition definition = registries.requireBlockDefinition(chunkData.getBlock(blockX, blockY, blockZ));
+            if (definition.solid()) {
+                return new ColumnSurface(blockY, definition);
+            }
+        }
+        return null;
+    }
+
+    private ColumnSurface neighborSurface(
+            ChunkData chunkData,
+            ColumnSurface[][] localSurfaces,
+            int blockX,
+            int blockZ,
+            BlockFace face) {
+        int neighborX = blockX + face.stepX();
+        int neighborZ = blockZ + face.stepZ();
+        if (neighborX >= 0 && neighborX < ChunkData.SIZE_X && neighborZ >= 0 && neighborZ < ChunkData.SIZE_Z) {
+            return localSurfaces[neighborX][neighborZ];
+        }
+
+        int worldX = chunkData.toWorldX(blockX) + face.stepX();
+        int worldZ = chunkData.toWorldZ(blockZ) + face.stepZ();
+        return topSurfaceAtWorld(worldX, worldZ);
+    }
+
+    private ColumnSurface topSurfaceAtWorld(int worldX, int worldZ) {
+        for (int blockY = ChunkData.SIZE_Y - 1; blockY >= 0; blockY--) {
+            BlockDefinition definition = registries.requireBlockDefinition(worldService.getBlockAtWorldOrAir(worldX, blockY, worldZ));
+            if (definition.solid()) {
+                return new ColumnSurface(blockY, definition);
+            }
+        }
+        return null;
     }
 
     private TerrainMaterialKey visibleFaceMaterialKey(
@@ -450,5 +654,11 @@ public final class ChunkMeshBuilder {
             System.arraycopy(values, 0, compact, 0, size);
             return compact;
         }
+    }
+
+    private record ColumnSurface(int topY, BlockDefinition definition) {
+    }
+
+    private record SurfaceTopKey(int topY, TerrainMaterialKey materialKey) {
     }
 }

@@ -50,11 +50,12 @@ The game now boots fullscreen by default and the launcher retries focus activati
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
 - Dirt and grass now ship through the new center-top cube-net import path, while stone remains supported on the older explicit cross layout.
-- The shipped grass and dirt textures were refreshed again to follow the newer block-asset direction more closely: pebbly tan dirt and grass blocks with plain dirt sides instead of the older grassy-lip side treatment.
+- The shipped grass and dirt textures were refreshed again to follow the newer block-asset direction more closely: pebbly tan dirt, a cleaner grass top, and corrected grassy wall lips that stay aligned across all four side directions.
 - The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
+- Distant chunks now swap to a cheaper surface-LOD mesh instead of always paying for full voxel wall detail all the way to the horizon, which cuts far-distance render cost without shrinking the visible world.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.

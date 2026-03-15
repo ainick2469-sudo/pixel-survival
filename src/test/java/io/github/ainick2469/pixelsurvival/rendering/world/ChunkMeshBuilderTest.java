@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChunkMeshBuilderTest {
     private static final BlockId AIR = BlockId.of("pixel_survival:air");
     private static final BlockId GRASS = BlockId.of("pixel_survival:grass_block");
+    private static final BlockId DIRT = BlockId.of("pixel_survival:dirt");
     private static final BlockId STONE = BlockId.of("pixel_survival:stone");
 
     @Test
@@ -118,6 +119,31 @@ class ChunkMeshBuilderTest {
         assertEquals(1, faceCount(result, BlockTextureFace.LEFT));
         assertEquals(1, faceCount(result, BlockTextureFace.RIGHT));
         assertEquals(1, faceCount(result, BlockTextureFace.FRONT));
+    }
+
+    @Test
+    void surfaceDetailLodCollapsesTallColumnWallsIntoSingleVerticalQuads() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        Map<ChunkCoord, ChunkData> chunks = new HashMap<>();
+        ChunkData centerChunk = new ChunkData(new ChunkCoord(0, 0), AIR);
+        for (int y = 0; y < 5; y++) {
+            centerChunk.setBlock(4, y, 4, DIRT);
+        }
+        chunks.put(centerChunk.chunkCoord(), centerChunk);
+        loadNeighborAirChunks(chunks);
+
+        AuthoritativeWorldService worldService =
+                new AuthoritativeWorldService(registries, mapBackedGenerator(chunks));
+        chunks.keySet().forEach(worldService::loadChunk);
+
+        ChunkMeshBuilder builder = new ChunkMeshBuilder(worldService, registries);
+        ChunkMeshBuildResult fullResult = builder.buildChunkMesh(centerChunk, ChunkDetailLevel.FULL);
+        ChunkMeshBuildResult surfaceResult = builder.buildChunkMesh(centerChunk, ChunkDetailLevel.SURFACE);
+
+        assertEquals(ChunkDetailLevel.FULL, fullResult.detailLevel());
+        assertEquals(ChunkDetailLevel.SURFACE, surfaceResult.detailLevel());
+        assertEquals(5, surfaceResult.faceCount());
+        assertTrue(surfaceResult.faceCount() < fullResult.faceCount());
     }
 
     @Test

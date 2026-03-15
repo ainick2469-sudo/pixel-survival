@@ -1,5 +1,47 @@
 # Devlog
 
+## 2026-03-15 12:05:00 MDT
+
+- Date/Time: 2026-03-15 12:05:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add far-chunk surface LOD so long render distances stop paying full voxel wall cost all the way to the horizon.
+- Completed Work:
+  - Added `ChunkDetailLevel` so the runtime can choose between full-detail chunk meshes and a cheaper far-distance surface mesh path.
+  - Extended `ChunkMeshBuilder` with a surface-detail LOD that scans only the top solid block per column, renders merged top surfaces, and compresses stacked cliff walls into single vertical quads instead of one quad per voxel face.
+  - Updated `ChunkRenderManager` so chunk meshes are rebuilt into the correct detail level as the player moves, instead of treating every rendered chunk as permanently full-detail.
+  - Added regression coverage proving the surface-detail path collapses tall exposed voxel walls into far fewer faces than the full-detail path.
+  - Updated runtime docs so the current optimization path is documented as buffered radial streaming plus a far-distance surface LOD seam.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../rendering/world/ChunkDetailLevel.java`
+  - `src/main/java/.../rendering/world/ChunkMeshBuildResult.java`
+  - `src/main/java/.../rendering/world/ChunkMeshBuilder.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+- Systems Touched:
+  - chunk mesh generation
+  - chunk render manager detail selection
+  - far-distance terrain LOD
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test`
+- Current Playable State:
+  - Near terrain still renders with the full voxel mesh path.
+  - Distant terrain now swaps to a cheaper surface mesh path, reducing far-horizon wall-face cost while keeping the visible world size intact.
+- Known Issues:
+  - This far-distance LOD is well matched to the current heightmap terrain, but later caves, overhangs, and floating landforms will need richer long-distance representations.
+  - Terrain batching/material consolidation is still a separate next-step optimization and has not been replaced by this change.
+- Next Tasks:
+  - Add terrain batching/material consolidation so many rendered chunk sections can share fewer draw calls.
+  - Tighten chunk queue prioritization and back-pressure once the new LOD path has been measured in live play at 48 and 96 chunk settings.
+- Risks/Technical Debt:
+  - The current surface LOD intentionally assumes a heightmap-style far terrain representation, so it will need to stay scoped to distances where that approximation remains visually acceptable as worldgen becomes more vertical.
+
 ## 2026-03-15 11:34:50 MDT
 
 - Date/Time: 2026-03-15 11:34:50 MDT
