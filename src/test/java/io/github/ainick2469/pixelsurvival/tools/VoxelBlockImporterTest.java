@@ -42,6 +42,7 @@ class VoxelBlockImporterTest {
                         "Test Imported Block",
                         "decorative",
                         null,
+                        null,
                         true,
                         true,
                         java.util.List.of("test_block")));
@@ -73,23 +74,54 @@ class VoxelBlockImporterTest {
         Files.createDirectories(repoRoot.resolve("data/blocks"));
 
         Path inputPath = tempDir.resolve("invalid-layout.voxelblock");
-        Files.writeString(inputPath, sampleVoxelBlockJson().replace("\"cross-3x4\"", "\"row-major\""));
+        Files.writeString(inputPath, sampleVoxelBlockJson().replace("\"top-center-cross-3x4\"", "\"row-major\""));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> VoxelBlockImporter.importVoxelBlock(
-                        new VoxelBlockImporter.ImportOptions(
-                                inputPath,
-                                repoRoot,
-                                "pixel_survival:invalid_layout_block",
-                                "Invalid Layout Block",
-                                "decorative",
-                                null,
-                                true,
-                                true,
-                                java.util.List.of("invalid_layout"))));
+                new VoxelBlockImporter.ImportOptions(
+                        inputPath,
+                        repoRoot,
+                        "pixel_survival:invalid_layout_block",
+                        "Invalid Layout Block",
+                        "decorative",
+                        null,
+                        null,
+                        true,
+                        true,
+                        java.util.List.of("invalid_layout"))));
 
         assertTrue(exception.getMessage().contains("Unsupported voxelblock layout"));
+    }
+
+    @Test
+    void canPromoteOneRenderedSideFaceAcrossAllWalls() throws Exception {
+        Path repoRoot = tempDir.resolve("repo_uniform_sides");
+        Files.createDirectories(repoRoot.resolve("src/main/resources/Textures/BlockCubeNets"));
+        Files.createDirectories(repoRoot.resolve("data/blocks"));
+
+        Path inputPath = tempDir.resolve("uniform-sides.voxelblock");
+        Files.writeString(inputPath, sampleVoxelBlockJson());
+
+        VoxelBlockImporter.ImportResult result = VoxelBlockImporter.importVoxelBlock(
+                new VoxelBlockImporter.ImportOptions(
+                        inputPath,
+                        repoRoot,
+                        "pixel_survival:uniform_side_block",
+                        "Uniform Side Block",
+                        "decorative",
+                        null,
+                        BlockTextureFace.FRONT,
+                        true,
+                        true,
+                        java.util.List.of("test_block")));
+
+        BufferedImage cubeNetImage = ImageIO.read(result.cubeNetTexturePath().toFile());
+        Color expectedSide = new Color(255, 165, 0);
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.BACK, expectedSide);
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.LEFT, expectedSide);
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.FRONT, expectedSide);
+        assertFaceCenterColor(cubeNetImage, BlockTextureFace.RIGHT, expectedSide);
     }
 
     private void assertFaceCenterColor(BufferedImage cubeNetImage, BlockTextureFace face, Color expected) {
@@ -117,7 +149,7 @@ class VoxelBlockImporterTest {
         builder.append("  \"version\": 1,\n");
         builder.append("  \"name\": \"test-imported-block\",\n");
         builder.append("  \"tileSize\": 128,\n");
-        builder.append("  \"layout\": \"cross-3x4\",\n");
+        builder.append("  \"layout\": \"top-center-cross-3x4\",\n");
         builder.append("  \"selectedFace\": \"top\",\n");
         builder.append("  \"exportedAt\": \"2026-03-15T18:30:26.605Z\",\n");
         builder.append("  \"faces\": {\n");

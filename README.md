@@ -84,17 +84,17 @@ The repo now also includes a sample imported block generated from a local `custo
 - Grass, dirt, stone, and sand now use 128x128 terrain textures with data-driven support for single-texture, top/side/bottom, explicit six-face, and cube-net block visuals.
 - Grass, dirt, and stone were repainted toward a richer premium stylized-survival look instead of flat pastel debug colors.
 - Terrain texture sampling now stays crisper up close while still using mipmaps for distance stability.
-- Dirt and the live `grass_block` now both use the center-top terrain cube-net path, while stone remains on the standard `back_top_left_front_right_bottom` cross layout.
-- The live `grass_block` now comes from the imported `.voxelblock` authoring asset instead of the older generated grass cube net. The importer now follows the block-maker app convention where the center tile is the top face, the surrounding tiles are the wall faces, and the far tile is the bottom face.
+- The live `grass_block` and `stone` blocks now both come from imported `.voxelblock` authoring assets instead of the older generated terrain textures.
+- The importer now follows the block-maker app convention where the center tile is the top face, the surrounding tiles are the wall faces, and the far tile is the bottom face.
+- The grass-block import path now supports promoting one authored wall face across all four side slots, which keeps classic top/side/bottom terrain blocks clean even when the authoring asset only customizes one canonical wall face.
 - The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
-- Terrain now uses three mesh detail tiers:
+- Terrain now has two stable live mesh detail tiers:
   - `FULL` for nearby chunks
   - `SURFACE` for mid-distance chunks
-  - `HORIZON` for far chunks, where noisy terrain collapses into coarse horizon cells instead of full per-column horizon detail
-- Distant chunks no longer stop at the earlier surface-only LOD. Farther chunks now collapse again into a coarser horizon mesh so `48` and above spend materially less face count on the outer ring.
+- A coarse `HORIZON` prototype seam still exists in code, but it is currently disabled in the live runtime because the approximation introduced visible cracks and holes in distant terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.

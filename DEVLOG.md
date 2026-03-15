@@ -1090,6 +1090,60 @@
   - The smaller load buffer saves work and memory, but if player movement speed rises dramatically later, the buffer may need to become configurable.
   - Runtime target caching assumes chunk residency only needs to change on chunk transitions or setting changes, which is correct for the current planar chunk model but should be revisited if topology-aware streaming grows more complex later.
 
+## 2026-03-15 14:45:15 MDT
+
+- Date/Time: 2026-03-15 14:45:15 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Repair long-distance terrain presentation and switch the live grass/stone blocks to the new `.voxelblock` asset pipeline.
+- Completed Work:
+  - Disabled the live coarse `HORIZON` chunk detail selection path so far terrain stops tearing open with visible cracks and holes.
+  - Kept the horizon tier code as a future seam instead of deleting it, but routed the live runtime back to the stable `FULL` and `SURFACE` mesh tiers.
+  - Expanded the `.voxelblock` importer to accept the newer `top-center-cross-3x4` authoring layout used by the block-maker app.
+  - Added an optional importer flag that can promote one authored wall face across all four side slots, which lets classic terrain blocks like grass use one canonical side texture cleanly.
+  - Re-imported `pixel_survival:grass_block` from `C:\Users\nickb\Downloads\Grass-Block.voxelblock` with the uniform wall-face option so the grass lip wraps all four sides.
+  - Re-imported `pixel_survival:stone` from `C:\Users\nickb\Downloads\Stone-block.voxelblock` so the live stone block now uses the new `.voxelblock` asset too.
+  - Updated importer, registry, and chunk-mesh tests so the asset/runtime contracts match the shipped behavior.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CONTENT_REGISTRY.md`
+  - `build.gradle.kts`
+  - `data/blocks/grass_block.json`
+  - `data/blocks/stone.json`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../tools/VoxelBlockImporter.java`
+  - `src/main/resources/Textures/BlockCubeNets/grass_block_cube_net.png`
+  - `src/main/resources/Textures/BlockCubeNets/stone_cube_net.png`
+  - `src/test/java/.../rendering/world/ChunkMeshBuilderTest.java`
+  - `src/test/java/.../registry/BlockRegistryLoaderTest.java`
+  - `src/test/java/.../tools/VoxelBlockImporterTest.java`
+- Systems Touched:
+  - chunk LOD selection
+  - voxelblock asset importing
+  - terrain block content
+  - block registry validation
+  - chunk mesh/material tests
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Grass-Block.voxelblock -PvoxelBlockId=pixel_survival:grass_block -PvoxelMaterialFamily=soil -PvoxelUniformSideFace=front -PvoxelTags=terrain,surface_layer`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain importVoxelBlock -PvoxelInput=C:\Users\nickb\Downloads\Stone-block.voxelblock -PvoxelBlockId=pixel_survival:stone -PvoxelMaterialFamily=stone -PvoxelTags=terrain,deep_layer`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+- Current Playable State:
+  - The game still supports the same `48` default render distance and `96` experimental ceiling.
+  - Distant terrain should no longer show the coarse-horizon holes introduced by the prototype `HORIZON` mesh tier.
+  - The live grass and stone blocks now come from the block-maker `.voxelblock` import path instead of the older texture chain.
+- Known Issues:
+  - Disabling the coarse horizon tier removes the worst visual breakage, but it also means far-distance rendering is back on the heavier `SURFACE` path until a safer horizon strategy replaces it.
+  - `96` chunks remains an experimental ceiling, not a guaranteed high-FPS setting.
+- Next Tasks:
+  - Batch terrain rendering harder through an atlas or equivalent shared-material path so high-distance chunk rendering pays far fewer draw calls.
+  - Replace the failed coarse horizon tier with a continuity-safe far-distance representation instead of re-enabling the current cracked approximation.
+  - Keep tightening the chunk pipeline with better prioritization and back-pressure once the stable far-distance visual path is back in place.
+- Risks/Technical Debt:
+  - The new uniform-wall-face importer option is intentionally generic, but it still assumes the imported block should mirror one canonical side across all walls, which is correct for grass-style terrain blocks but not for every decorative block.
+  - The horizon tier still exists in code as a deferred seam, so future work needs to avoid accidentally re-enabling it before the continuity problem is solved.
+
 ## Entry Template
 
 - Date/Time:

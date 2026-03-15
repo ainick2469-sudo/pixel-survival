@@ -44,6 +44,9 @@ class BlockRegistryLoaderTest {
                 "Textures/BlockCubeNets/stone_cube_net.png",
                 blocks.get(BlockId.of("pixel_survival:stone")).visuals().cubeNetTexture());
         assertEquals(
+                CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
+                blocks.get(BlockId.of("pixel_survival:stone")).visuals().cubeNetLayout());
+        assertEquals(
                 BlockTextureMode.CUBE_NET,
                 blocks.get(BlockId.of("pixel_survival:grass_block")).visuals().textureMode());
         assertEquals(

@@ -24,12 +24,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.imageio.ImageIO;
 
 public final class VoxelBlockImporter {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-    private static final String SUPPORTED_INPUT_LAYOUT = "cross-3x4";
+    private static final Set<String> SUPPORTED_INPUT_LAYOUTS = Set.of("cross-3x4", "top-center-cross-3x4");
     private static final CubeNetLayout OUTPUT_LAYOUT = CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM;
     private static final List<BlockTextureFace> REQUIRED_FACES = List.of(
             BlockTextureFace.BACK,
@@ -90,6 +91,7 @@ public final class VoxelBlockImporter {
             VoxelBlockFaceAsset faceAsset = faceAssetFor(assetDocument, face);
             renderedFaces.put(face, renderFace(faceAsset, assetDocument.tileSize()));
         }
+        applyUniformSideFace(renderedFaces, options.uniformSideFace());
 
         BufferedImage cubeNetImage = buildCubeNet(renderedFaces, assetDocument.tileSize());
         ImageIO.write(cubeNetImage, "png", cubeNetOutputPath.toFile());
@@ -118,10 +120,10 @@ public final class VoxelBlockImporter {
             throw new IllegalArgumentException(
                     "Unsupported voxel block asset version in " + inputPath.toAbsolutePath() + ": " + assetDocument.version());
         }
-        if (!SUPPORTED_INPUT_LAYOUT.equals(assetDocument.layout())) {
+        if (!SUPPORTED_INPUT_LAYOUTS.contains(assetDocument.layout())) {
             throw new IllegalArgumentException(
                     "Unsupported voxelblock layout in " + inputPath.toAbsolutePath()
-                            + ". Expected " + SUPPORTED_INPUT_LAYOUT + " but found " + assetDocument.layout());
+                            + ". Supported layouts: " + SUPPORTED_INPUT_LAYOUTS + ", found " + assetDocument.layout());
         }
         if (assetDocument.tileSize() < 16) {
             throw new IllegalArgumentException(
@@ -202,6 +204,33 @@ public final class VoxelBlockImporter {
         return cubeNetImage;
     }
 
+    private static void applyUniformSideFace(
+            EnumMap<BlockTextureFace, BufferedImage> renderedFaces,
+            BlockTextureFace uniformSideFace) {
+        if (uniformSideFace == null) {
+            return;
+        }
+        if (!isSideFace(uniformSideFace)) {
+            throw new IllegalArgumentException(
+                    "uniformSideFace must be one of back, left, front, or right. Found " + uniformSideFace.name().toLowerCase(Locale.ROOT));
+        }
+
+        BufferedImage sideImage = renderedFaces.get(uniformSideFace);
+        if (sideImage == null) {
+            throw new IllegalArgumentException(
+                    "Unable to apply uniform side face because " + uniformSideFace.name().toLowerCase(Locale.ROOT)
+                            + " was not rendered.");
+        }
+
+        for (BlockTextureFace face : List.of(
+                BlockTextureFace.BACK,
+                BlockTextureFace.LEFT,
+                BlockTextureFace.FRONT,
+                BlockTextureFace.RIGHT)) {
+            renderedFaces.put(face, sideImage);
+        }
+    }
+
     private static void writeBlockDefinitionJson(
             Path blockDefinitionPath,
             String blockId,
@@ -271,6 +300,13 @@ public final class VoxelBlockImporter {
         return String.format(Locale.ROOT, "#%02X%02X%02X", red, green, blue);
     }
 
+    private static boolean isSideFace(BlockTextureFace face) {
+        return switch (face) {
+            case BACK, LEFT, FRONT, RIGHT -> true;
+            case TOP, BOTTOM -> false;
+        };
+    }
+
     private static String localNameOf(String blockId) {
         int separatorIndex = blockId.indexOf(':');
         if (separatorIndex <= 0 || separatorIndex == blockId.length() - 1) {
@@ -330,6 +366,7 @@ public final class VoxelBlockImporter {
             String displayName,
             String materialFamily,
             String tintKey,
+            BlockTextureFace uniformSideFace,
             boolean solid,
             boolean opaque,
             List<String> tags) {
@@ -340,6 +377,7 @@ public final class VoxelBlockImporter {
             String displayName = null;
             String materialFamily = null;
             String tintKey = null;
+            BlockTextureFace uniformSideFace = null;
             boolean solid = true;
             boolean opaque = true;
             List<String> tags = List.of("custom_block");
@@ -360,6 +398,7 @@ public final class VoxelBlockImporter {
                     case "--display-name" -> displayName = value;
                     case "--material-family" -> materialFamily = value;
                     case "--tint-key" -> tintKey = value;
+                    case "--uniform-side-face" -> uniformSideFace = BlockTextureFace.valueOf(value.trim().toUpperCase(Locale.ROOT));
                     case "--solid" -> solid = Boolean.parseBoolean(value);
                     case "--opaque" -> opaque = Boolean.parseBoolean(value);
                     case "--tags" -> tags = List.of(value.split(","));
@@ -371,7 +410,17 @@ public final class VoxelBlockImporter {
                 throw new IllegalArgumentException("Missing required --input <path-to-voxelblock>");
             }
 
-            return new ImportOptions(inputPath, repoRoot, blockId, displayName, materialFamily, tintKey, solid, opaque, tags);
+            return new ImportOptions(
+                    inputPath,
+                    repoRoot,
+                    blockId,
+                    displayName,
+                    materialFamily,
+                    tintKey,
+                    uniformSideFace,
+                    solid,
+                    opaque,
+                    tags);
         }
     }
 

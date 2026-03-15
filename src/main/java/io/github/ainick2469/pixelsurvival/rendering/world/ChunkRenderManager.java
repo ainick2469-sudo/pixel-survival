@@ -458,7 +458,11 @@ public final class ChunkRenderManager implements AutoCloseable {
         if (distanceSquared <= surfaceDetailRadius * surfaceDetailRadius) {
             return ChunkDetailLevel.SURFACE;
         }
-        return ChunkDetailLevel.HORIZON;
+
+        // The coarse horizon tier remains in the codebase as a future seam, but it is
+        // currently disabled in the live runtime because the approximation introduces
+        // visible terrain cracks at long range.
+        return ChunkDetailLevel.SURFACE;
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

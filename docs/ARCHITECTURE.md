@@ -142,9 +142,9 @@ This matters because future caves, floating mountains, and walkable cloud region
 - The mesh builder now greedily merges adjacent coplanar faces that share the same material key, which reduces quad count dramatically on flat terrain and cliff bands.
 - The runtime now uses three terrain detail tiers:
   - `FULL`: nearby chunks keep full voxel face detail
-  - `SURFACE`: mid-distance chunks collapse into top surfaces plus compressed vertical walls per height column
-  - `HORIZON`: far chunks collapse noisy terrain again into coarse horizon cells so the outer ring stops paying near-column cost
-- That tiered LOD path is intentionally a runtime seam for the current heightmap terrain, not a permanent shortcut. It gives the project a clean place to evolve into richer far-distance strategies once caves, overhangs, and floating landforms become more common.
+  - `SURFACE`: distance chunks collapse into top surfaces plus compressed vertical walls per height column
+- A coarse `HORIZON` tier still exists as a prototype seam in code, but it is intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
+- The far-distance seam remains important, but the next live horizon pass needs stronger continuity guarantees before it is re-enabled.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
@@ -204,7 +204,7 @@ Why this matters:
 - Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
 - The current default is `48` chunks and the experimental ceiling is `96` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
 - The load-radius buffer is now intentionally smaller at high render distances so horizon rendering does not automatically keep an oversized extra ring of chunks resident.
-- Render distance no longer means one far-detail representation. Outer-horizon chunks now downgrade again into a coarser terrain mesh so higher settings can bias toward visibility instead of paying full per-column cost all the way out.
+- Render distance no longer implies camera-facing unload behavior. Stable buffered residency is preserved first, and additional far-distance representations will only be re-enabled when they maintain terrain continuity cleanly.
 - The HUD now reports chunk-memory usage and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
 
 ## Registry model

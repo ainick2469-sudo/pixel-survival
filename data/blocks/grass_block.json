@@ -4,12 +4,12 @@
   "materialFamily" : "soil",
   "solid" : true,
   "opaque" : true,
-  "debugColor" : "#307420",
+  "debugColor" : "#615B2E",
   "visuals" : {
     "textureMode" : "cube_net",
     "cubeNetTexture" : "Textures/BlockCubeNets/grass_block_cube_net.png",
     "cubeNetLayout" : "center_top_surrounding_sides_outer_bottom",
-    "tintKey" : "grass"
+    "tintKey" : null
   },
   "tags" : [ "terrain", "surface_layer", "imported", "tile_128" ]
 }

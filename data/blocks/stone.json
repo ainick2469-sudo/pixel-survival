@@ -1,15 +1,15 @@
 {
-  "id": "pixel_survival:stone",
-  "displayName": "Stone",
-  "materialFamily": "stone",
-  "solid": true,
-  "opaque": true,
-  "debugColor": "#7A7D86",
-  "visuals": {
-    "textureMode": "cube_net",
-    "cubeNetTexture": "Textures/BlockCubeNets/stone_cube_net.png",
-    "cubeNetLayout": "back_top_left_front_right_bottom",
-    "tintKey": null
+  "id" : "pixel_survival:stone",
+  "displayName" : "Stone",
+  "materialFamily" : "stone",
+  "solid" : true,
+  "opaque" : true,
+  "debugColor" : "#8E8981",
+  "visuals" : {
+    "textureMode" : "cube_net",
+    "cubeNetTexture" : "Textures/BlockCubeNets/stone_cube_net.png",
+    "cubeNetLayout" : "center_top_surrounding_sides_outer_bottom",
+    "tintKey" : null
   },
-  "tags": ["terrain", "deep_layer"]
+  "tags" : [ "terrain", "deep_layer", "imported", "tile_128" ]
 }

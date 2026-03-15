@@ -203,7 +203,7 @@ Supported current authoring file shape:
 - `type: "survivalcraft2.voxel-block-asset"`
 - `version: 1`
 - `tileSize`
-- `layout` (`cross-3x4` currently required by the importer)
+- `layout` (`cross-3x4` and `top-center-cross-3x4` are currently accepted by the importer)
 - `faces.back`
 - `faces.top`
 - `faces.left`
@@ -224,13 +224,14 @@ Each face entry may declare:
 Current importer behavior:
 
 - reads the `.voxelblock` JSON
-- validates the asset type, version, and expected `cross-3x4` authoring layout
+- validates the asset type, version, and expected authoring layout
 - decodes each face image from `imageDataUrl`
 - applies the stored transform fields per face
 - interprets the current block-maker export convention as:
   - center tile = `top`
   - surrounding tiles = wall faces
   - far tile = `bottom`
+- can optionally promote one authored wall face across all four wall slots during import, which is useful for terrain-style blocks like grass where one canonical side texture should wrap every wall face
 - bakes a runtime cube-net PNG in the `center_top_surrounding_sides_outer_bottom` layout
 - writes a normal block definition JSON in `data/blocks`
 
@@ -238,6 +239,12 @@ Current import command:
 
 ```bat
 gradlew.bat importVoxelBlock -PvoxelInput=C:\path\to\block.voxelblock -PvoxelBlockId=pixel_survival:my_block -PvoxelDisplayName="My Block" -PvoxelMaterialFamily=decorative
+```
+
+Optional import property for canonical wall-face blocks:
+
+```bat
+gradlew.bat importVoxelBlock -PvoxelInput=C:\path\to\grass-block.voxelblock -PvoxelBlockId=pixel_survival:grass_block -PvoxelMaterialFamily=soil -PvoxelUniformSideFace=front -PvoxelTags=terrain,surface_layer
 ```
 
 Direct `--args` are still supported for the importer task, but the `-Pvoxel...` property path is the recommended Windows workflow because it avoids fragile shell quoting.
@@ -260,7 +267,8 @@ Current imported sample:
 
 Current live terrain use:
 
-- `pixel_survival:grass_block` is now also imported from the `.voxelblock` authoring pipeline and uses the same center-top layout convention as the block-maker app.
+- `pixel_survival:grass_block` is now imported from the `.voxelblock` authoring pipeline and uses the same center-top layout convention as the block-maker app.
+- `pixel_survival:stone` is now also imported from the `.voxelblock` authoring pipeline.
 
 ## Asset conventions
 

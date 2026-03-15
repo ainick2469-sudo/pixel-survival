@@ -194,7 +194,7 @@ class ChunkMeshBuilderTest {
                         "Textures/BlockCubeNets/grass_block_cube_net.png",
                         CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
                         BlockTextureFace.RIGHT),
-                "grass"));
+                null));
 
         assertArrayEquals(
                 new float[] {0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f},
@@ -221,7 +221,7 @@ class ChunkMeshBuilderTest {
                         "Textures/BlockCubeNets/grass_block_cube_net.png",
                         CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
                         BlockTextureFace.FRONT),
-                "grass"));
+                null));
 
         assertArrayEquals(
                 new float[] {0f, 1f, 1f, 1f, 1f, 0f, 0f, 0f},
@@ -235,7 +235,7 @@ class ChunkMeshBuilderTest {
                         "Textures/BlockCubeNets/grass_block_cube_net.png",
                         CubeNetLayout.CENTER_TOP_SURROUNDING_SIDES_OUTER_BOTTOM,
                         face),
-                "grass"));
+                null));
         return section == null ? 0 : section.faceCount();
     }
 

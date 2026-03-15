@@ -99,6 +99,7 @@ tasks.register<JavaExec>("importVoxelBlock") {
         project.findProperty("voxelDisplayName")?.toString()?.let { args("--display-name", it) }
         project.findProperty("voxelMaterialFamily")?.toString()?.let { args("--material-family", it) }
         project.findProperty("voxelTintKey")?.toString()?.let { args("--tint-key", it) }
+        project.findProperty("voxelUniformSideFace")?.toString()?.let { args("--uniform-side-face", it) }
         project.findProperty("voxelSolid")?.toString()?.let { args("--solid", it) }
         project.findProperty("voxelOpaque")?.toString()?.let { args("--opaque", it) }
         project.findProperty("voxelTags")?.toString()?.let { args("--tags", it) }
