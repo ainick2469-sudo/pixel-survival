@@ -1,5 +1,61 @@
 # Devlog
 
+## 2026-03-15 23:30:34 MDT
+
+- Date/Time: 2026-03-15 23:30:34 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Stabilize high-distance startup coverage, restore bounded chunk residency, and make the smoke harness prove `48`, `96`, and `192` through startup override instead of fragile menu automation.
+- Completed Work:
+  - Replaced the earlier unbounded session-residency experiment with a bounded `ChunkSessionMeshCache` so recent chunk mesh variants can be reused within the same run without keeping every raw authoritative chunk loaded forever.
+  - Restored raw authoritative chunk unloading outside the active buffered load radius while preserving same-session mesh reuse through the bounded mesh cache.
+  - Retuned `ChunkRenderManager` budgets so queue limits now scale off the active detailed-chunk runtime rather than the full outer render-distance cap, which reduces wasted work at the new `192` experimental setting.
+  - Tightened the high-distance detailed/far-field split so `192` now hands off to the stitched far-field ring earlier, landing on a `54`-chunk detailed render radius instead of the old much larger ultra-distance ring.
+  - Kept the startup detailed load radius bridged toward the far-field seam at high settings so the earlier giant middle-band void between the near chunk ring and the far-field ring is no longer the intended startup behavior.
+  - Hardened `scripts/desktop_smoke.ps1` so it launches via JVM render-distance override, focuses the game window by process id instead of brittle title activation, and captures real proof screenshots for `48`, `96`, and `192`.
+  - Verified the current smoke harness now produces captures that show the correct HUD render-distance setting for all three targets.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `scripts/desktop_smoke.ps1`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkSessionMeshCache.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainSettings.java`
+  - `src/main/java/.../session/LocalHostSession.java`
+  - `src/main/java/.../settings/GraphicsSettings.java`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/test/java/.../rendering/world/ChunkSessionMeshCacheTest.java`
+  - `src/test/java/.../rendering/world/FarFieldTerrainPlannerTest.java`
+  - `src/test/java/.../settings/GraphicsSettingsTest.java`
+- Systems Touched:
+  - chunk residency / unload policy
+  - session mesh reuse / memory caps
+  - high-distance far-field budgeting
+  - startup coverage behavior
+  - desktop smoke automation
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkSessionMeshCacheTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 48 -Restart -QuitAfterCapture -WaitSeconds 12`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 96 -Restart -QuitAfterCapture -WaitSeconds 12`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 192 -Restart -QuitAfterCapture -WaitSeconds 12`
+- Current Playable State:
+  - Startup proof now exists for `48`, `96`, and `192` without relying on the pause/options menu during automation.
+  - High-distance static residency is much leaner than the earlier unbounded raw-chunk session-residency experiment because the runtime now unloads raw chunks again and reuses only bounded mesh-cache content across revisits.
+  - `192` remains strictly experimental. Static startup behavior is materially cleaner, but movement-time chunk work and queue pressure still need another pass before it can be described as traversal-ready.
+- Known Issues:
+  - `192` can still collapse hard while moving because the next bottleneck is movement-time queue/back-pressure behavior, not static startup coverage alone.
+  - The far-field path is still intentionally heightmap-limited and is not the final answer for future caves, overhangs, floating mountains, or cloud cities.
+- Next Tasks:
+  - Add adaptive movement-safe queue prioritization and background-work budgets so traversal does not flood load/mesh work at ultra distance.
+  - Reduce far-region mesh cost further while preserving seam continuity and keeping the old cracked `HORIZON` tier disabled.
+- Risks/Technical Debt:
+  - The bounded session mesh cache improves revisit reuse, but its budget will need retuning once traversal-grade `192` behavior is measured repeatedly instead of in short smoke runs.
+  - Startup proof automation is now stronger, but it still validates short static launches rather than a long movement benchmark.
+
 ## 2026-03-15 18:52:38 MDT
 
 - Date/Time: 2026-03-15 18:52:38 MDT

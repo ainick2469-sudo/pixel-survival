@@ -1,40 +1,23 @@
 package io.github.ainick2469.pixelsurvival.settings;
 
+import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRuntimeConfig;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GraphicsSettingsTest {
     @Test
-    void defaultsToFarButReasonableRenderDistance() {
-        GraphicsSettings graphicsSettings = GraphicsSettings.defaults();
-
-        assertEquals(48, graphicsSettings.renderDistanceChunks());
-        assertEquals(51, graphicsSettings.toChunkRuntimeConfig().loadRadius());
-        assertEquals(48, graphicsSettings.toChunkRuntimeConfig().renderRadius());
-        assertEquals(4, graphicsSettings.toChunkRuntimeConfig().simulationRadius());
+    void clampsRenderDistanceToTheExperimentalOneHundredNinetyTwoChunkCap() {
+        assertEquals(192, GraphicsSettings.clampRenderDistance(999));
+        assertEquals(2, GraphicsSettings.clampRenderDistance(-50));
+        assertEquals(new ChunkRuntimeConfig(196, 192, 4), new GraphicsSettings(192).toChunkRuntimeConfig());
     }
 
     @Test
-    void rejectsOutOfRangeRenderDistance() {
-        assertThrows(IllegalArgumentException.class, () -> new GraphicsSettings(1));
-        assertThrows(IllegalArgumentException.class, () -> new GraphicsSettings(97));
-    }
-
-    @Test
-    void clampsRequestedRenderDistanceChanges() {
-        GraphicsSettings graphicsSettings = GraphicsSettings.defaults();
-
-        assertEquals(96, graphicsSettings.withRenderDistanceChunks(128).renderDistanceChunks());
-        assertEquals(2, graphicsSettings.withRenderDistanceChunks(-4).renderDistanceChunks());
-    }
-
-    @Test
-    void keepsHighDistanceLoadBufferSmallerThanTheOldPrototypePath() {
-        GraphicsSettings graphicsSettings = new GraphicsSettings(96);
-
-        assertEquals(100, graphicsSettings.toChunkRuntimeConfig().loadRadius());
-        assertEquals(96, graphicsSettings.toChunkRuntimeConfig().renderRadius());
+    void defaultsForConfiguredRenderDistanceClampsInvalidAndOutOfRangeValues() {
+        assertEquals(new GraphicsSettings(96), GraphicsSettings.defaultsForConfiguredRenderDistance("96"));
+        assertEquals(new GraphicsSettings(192), GraphicsSettings.defaultsForConfiguredRenderDistance("999"));
+        assertEquals(GraphicsSettings.defaults(), GraphicsSettings.defaultsForConfiguredRenderDistance("bad-input"));
+        assertEquals(GraphicsSettings.defaults(), GraphicsSettings.defaultsForConfiguredRenderDistance(" "));
     }
 }

@@ -48,6 +48,21 @@ class FarFieldTerrainMeshBuilderTest {
         assertEquals(2, result.faceCount());
     }
 
+    @Test
+    void keepsCellsWhoseBoundsCrossTheInnerSeamVisible() {
+        GameRegistries registries = GameRegistries.load(Path.of("data"));
+        TerrainTexturePalette texturePalette = TerrainTexturePalette.build(registries);
+        FarFieldTerrainSampler sampler = (worldX, worldZ) -> new FarFieldTerrainSampler.ColumnSample(10, GRASS);
+        FarFieldTerrainMeshBuilder builder = new FarFieldTerrainMeshBuilder(registries, texturePalette, sampler);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(2, 4, 4, 5, 2, 1, 8, 0, 0, 0f);
+
+        FarFieldTerrainMeshBuildResult result =
+                builder.buildRegionMesh(new FarFieldTerrainRegionCoord(2, 0), new ChunkCoord(0, 0), settings);
+
+        assertEquals(4, result.visibleCellCount());
+        assertTrue(result.faceCount() > result.visibleCellCount());
+    }
+
     private static int uniqueTextureLayerCount(ChunkMeshSectionData section) {
         Set<Integer> uniqueLayers = new HashSet<>();
         float[] coordinates = section.textureCoordinates();

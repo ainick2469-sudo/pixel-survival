@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class PixelSurvivalApplication extends SimpleApplication implements ScreenshotCaptureProcessor.ScreenshotFeedbackSink {
+    private static final String SMOKE_MODE_PROPERTY = "pixelSurvival.smokeMode";
     private static final String INPUT_TOGGLE_PAUSE_MENU = "pixel_survival_toggle_pause_menu";
     private static final String INPUT_QUIT_GAME = "pixel_survival_quit_game";
     private static final String INPUT_MENU_SELECT = "pixel_survival_menu_select";
@@ -62,9 +63,16 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
     private int windowedHeight = 900;
     private int windowedX = 160;
     private int windowedY = 90;
+    private final boolean smokeMode = Boolean.getBoolean(SMOKE_MODE_PROPERTY);
 
     private final ActionListener inputListener = (name, isPressed, timePerFrame) -> {
         if (!isPressed) {
+            return;
+        }
+        if (smokeMode
+                && (INPUT_TOGGLE_PAUSE_MENU.equals(name)
+                        || INPUT_MENU_SELECT.equals(name)
+                        || INPUT_QUIT_GAME.equals(name))) {
             return;
         }
 
@@ -206,6 +214,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         long usedHeapMegabytes = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         float framesPerSecond = 1f / Math.max(smoothedFrameTimeSeconds, 0.0001f);
         long chunkStorageMegabytes = runtimeMetrics.estimatedLoadedChunkStorageBytes() / (1024 * 1024);
+        long cachedMeshStorageMegabytes = runtimeMetrics.estimatedCachedMeshStorageBytes() / (1024 * 1024);
         float approximateRenderAndEngineMilliseconds = Math.max(
                 0f,
                 (smoothedFrameTimeSeconds * 1000f)
@@ -227,6 +236,8 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | Faces " + runtimeMetrics.renderedFaceCount()
                 + " | Heap " + usedHeapMegabytes + " MB"
                 + " | ChunkMem " + chunkStorageMegabytes + " MB"
+                + " | MeshCache " + runtimeMetrics.cachedMeshVariantCount()
+                + " | MeshMem " + cachedMeshStorageMegabytes + " MB"
                 + "\nChunk " + String.format("%.1f", smoothedChunkUpdateMilliseconds) + " ms"
                 + " | UI " + String.format("%.1f", smoothedUiUpdateMilliseconds) + " ms"
                 + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"

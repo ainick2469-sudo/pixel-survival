@@ -149,7 +149,7 @@ public final class FarFieldTerrainMeshBuilder {
         boolean visible = definition != null
                 && definition.solid()
                 && sample.surfaceHeight() >= 0
-                && isWithinFarFieldRing(centerChunk, settings, sampleWorldX, sampleWorldZ);
+                && cellIntersectsFarFieldRing(centerChunk, settings, worldStartX, worldStartZ);
         return new CellSample(sample.surfaceHeight(), definition, visible);
     }
 
@@ -181,22 +181,43 @@ public final class FarFieldTerrainMeshBuilder {
         boolean visible = definition != null
                 && definition.solid()
                 && neighborSample.surfaceHeight() >= 0
-                && isWithinFarFieldRing(centerChunk, settings, sampleWorldX, sampleWorldZ);
+                && cellIntersectsFarFieldRing(centerChunk, settings, neighborWorldStartX, neighborWorldStartZ);
         return new NeighborCellSample(neighborSample.surfaceHeight(), visible);
     }
 
-    private boolean isWithinFarFieldRing(
+    private boolean cellIntersectsFarFieldRing(
             ChunkCoord centerChunk,
             FarFieldTerrainSettings settings,
-            int sampleWorldX,
-            int sampleWorldZ) {
+            int cellWorldStartX,
+            int cellWorldStartZ) {
         float centerWorldX = centerChunk.x() * ChunkData.SIZE_X + (ChunkData.SIZE_X / 2f);
         float centerWorldZ = centerChunk.z() * ChunkData.SIZE_Z + (ChunkData.SIZE_Z / 2f);
-        float deltaChunkX = (sampleWorldX - centerWorldX) / ChunkData.SIZE_X;
-        float deltaChunkZ = (sampleWorldZ - centerWorldZ) / ChunkData.SIZE_Z;
-        float distanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
-        return distanceSquared >= (settings.startRadiusChunks() * settings.startRadiusChunks())
-                && distanceSquared <= (settings.endRadiusChunks() * settings.endRadiusChunks());
+        float cellWorldEndX = cellWorldStartX + settings.cellSizeBlocks();
+        float cellWorldEndZ = cellWorldStartZ + settings.cellSizeBlocks();
+        float minDeltaX = distanceToRange(centerWorldX, cellWorldStartX, cellWorldEndX) / ChunkData.SIZE_X;
+        float minDeltaZ = distanceToRange(centerWorldZ, cellWorldStartZ, cellWorldEndZ) / ChunkData.SIZE_Z;
+        float maxDeltaX = Math.max(
+                        Math.abs(cellWorldStartX - centerWorldX),
+                        Math.abs(cellWorldEndX - centerWorldX))
+                / ChunkData.SIZE_X;
+        float maxDeltaZ = Math.max(
+                        Math.abs(cellWorldStartZ - centerWorldZ),
+                        Math.abs(cellWorldEndZ - centerWorldZ))
+                / ChunkData.SIZE_Z;
+        float minDistanceSquared = (minDeltaX * minDeltaX) + (minDeltaZ * minDeltaZ);
+        float maxDistanceSquared = (maxDeltaX * maxDeltaX) + (maxDeltaZ * maxDeltaZ);
+        return minDistanceSquared <= (settings.endRadiusChunks() * settings.endRadiusChunks())
+                && maxDistanceSquared >= (settings.startRadiusChunks() * settings.startRadiusChunks());
+    }
+
+    private float distanceToRange(float value, float minInclusive, float maxInclusive) {
+        if (value < minInclusive) {
+            return minInclusive - value;
+        }
+        if (value > maxInclusive) {
+            return value - maxInclusive;
+        }
+        return 0f;
     }
 
     private ResolvedFaceMaterial resolvedMaterialFor(BlockDefinition definition, BlockFace face) {

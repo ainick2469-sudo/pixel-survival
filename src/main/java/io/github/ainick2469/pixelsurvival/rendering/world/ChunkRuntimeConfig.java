@@ -4,7 +4,7 @@ public record ChunkRuntimeConfig(
         int loadRadius,
         int renderRadius,
         int simulationRadius) {
-    public static final int STARTUP_PRIME_RENDER_RADIUS = 2;
+    public static final int STARTUP_PRIME_RENDER_RADIUS = 8;
 
     public ChunkRuntimeConfig {
         if (loadRadius < 1) {

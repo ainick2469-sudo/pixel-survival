@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 96-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
+- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 192-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, bounded session mesh reuse, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 192-chunk experimental cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, bounded session mesh caching plus restored raw chunk unloading, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -89,10 +89,13 @@ The repo now also includes a sample imported block generated from a local `custo
 - The live `grass_block` and `stone` blocks now both come from imported `.voxelblock` authoring assets instead of the older generated terrain textures.
 - The importer now follows the block-maker app convention where the center tile is the top face, the surrounding tiles are the wall faces, and the far tile is the bottom face.
 - The grass-block import path now supports promoting one authored wall face across all four side slots, which keeps classic top/side/bottom terrain blocks clean even when the authoring asset only customizes one canonical wall face.
-- The chunk runtime now supports a default render distance of `48` chunks and an adjustable cap up to `96` chunks while rate-limiting background load and mesh work.
+- The chunk runtime now supports a default render distance of `48` chunks and an adjustable experimental cap up to `192` chunks while rate-limiting background load and mesh work.
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
+- Detailed startup coverage is now bridged toward the far-field seam at high render distances so the game does not open with the earlier giant middle-band void between the near chunk ring and the stitched far-field ring.
+- Session reuse now happens through a bounded mesh cache instead of keeping every raw chunk loaded forever, so revisits can still reuse mesh work without letting loaded-chunk memory grow without limit.
+- Raw authoritative chunks are unloaded again outside the active buffered load radius, while the bounded session mesh cache retains recently-built chunk meshes for quick reattachment during the same session.
 - Terrain now has two stable live chunk mesh detail tiers:
   - `FULL` for nearby chunks
   - `SURFACE` for mid-distance chunks
@@ -100,7 +103,8 @@ The repo now also includes a sample imported block generated from a local `custo
 - The far-field path keeps using the shared terrain texture-array material, so imported `.voxelblock` grass and stone visuals still come through the normal block registry pipeline.
 - Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
 - The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
-- The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius and remains experimental.
+- The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` shrinks detailed chunk coverage more aggressively and remains strictly experimental.
+- The HUD now exposes bounded session mesh cache counts and estimated mesh-cache memory, which makes it easier to tell whether a high-distance run is reusing recent terrain or blowing out residency.
 - A coarse `HORIZON` prototype seam still exists in code, but it is still disabled in the live runtime because the old approximation introduced visible cracks and holes in distant terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.

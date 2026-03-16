@@ -60,13 +60,14 @@ What exists right now:
 - Palette-compressed chunk storage.
 - Shared texture-array terrain batching/material consolidation.
 - A stitched far-field terrain renderer for the outer distance ring.
-- Adjustable render distance.
+- Adjustable render distance up to an experimental `192`-chunk cap.
 - Pause/options menu on `Esc`.
 - Fullscreen toggle on `F11`.
 - Fullscreen startup behavior.
 - Desktop launcher support.
 - Devlog and architecture docs actively maintained.
 - `.voxelblock` asset importing pipeline for custom blocks from an external block-maker app.
+- A bounded session mesh cache for chunk-mesh reuse within one run.
 
 What is intentionally NOT finished:
 - real gameplay loop
@@ -166,8 +167,10 @@ Important current truths:
 - Chunk storage is palette-compressed.
 - Shared terrain texture-array batching is active, so textured chunk terrain now aims to render through one shared textured section per chunk instead of many per-face material sections.
 - The outer distance ring now renders through stitched far-field terrain regions that sample the heightmap generator directly, use the same shared terrain material path, and keep authoritative chunk data unchanged.
+- Detailed startup coverage is now widened toward the far-field seam at high render distances so the earlier giant middle-band void is not left between the detailed chunk ring and the stitched far-field ring.
+- Raw authoritative chunks are unloaded again outside the active buffered load radius, while a bounded session mesh cache keeps recent chunk mesh variants available for fast reattachment during the same play session.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
-- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, and coarse timing splits.
+- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, and coarse timing splits.
 
 Live chunk detail tiers:
 - `FULL`
@@ -182,6 +185,7 @@ Live outer-ring path:
   - current detailed chunk radii:
     - `48` setting -> `32` detailed chunk radius
     - `96` setting -> `62` detailed chunk radius
+    - `192` setting -> `54` detailed chunk radius
   - measured detailed chunk-target reduction:
     - `48` setting: `7213` legacy detailed render targets -> `3209` detailed chunk targets
     - `96` setting: `28917` legacy detailed render targets -> `12061` detailed chunk targets
@@ -192,11 +196,11 @@ Important warning:
 - Do not casually re-enable it unless the continuity problem is actually solved.
 
 Why performance is still not where the user wants it:
-- High render distance is materially better now, but `96` is still expensive because the mixed detailed-chunk plus far-field path still needs tighter queue/back-pressure tuning and likely further far-region mesh reduction.
+- High render distance is materially better now, but `96` and especially `192` are still expensive while moving because the mixed detailed-chunk plus far-field path still needs tighter queue/back-pressure tuning and likely further far-region mesh reduction.
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- tighten queue prioritization and background-work budgeting around the mixed detailed-chunk plus far-field path
+- add movement-safe queue prioritization and adaptive background-work budgeting around the mixed detailed-chunk plus far-field path
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
@@ -424,7 +428,7 @@ Important note:
 - live runtime now routes away from it
 
 Current known likely next commit themes:
-- tighter chunk queue prioritization / back-pressure tuning
+- tighter movement-safe chunk queue prioritization / back-pressure tuning
 - more efficient far-region planning/meshing without giving up continuity
 - more importer polish if the external app evolves further
 
@@ -457,7 +461,7 @@ If taking over immediately, do this in order:
 4. Do NOT re-enable the old cracked `HORIZON` tier.
 5. Keep the shared terrain batching path intact and measure it at `48` first.
 6. Keep the `.voxelblock` importer as the authoring bridge from the external app into runtime assets.
-7. Treat the stitched far-field renderer as the current live outer-ring path and start the next optimization pass with queue tuning plus further far-region efficiency work.
+7. Treat the stitched far-field renderer as the current live outer-ring path, the bounded session mesh cache as the current revisit optimization, and start the next optimization pass with movement-safe queue tuning plus further far-region efficiency work.
 
 ==================================================
 PROMPT TO FOLLOW

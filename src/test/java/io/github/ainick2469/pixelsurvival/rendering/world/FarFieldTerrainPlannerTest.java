@@ -22,6 +22,8 @@ class FarFieldTerrainPlannerTest {
                 .size();
 
         assertEquals(32, fortyEightSettings.detailedRenderRadiusChunks());
+        assertEquals(24, fortyEightSettings.startRadiusChunks());
+        assertTrue(fortyEightSettings.overlapChunks() > fortyEightSettings.anchorHysteresisChunks());
         assertTrue(farFieldFortyEightTargets < legacyFortyEightTargets / 2);
 
         ChunkRuntimeConfig ninetySixConfig = new ChunkRuntimeConfig(100, 96, 4);
@@ -33,7 +35,24 @@ class FarFieldTerrainPlannerTest {
                 .size();
 
         assertEquals(62, ninetySixSettings.detailedRenderRadiusChunks());
+        assertEquals(54, ninetySixSettings.startRadiusChunks());
+        assertTrue(ninetySixSettings.overlapChunks() > ninetySixSettings.anchorHysteresisChunks());
         assertTrue(farFieldNinetySixTargets < legacyNinetySixTargets / 2);
+
+        ChunkRuntimeConfig oneNinetyTwoConfig = new ChunkRuntimeConfig(196, 192, 4);
+        FarFieldTerrainSettings oneNinetyTwoSettings = FarFieldTerrainSettings.from(oneNinetyTwoConfig);
+        int legacyOneNinetyTwoTargets = visibilityPlanner.plan(centerChunk, oneNinetyTwoConfig).renderTargets().size();
+        int farFieldOneNinetyTwoTargets = visibilityPlanner
+                .plan(centerChunk, oneNinetyTwoSettings.detailedChunkRuntimeConfig(oneNinetyTwoConfig))
+                .renderTargets()
+                .size();
+
+        assertEquals(54, oneNinetyTwoSettings.detailedRenderRadiusChunks());
+        assertEquals(38, oneNinetyTwoSettings.startRadiusChunks());
+        assertEquals(16, oneNinetyTwoSettings.regionSpanChunks());
+        assertEquals(16, oneNinetyTwoSettings.cellSizeBlocks());
+        assertTrue(oneNinetyTwoSettings.overlapChunks() > oneNinetyTwoSettings.anchorHysteresisChunks());
+        assertTrue(farFieldOneNinetyTwoTargets < legacyOneNinetyTwoTargets / 4);
     }
 
     @Test
@@ -48,7 +67,7 @@ class FarFieldTerrainPlannerTest {
     }
 
     @Test
-    void keepsTheFarFieldAnchorStableUntilTheCameraCrossesTheRegionMidpoint() {
+    void keepsTheFarFieldAnchorStableUntilTheCameraCrossesTheInnerSeamSafetyBand() {
         FarFieldTerrainSettings settings = FarFieldTerrainSettings.from(new ChunkRuntimeConfig(51, 48, 4));
         ChunkCoord initialAnchor = FarFieldTerrainRenderer.resolveAnchorChunk(
                 new ChunkCoord(0, 0), settings, null, null);

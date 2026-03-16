@@ -3,9 +3,11 @@ package io.github.ainick2469.pixelsurvival.settings;
 import io.github.ainick2469.pixelsurvival.rendering.world.ChunkRuntimeConfig;
 
 public record GraphicsSettings(int renderDistanceChunks) {
+    public static final String RENDER_DISTANCE_OVERRIDE_PROPERTY = "pixelSurvival.renderDistanceChunks";
+    public static final String RENDER_DISTANCE_OVERRIDE_ENV_VAR = "PIXEL_SURVIVAL_RENDER_DISTANCE_CHUNKS";
     public static final int MIN_RENDER_DISTANCE_CHUNKS = 2;
     public static final int DEFAULT_RENDER_DISTANCE_CHUNKS = 48;
-    public static final int MAX_RENDER_DISTANCE_CHUNKS = 96;
+    public static final int MAX_RENDER_DISTANCE_CHUNKS = 192;
 
     public GraphicsSettings {
         if (renderDistanceChunks < MIN_RENDER_DISTANCE_CHUNKS
@@ -20,6 +22,17 @@ public record GraphicsSettings(int renderDistanceChunks) {
 
     public static GraphicsSettings defaults() {
         return new GraphicsSettings(DEFAULT_RENDER_DISTANCE_CHUNKS);
+    }
+
+    public static GraphicsSettings defaultsForConfiguredRenderDistance(String configuredRenderDistance) {
+        if (configuredRenderDistance == null || configuredRenderDistance.isBlank()) {
+            return defaults();
+        }
+        try {
+            return new GraphicsSettings(clampRenderDistance(Integer.parseInt(configuredRenderDistance.trim())));
+        } catch (NumberFormatException ignored) {
+            return defaults();
+        }
     }
 
     public GraphicsSettings withRenderDistanceChunks(int renderDistanceChunks) {

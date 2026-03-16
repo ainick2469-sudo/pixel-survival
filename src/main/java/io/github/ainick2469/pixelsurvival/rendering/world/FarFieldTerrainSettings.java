@@ -15,12 +15,20 @@ public record FarFieldTerrainSettings(
         float verticalBiasBlocks) {
     private static final int MIN_FAR_FIELD_RENDER_RADIUS = 40;
     private static final int MIN_START_RADIUS_CHUNKS = 24;
-    private static final int START_RADIUS_NUMERATOR = 5;
-    private static final int START_RADIUS_DENOMINATOR = 8;
-    private static final int OVERLAP_CHUNKS = 2;
-    private static final int REGION_SPAN_CHUNKS = 8;
-    private static final int CELL_SIZE_BLOCKS = 8;
-    private static final float VERTICAL_BIAS_BLOCKS = 0.35f;
+    private static final int STANDARD_DETAIL_RADIUS_NUMERATOR = 5;
+    private static final int STANDARD_DETAIL_RADIUS_DENOMINATOR = 8;
+    private static final int STANDARD_DETAIL_RADIUS_BONUS = 2;
+    private static final int STANDARD_REGION_SPAN_CHUNKS = 8;
+    private static final int STANDARD_CELL_SIZE_BLOCKS = 8;
+    private static final int STANDARD_OVERLAP_CHUNKS = STANDARD_REGION_SPAN_CHUNKS;
+    private static final int ULTRA_REGION_SPAN_CHUNKS = 16;
+    private static final int ULTRA_CELL_SIZE_BLOCKS = 16;
+    private static final int ULTRA_OVERLAP_CHUNKS = ULTRA_REGION_SPAN_CHUNKS;
+    private static final int ULTRA_DETAIL_RADIUS_BASELINE = 48;
+    private static final int ULTRA_DETAIL_RADIUS_GROWTH_STEP_CHUNKS = 16;
+    private static final int MAX_ULTRA_DETAILED_RENDER_RADIUS_CHUNKS = 56;
+    private static final int ULTRA_RENDER_DISTANCE_THRESHOLD = 96;
+    private static final float VERTICAL_BIAS_BLOCKS = 0.08f;
 
     public FarFieldTerrainSettings {
         if (startRadiusChunks < 0) {
@@ -51,24 +59,40 @@ public record FarFieldTerrainSettings(
             return null;
         }
 
+        boolean ultraDistance = runtimeConfig.renderRadius() > ULTRA_RENDER_DISTANCE_THRESHOLD;
+        int regionSpanChunks = ultraDistance ? ULTRA_REGION_SPAN_CHUNKS : STANDARD_REGION_SPAN_CHUNKS;
+        int cellSizeBlocks = ultraDistance ? ULTRA_CELL_SIZE_BLOCKS : STANDARD_CELL_SIZE_BLOCKS;
+        int overlapChunks = ultraDistance ? ULTRA_OVERLAP_CHUNKS : STANDARD_OVERLAP_CHUNKS;
+        int anchorHysteresisChunks = Math.max(2, overlapChunks / 2);
         int loadBufferChunks = Math.max(1, runtimeConfig.loadRadius() - runtimeConfig.renderRadius());
-        int startRadiusChunks = Math.min(
-                runtimeConfig.renderRadius() - OVERLAP_CHUNKS,
-                Math.max(
-                        MIN_START_RADIUS_CHUNKS,
-                        (runtimeConfig.renderRadius() * START_RADIUS_NUMERATOR) / START_RADIUS_DENOMINATOR));
-        int detailedRenderRadiusChunks = Math.min(runtimeConfig.renderRadius(), startRadiusChunks + OVERLAP_CHUNKS);
-        int detailedLoadRadiusChunks = detailedRenderRadiusChunks + loadBufferChunks;
+        int detailedRenderRadiusChunks = ultraDistance
+                ? Math.min(
+                        runtimeConfig.renderRadius(),
+                        Math.min(
+                                MAX_ULTRA_DETAILED_RENDER_RADIUS_CHUNKS,
+                                ULTRA_DETAIL_RADIUS_BASELINE
+                                        + ((runtimeConfig.renderRadius() - ULTRA_RENDER_DISTANCE_THRESHOLD)
+                                                / ULTRA_DETAIL_RADIUS_GROWTH_STEP_CHUNKS)))
+                : Math.min(
+                        runtimeConfig.renderRadius(),
+                        Math.max(
+                                        MIN_START_RADIUS_CHUNKS,
+                                        (runtimeConfig.renderRadius() * STANDARD_DETAIL_RADIUS_NUMERATOR)
+                                                / STANDARD_DETAIL_RADIUS_DENOMINATOR)
+                                + STANDARD_DETAIL_RADIUS_BONUS);
+        int startRadiusChunks = Math.max(MIN_START_RADIUS_CHUNKS, detailedRenderRadiusChunks - overlapChunks);
+        int detailedLoadRadiusChunks = detailedRenderRadiusChunks
+                + (ultraDistance ? Math.max(loadBufferChunks, 4) : Math.max(loadBufferChunks, overlapChunks / 2));
 
         return new FarFieldTerrainSettings(
                 startRadiusChunks,
                 runtimeConfig.renderRadius(),
                 detailedRenderRadiusChunks,
                 detailedLoadRadiusChunks,
-                OVERLAP_CHUNKS,
-                REGION_SPAN_CHUNKS,
-                CELL_SIZE_BLOCKS,
-                REGION_SPAN_CHUNKS / 2,
+                overlapChunks,
+                regionSpanChunks,
+                cellSizeBlocks,
+                anchorHysteresisChunks,
                 0,
                 VERTICAL_BIAS_BLOCKS);
     }
@@ -78,6 +102,20 @@ public record FarFieldTerrainSettings(
                 detailedLoadRadiusChunks,
                 detailedRenderRadiusChunks,
                 Math.min(runtimeConfig.simulationRadius(), detailedRenderRadiusChunks));
+    }
+
+    public FarFieldTerrainSettings withStartRadiusChunks(int updatedStartRadiusChunks) {
+        return new FarFieldTerrainSettings(
+                updatedStartRadiusChunks,
+                endRadiusChunks,
+                detailedRenderRadiusChunks,
+                detailedLoadRadiusChunks,
+                overlapChunks,
+                regionSpanChunks,
+                cellSizeBlocks,
+                anchorHysteresisChunks,
+                skirtFloorY,
+                verticalBiasBlocks);
     }
 
     public int regionSpanBlocks() {

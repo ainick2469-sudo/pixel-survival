@@ -3,6 +3,7 @@ package io.github.ainick2469.pixelsurvival.session;
 import io.github.ainick2469.pixelsurvival.registry.GameDataPaths;
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.settings.GameSettings;
+import io.github.ainick2469.pixelsurvival.settings.GraphicsSettings;
 import io.github.ainick2469.pixelsurvival.world.gen.HeightmapWorldGenerator;
 import io.github.ainick2469.pixelsurvival.world.gen.WorldGenerator;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
@@ -31,12 +32,21 @@ public final class LocalHostSession {
     public static LocalHostSession bootstrap() {
         Path dataRoot = GameDataPaths.resolveDataRoot();
         GameRegistries registries = GameRegistries.load(dataRoot);
-        GameSettings gameSettings = GameSettings.defaultSettings(registries.survivalPresets());
+        GameSettings gameSettings = GameSettings.defaultSettings(registries.survivalPresets())
+                .withGraphicsSettings(resolveStartupGraphicsSettings());
         WorldGenerator worldGenerator = new HeightmapWorldGenerator();
         AuthoritativeWorldService worldService =
                 new AuthoritativeWorldService(registries, worldGenerator);
 
         return new LocalHostSession(GameSessionMode.LOCAL_HOST, registries, gameSettings, worldGenerator, worldService);
+    }
+
+    private static GraphicsSettings resolveStartupGraphicsSettings() {
+        String configuredRenderDistance = System.getProperty(GraphicsSettings.RENDER_DISTANCE_OVERRIDE_PROPERTY);
+        if (configuredRenderDistance == null || configuredRenderDistance.isBlank()) {
+            configuredRenderDistance = System.getenv(GraphicsSettings.RENDER_DISTANCE_OVERRIDE_ENV_VAR);
+        }
+        return GraphicsSettings.defaultsForConfiguredRenderDistance(configuredRenderDistance);
     }
 
     public void start() {

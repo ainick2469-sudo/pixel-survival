@@ -17,8 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 public final class FarFieldTerrainRenderer {
-    private static final int MAX_PENDING_REGION_BUILDS = 12;
-    private static final int MAX_COMPLETED_REGION_ATTACHES_PER_UPDATE = 4;
+    private static final int MIN_PENDING_REGION_BUILDS = 12;
+    private static final int MAX_PENDING_REGION_BUILDS = 48;
+    private static final int MIN_COMPLETED_REGION_ATTACHES_PER_UPDATE = 4;
+    private static final int MAX_COMPLETED_REGION_ATTACHES_PER_UPDATE = 24;
 
     private final Node farTerrainRoot = new Node("far_terrain_root");
     private final TerrainMaterialLibrary terrainMaterialLibrary;
@@ -50,8 +52,7 @@ public final class FarFieldTerrainRenderer {
         rootNode.attachChild(farTerrainRoot);
     }
 
-    public void prime(ChunkCoord centerChunk, ChunkRuntimeConfig runtimeConfig) {
-        FarFieldTerrainSettings settings = FarFieldTerrainSettings.from(runtimeConfig);
+    public void prime(ChunkCoord centerChunk, FarFieldTerrainSettings settings) {
         if (settings == null || centerChunk == null) {
             clear();
             return;
@@ -64,8 +65,7 @@ public final class FarFieldTerrainRenderer {
         }
     }
 
-    public void update(ChunkCoord centerChunk, ChunkRuntimeConfig runtimeConfig) {
-        FarFieldTerrainSettings settings = FarFieldTerrainSettings.from(runtimeConfig);
+    public void update(ChunkCoord centerChunk, FarFieldTerrainSettings settings) {
         if (settings == null || centerChunk == null) {
             clear();
             return;
@@ -134,7 +134,7 @@ public final class FarFieldTerrainRenderer {
     }
 
     private void enqueueMeshBuilds() {
-        int availableSlots = Math.max(0, MAX_PENDING_REGION_BUILDS - pendingRegionBuilds.size());
+        int availableSlots = Math.max(0, maxPendingRegionBuilds() - pendingRegionBuilds.size());
         if (availableSlots == 0) {
             return;
         }
@@ -163,7 +163,7 @@ public final class FarFieldTerrainRenderer {
         int attachedMeshes = 0;
         for (Map.Entry<FarFieldTerrainRegionCoord, CompletableFuture<FarFieldTerrainMeshBuildResult>> entry :
                 Set.copyOf(pendingRegionBuilds.entrySet())) {
-            if (attachedMeshes >= MAX_COMPLETED_REGION_ATTACHES_PER_UPDATE) {
+            if (attachedMeshes >= maxCompletedRegionAttachesPerUpdate()) {
                 break;
             }
             CompletableFuture<FarFieldTerrainMeshBuildResult> meshFuture = entry.getValue();
@@ -273,5 +273,18 @@ public final class FarFieldTerrainRenderer {
         for (FarFieldTerrainRegionCoord regionCoord : Set.copyOf(renderedRegionNodes.keySet())) {
             detachRenderedRegion(regionCoord);
         }
+    }
+
+    private int maxPendingRegionBuilds() {
+        int requestedBudget = activeSettings == null ? MIN_PENDING_REGION_BUILDS : Math.max(16, activeSettings.endRadiusChunks() / 4);
+        return Math.max(MIN_PENDING_REGION_BUILDS, Math.min(MAX_PENDING_REGION_BUILDS, requestedBudget));
+    }
+
+    private int maxCompletedRegionAttachesPerUpdate() {
+        int requestedBudget =
+                activeSettings == null ? MIN_COMPLETED_REGION_ATTACHES_PER_UPDATE : Math.max(8, activeSettings.endRadiusChunks() / 8);
+        return Math.max(
+                MIN_COMPLETED_REGION_ATTACHES_PER_UPDATE,
+                Math.min(MAX_COMPLETED_REGION_ATTACHES_PER_UPDATE, requestedBudget));
     }
 }
