@@ -181,6 +181,9 @@ public final class FarFieldTerrainMeshBuilder {
             CellSample cell,
             BlockFace face) {
         NeighborCellSample neighbor = neighborSample(regionCoord, centerChunk, settings, cells, cellX, cellZ, face);
+        if (!neighbor.visible() && shouldSuppressInnerBoundarySide(regionCoord, centerChunk, settings, cellX, cellZ, face)) {
+            return 0;
+        }
         float topY = cell.surfaceHeight() + 1f;
         float bottomY = Math.max(settings.skirtFloorY(), neighbor.surfaceHeight() + 1f);
         if (topY <= bottomY) {
@@ -212,6 +215,9 @@ public final class FarFieldTerrainMeshBuilder {
             CellSample cell,
             BlockFace face) {
         if (neighborIsVisible(cells, cellX, cellZ, face)) {
+            return 0;
+        }
+        if (shouldSuppressInnerBoundarySide(regionCoord, centerChunk, settings, cellX, cellZ, face)) {
             return 0;
         }
         int cellSize = settings.cellSizeBlocks();
@@ -429,6 +435,30 @@ public final class FarFieldTerrainMeshBuilder {
                 && neighborSample.surfaceHeight() >= 0
                 && cellIntersectsFarFieldRing(centerChunk, settings, neighborWorldStartX, neighborWorldStartZ);
         return new NeighborCellSample(neighborSample.surfaceHeight(), visible);
+    }
+
+    private boolean shouldSuppressInnerBoundarySide(
+            FarFieldTerrainRegionCoord regionCoord,
+            ChunkCoord centerChunk,
+            FarFieldTerrainSettings settings,
+            int cellX,
+            int cellZ,
+            BlockFace face) {
+        if (settings.renderInnerBoundarySkirts() || centerChunk == null) {
+            return false;
+        }
+        int neighborCellX = cellX + Integer.signum(face.stepX());
+        int neighborCellZ = cellZ + Integer.signum(face.stepZ());
+        float centerWorldX = centerChunk.x() * ChunkData.SIZE_X + (ChunkData.SIZE_X / 2f);
+        float centerWorldZ = centerChunk.z() * ChunkData.SIZE_Z + (ChunkData.SIZE_Z / 2f);
+        float neighborCenterWorldX =
+                regionCoord.worldStartX(settings) + (neighborCellX * settings.cellSizeBlocks()) + (settings.cellSizeBlocks() / 2f);
+        float neighborCenterWorldZ =
+                regionCoord.worldStartZ(settings) + (neighborCellZ * settings.cellSizeBlocks()) + (settings.cellSizeBlocks() / 2f);
+        float deltaChunkX = (neighborCenterWorldX - centerWorldX) / ChunkData.SIZE_X;
+        float deltaChunkZ = (neighborCenterWorldZ - centerWorldZ) / ChunkData.SIZE_Z;
+        float neighborDistanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
+        return neighborDistanceSquared <= (settings.startRadiusChunks() * settings.startRadiusChunks());
     }
 
     private boolean cellIntersectsFarFieldRing(ChunkCoord centerChunk, FarFieldTerrainSettings settings, int cellWorldStartX, int cellWorldStartZ) {

@@ -25,7 +25,9 @@ import javax.imageio.ImageIO;
 
 public final class TerrainMaterialLibrary {
     private static final ColorRGBA DEFAULT_SEAM_MASK_COLOR = new ColorRGBA(0.56f, 0.72f, 0.88f, 1f);
-    private static final float DEFAULT_SEAM_MASK_STRENGTH = 0.15f;
+    // The seam mask was tinting the ultra-distance band into a bright sky-colored ring at 192.
+    // Keep the shader path intact, but default it off until we have a subtler band-specific mask.
+    private static final float DEFAULT_SEAM_MASK_STRENGTH = 0f;
     private final AssetManager assetManager;
     private final TerrainTexturePalette terrainTexturePalette;
     private final Map<TerrainMaterialKey, Material> materialCache = new ConcurrentHashMap<>();

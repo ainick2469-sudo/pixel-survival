@@ -12,7 +12,8 @@ public record FarFieldTerrainSettings(
         int cellSizeBlocks,
         int anchorHysteresisChunks,
         int skirtFloorY,
-        float verticalBiasBlocks) {
+        float verticalBiasBlocks,
+        boolean renderInnerBoundarySkirts) {
     private static final int MIN_FAR_FIELD_RENDER_RADIUS = 40;
     private static final int MIN_START_RADIUS_CHUNKS = 24;
     private static final int STANDARD_DETAIL_RADIUS_NUMERATOR = 5;
@@ -94,7 +95,8 @@ public record FarFieldTerrainSettings(
                 cellSizeBlocks,
                 anchorHysteresisChunks,
                 0,
-                VERTICAL_BIAS_BLOCKS);
+                VERTICAL_BIAS_BLOCKS,
+                true);
     }
 
     public static FarFieldTerrainSettings visualOnlyBand(
@@ -116,7 +118,8 @@ public record FarFieldTerrainSettings(
                 cellSizeBlocks,
                 anchorHysteresisChunks,
                 0,
-                VERTICAL_BIAS_BLOCKS);
+                VERTICAL_BIAS_BLOCKS,
+                false);
     }
 
     public ChunkRuntimeConfig detailedChunkRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
@@ -137,7 +140,23 @@ public record FarFieldTerrainSettings(
                 cellSizeBlocks,
                 anchorHysteresisChunks,
                 skirtFloorY,
-                verticalBiasBlocks);
+                verticalBiasBlocks,
+                renderInnerBoundarySkirts);
+    }
+
+    public FarFieldTerrainSettings withRenderInnerBoundarySkirts(boolean updatedRenderInnerBoundarySkirts) {
+        return new FarFieldTerrainSettings(
+                startRadiusChunks,
+                endRadiusChunks,
+                detailedRenderRadiusChunks,
+                detailedLoadRadiusChunks,
+                overlapChunks,
+                regionSpanChunks,
+                cellSizeBlocks,
+                anchorHysteresisChunks,
+                skirtFloorY,
+                verticalBiasBlocks,
+                updatedRenderInnerBoundarySkirts);
     }
 
     public int regionSpanBlocks() {

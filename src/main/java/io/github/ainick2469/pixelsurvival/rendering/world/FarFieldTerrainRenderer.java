@@ -41,6 +41,7 @@ public final class FarFieldTerrainRenderer {
     private final Map<FarFieldTerrainRegionCoord, Integer> renderedRegionFaceCounts = new HashMap<>();
     private final Map<FarFieldTerrainRegionCoord, Integer> renderedRegionSectionCounts = new HashMap<>();
     private final Set<FarFieldTerrainRegionCoord> dirtyRegions = ConcurrentHashMap.newKeySet();
+    private final Set<FarFieldTerrainRegionCoord> staleRenderedRegions = ConcurrentHashMap.newKeySet();
     private List<FarFieldTerrainTarget> activeTargets = List.of();
     private Map<FarFieldTerrainRegionCoord, FarFieldTerrainTarget> activeTargetsByRegion = Map.of();
     private ChunkCoord activeAnchorChunk;
@@ -108,11 +109,11 @@ public final class FarFieldTerrainRenderer {
         if (priorityDirection != null && priorityDirection.lengthSquared() > 0.0001f) {
             this.priorityDirection = priorityDirection.normalize();
         }
-        boolean targetsChanged = refreshTargets(centerChunk, settings);
+        refreshTargets(centerChunk, settings);
         enqueueMeshBuilds();
         attachCompletedMeshes();
-        if (targetsChanged) {
-            detachRenderedRegionsOutside(activeTargetsByRegion.keySet());
+        if (pendingRegionBuilds.isEmpty()) {
+            detachStaleRenderedRegions();
         }
     }
 
@@ -166,12 +167,14 @@ public final class FarFieldTerrainRenderer {
         for (FarFieldTerrainRegionCoord staleRegionCoord : refreshTargetsPlan.staleRegionCoords()) {
             cancelPendingBuild(staleRegionCoord);
         }
+        staleRenderedRegions.addAll(refreshTargetsPlan.staleRegionCoords());
         dirtyRegions.retainAll(refreshTargetsPlan.nextTargetsByRegion().keySet());
         dirtyRegions.addAll(refreshTargetsPlan.dirtyRegionCoords());
         activeAnchorChunk = nextAnchorChunk;
         activeSettings = settings;
         activeTargets = refreshTargetsPlan.orderedTargets();
         activeTargetsByRegion = refreshTargetsPlan.nextTargetsByRegion();
+        staleRenderedRegions.removeAll(activeTargetsByRegion.keySet());
         return true;
     }
 
@@ -353,11 +356,13 @@ public final class FarFieldTerrainRenderer {
         currentWindowRebuiltRegionCount++;
     }
 
-    private void detachRenderedRegionsOutside(Set<FarFieldTerrainRegionCoord> targetRegions) {
-        for (FarFieldTerrainRegionCoord regionCoord : Set.copyOf(renderedRegionNodes.keySet())) {
-            if (!targetRegions.contains(regionCoord)) {
-                detachRenderedRegion(regionCoord);
+    private void detachStaleRenderedRegions() {
+        for (FarFieldTerrainRegionCoord regionCoord : Set.copyOf(staleRenderedRegions)) {
+            if (activeTargetsByRegion.containsKey(regionCoord)) {
+                staleRenderedRegions.remove(regionCoord);
+                continue;
             }
+            detachRenderedRegion(regionCoord);
         }
     }
 
@@ -374,6 +379,7 @@ public final class FarFieldTerrainRenderer {
         if (existingNode != null) {
             existingNode.removeFromParent();
         }
+        staleRenderedRegions.remove(regionCoord);
     }
 
     private void cancelPendingBuild(FarFieldTerrainRegionCoord regionCoord) {
@@ -391,6 +397,7 @@ public final class FarFieldTerrainRenderer {
         activeTargets = List.of();
         activeTargetsByRegion = Map.of();
         dirtyRegions.clear();
+        staleRenderedRegions.clear();
         activeAnchorChunk = null;
         activeSettings = null;
         for (FarFieldTerrainRegionCoord regionCoord : Set.copyOf(renderedRegionNodes.keySet())) {

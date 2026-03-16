@@ -34,14 +34,17 @@ class DistanceTerrainBandsTest {
         assertNotNull(bands.farTerrainSettings());
         assertEquals(42, bands.detailedChunkRuntimeConfig().renderRadius());
         assertEquals(46, bands.detailedChunkRuntimeConfig().loadRadius());
-        assertEquals(34, bands.middleTerrainSettings().startRadiusChunks());
+        assertEquals(42, bands.middleTerrainSettings().startRadiusChunks());
         assertEquals(96, bands.middleTerrainSettings().endRadiusChunks());
         assertEquals(8, bands.middleTerrainSettings().regionSpanChunks());
         assertEquals(8, bands.middleTerrainSettings().cellSizeBlocks());
-        assertEquals(80, bands.farTerrainSettings().startRadiusChunks());
+        assertEquals(96, bands.farTerrainSettings().startRadiusChunks());
         assertEquals(192, bands.farTerrainSettings().endRadiusChunks());
         assertEquals(16, bands.farTerrainSettings().regionSpanChunks());
         assertEquals(16, bands.farTerrainSettings().cellSizeBlocks());
+        assertEquals(
+                bands.middleTerrainSettings().endRadiusChunks(),
+                bands.farTerrainSettings().startRadiusChunks());
 
         int legacyDetailedTargets = visibilityPlanner
                 .plan(centerChunk, legacyFarFieldSettings.detailedChunkRuntimeConfig(runtimeConfig))

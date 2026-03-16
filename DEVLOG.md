@@ -1,5 +1,45 @@
 # Devlog
 
+## 2026-03-16 10:45:00 MDT
+
+- Date/Time: 2026-03-16 10:45:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Fix the false seam-hole rings at `192` and stop dropping old far-field regions before their replacements are ready.
+- Completed Work:
+  - Disabled the default ultra-distance seam-mask tint in `TerrainMaterialLibrary` because it was painting a bright sky-colored ring that looked like missing terrain at the middle/far seam.
+  - Kept the new split-band `192` terrain stack intact, but backed out the overly aggressive center-ownership clip experiment after it created two real uncovered seam bands.
+  - Fixed `FarFieldTerrainRenderer` stale-region handling so regions that fall out of the active target set stay rendered until the pending replacement build queue drains, then detach cleanly afterward.
+  - Re-ran focused far-field tests and fresh sequential `192` static plus move-and-settle smoke captures to verify the ring/foreground-hole regression was gone in the captured frames.
+- Files Changed:
+  - `DEVLOG.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `src/main/java/.../rendering/world/FarFieldTerrainMeshBuilder.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialLibrary.java`
+  - `src/test/java/.../rendering/world/FarFieldTerrainMeshBuilderTest.java`
+- Systems Touched:
+  - stitched distance-band seam presentation
+  - far-field stale-region lifecycle during anchor/rebuild transitions
+  - regression validation for seam visibility
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.DistanceTerrainBandsTest --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 192 -WaitSeconds 16 -Launch -Restart -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 192 -WaitSeconds 20 -MoveForwardSeconds 12 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-hole-check.jsonl -Launch -Restart -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - The steady-state `192` seam band from the sky-colored seam mask is gone in the latest static smoke capture.
+  - The latest move-and-settle smoke captures no longer show the two false seam-hole bands or the earlier foreground sky cuts from the failed center-ownership experiment.
+  - `192` still remains experimental and the next bottleneck is still attach/upload pressure once detailed chunk counts climb into the thousands.
+- Known Issues:
+  - The ultra-distance seam-mask code path still exists in shader/material plumbing, but it is intentionally disabled by default because the current sky-tint behavior was too visible.
+  - `192` still has expensive first-fill and late still-state catch-up windows; this pass only fixed the visual seam/hole regression.
+- Next Tasks:
+  - Reduce late still-state attach/upload pressure further now that the seam/hole regression is under control.
+  - Revisit seam masking later only if it can be made band-specific and substantially subtler than the removed sky-tint ring.
+- Risks/Technical Debt:
+  - The stitched band renderer now relies on retaining stale regions until pending rebuild work drains, so future far-field scheduling changes need to preserve that cleanup order or the old transition holes can come back.
+
 ## 2026-03-16 07:03:01 MDT
 
 - Date/Time: 2026-03-16 07:03:01 MDT

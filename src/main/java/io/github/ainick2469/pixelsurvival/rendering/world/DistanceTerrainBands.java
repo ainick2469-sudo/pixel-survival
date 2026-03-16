@@ -40,9 +40,13 @@ public record DistanceTerrainBands(
                                         * ULTRA_DETAILED_RADIUS_GROWTH_AMOUNT)));
         int detailedLoadRadiusChunks = detailedRenderRadiusChunks + Math.max(loadBufferChunks, 4);
 
-        int middleStartRadiusChunks = Math.max(MIN_MIDDLE_START_RADIUS_CHUNKS, detailedRenderRadiusChunks - MIDDLE_OVERLAP_CHUNKS);
+        int middleStartRadiusChunks = Math.max(MIN_MIDDLE_START_RADIUS_CHUNKS, detailedRenderRadiusChunks);
         int middleEndRadiusChunks = Math.min(runtimeConfig.renderRadius(), MIDDLE_END_RADIUS_CHUNKS);
-        int farStartRadiusChunks = Math.max(middleStartRadiusChunks + MIDDLE_OVERLAP_CHUNKS, middleEndRadiusChunks - FAR_OVERLAP_CHUNKS);
+        // Keep the stitched middle/far seam aligned to one radius instead of letting two opaque
+        // distance bands overlap deeply. The previous 16-chunk overlap produced visible
+        // band-on-band artifacts at 192 because both region stacks were rendering terrain
+        // through the same space with different resolutions.
+        int farStartRadiusChunks = middleEndRadiusChunks;
 
         FarFieldTerrainSettings middleTerrainSettings = FarFieldTerrainSettings.visualOnlyBand(
                 middleStartRadiusChunks,

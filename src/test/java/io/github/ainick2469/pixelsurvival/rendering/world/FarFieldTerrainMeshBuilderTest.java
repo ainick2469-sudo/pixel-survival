@@ -24,7 +24,7 @@ class FarFieldTerrainMeshBuilderTest {
                 worldX < 8 ? 10 : 14,
                 GRASS);
         FarFieldTerrainMeshBuilder builder = new FarFieldTerrainMeshBuilder(registries, texturePalette, sampler);
-        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(0, 2, 2, 3, 1, 1, 8, 0, 0, 0f);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(0, 2, 2, 3, 1, 1, 8, 0, 0, 0f, true);
 
         FarFieldTerrainMeshBuildResult result = builder.buildRegionMesh(
                 new FarFieldTerrainTarget(new FarFieldTerrainRegionCoord(0, 0), FarFieldClipMode.FULL_REGION),
@@ -44,7 +44,7 @@ class FarFieldTerrainMeshBuilderTest {
         TerrainTexturePalette texturePalette = TerrainTexturePalette.build(registries);
         FarFieldTerrainSampler sampler = (worldX, worldZ) -> new FarFieldTerrainSampler.ColumnSample(10, GRASS);
         FarFieldTerrainMeshBuilder builder = new FarFieldTerrainMeshBuilder(registries, texturePalette, sampler);
-        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(2, 3, 3, 4, 1, 1, 16, 0, 0, 0f);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(2, 3, 3, 4, 1, 1, 16, 0, 0, 0f, true);
 
         FarFieldTerrainMeshBuildResult result = builder.buildRegionMesh(
                 new FarFieldTerrainTarget(new FarFieldTerrainRegionCoord(2, 0), FarFieldClipMode.CLIP_OUTER),
@@ -61,7 +61,7 @@ class FarFieldTerrainMeshBuilderTest {
         TerrainTexturePalette texturePalette = TerrainTexturePalette.build(registries);
         FarFieldTerrainSampler sampler = (worldX, worldZ) -> new FarFieldTerrainSampler.ColumnSample(10, GRASS);
         FarFieldTerrainMeshBuilder builder = new FarFieldTerrainMeshBuilder(registries, texturePalette, sampler);
-        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(2, 4, 4, 5, 2, 1, 8, 0, 0, 0f);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(2, 4, 4, 5, 2, 1, 8, 0, 0, 0f, true);
 
         FarFieldTerrainMeshBuildResult result = builder.buildRegionMesh(
                 new FarFieldTerrainTarget(new FarFieldTerrainRegionCoord(2, 0), FarFieldClipMode.CLIP_INNER),

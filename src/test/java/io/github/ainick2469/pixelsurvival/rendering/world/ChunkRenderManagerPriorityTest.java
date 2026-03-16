@@ -22,8 +22,8 @@ class ChunkRenderManagerPriorityTest {
                 ChunkRenderManager.ChunkWorkBand.SEAM,
                 ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(30, 0), detailedRuntimeConfig, farFieldSettings, true));
         assertEquals(
-                ChunkRenderManager.ChunkWorkBand.PROMOTION,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(38, 0), detailedRuntimeConfig, farFieldSettings, true));
+                ChunkRenderManager.ChunkWorkBand.SEAM,
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(42, 0), detailedRuntimeConfig, farFieldSettings, true));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.BUFFER,
                 ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(44, 0), detailedRuntimeConfig, farFieldSettings, true));

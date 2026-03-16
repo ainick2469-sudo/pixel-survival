@@ -182,6 +182,8 @@ Important current truths:
 - `192` now also uses a middle-distance visual band instead of jumping straight from detailed chunks to the coarse outer ring. The detailed chunk runtime stops at a `42`-chunk radius, a middle band covers roughly `34 -> 96` chunks with `8`-block cells on `8 x 8` chunk regions, and the farther band covers roughly `80 -> 192` chunks with `16`-block cells on `16 x 16` chunk regions.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
 - The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, coarse timing splits, motion profile, and frame-governor percentage. The `Far` count now represents the combined middle-plus-far distance-region renderers when `192` is active.
+- The seam-mask shader path is still wired through the shared terrain material, but its default strength is now `0` because the previous sky-tinted seam ring at `192` looked like missing terrain in live play.
+- Far-field refresh now retains stale rendered regions until pending replacement builds finish, then detaches them afterward. That ordering is important because dropping stale regions earlier reopened transient sky holes during seam/anchor transitions.
 - `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, and it no longer depends on OS-level pause-menu clicking for smoke-mode runs.
 - Smoke validation now also forces a windowed launcher path and matches any top-level window title that starts with `Pixel Survival`, which makes the automated capture path more reliable than the earlier fullscreen-only startup behavior.
 
@@ -234,6 +236,7 @@ Fresh benchmark note:
 - The final captured sample can still distort the last reported frame because framebuffer screenshot capture costs render time; the report ends with `governor=31%` on the capture-affected sample and should not be treated as steady-state traversal.
 - The latest follow-up report (`pixel-survival-192-motion-v6.jsonl`) keeps the same first-fill burst but delays late promotion enough that the first several `STILL` samples hold around `309 -> 255 -> 242 -> 240 FPS` while rendered detailed chunks climb from `309` to `2378`, and the governor does not need to clamp until later in the catch-up window.
 - The latest middle-band report (`pixel-survival-192-middle-band-v1.jsonl`) keeps the combined distance-region footprint stable around `far=930` during movement, holds most moving samples in roughly the `260 -> 369 FPS` range after the first second, and keeps the early `STILL` window in roughly the `191 -> 323 FPS` range while rendered detailed chunks grow from `2336` to `5242`.
+- The follow-up seam-regression smoke (`pixel-survival-192-hole-check.jsonl`) no longer shows the rejected center-ownership experiment's double seam-hole bands, and the latest static `192` smoke no longer shows the earlier sky-tinted seam ring.
 
 The user wants:
 - strong performance at `48`

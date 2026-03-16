@@ -683,7 +683,8 @@ public final class ChunkRenderManager implements AutoCloseable {
             return distanceTerrainBands.middleTerrainSettings();
         }
         return distanceTerrainBands.middleTerrainSettings()
-                .withStartRadiusChunks(bridgedFarFieldStartRadiusChunks(distanceTerrainBands.middleTerrainSettings()));
+                .withStartRadiusChunks(bridgedFarFieldStartRadiusChunks(distanceTerrainBands.middleTerrainSettings()))
+                .withRenderInnerBoundarySkirts(true);
     }
 
     private FarFieldTerrainSettings effectiveFarFieldSettings(

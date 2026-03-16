@@ -60,7 +60,7 @@ class FarFieldTerrainPlannerTest {
     @Test
     void classifiesFarFieldTargetsAcrossTheInnerAndOuterBoundaries() {
         FarFieldTerrainPlanner planner = new FarFieldTerrainPlanner();
-        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(26, 48, 34, 36, 8, 8, 8, 4, 0, 0f);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(26, 48, 34, 36, 8, 8, 8, 4, 0, 0f, true);
 
         List<FarFieldTerrainTarget> targets = planner.plan(new ChunkCoord(0, 0), settings);
 
@@ -72,7 +72,7 @@ class FarFieldTerrainPlannerTest {
     @Test
     void classifiesRegionsThatSpanTheEntireRingAsClipBoth() {
         FarFieldTerrainPlanner planner = new FarFieldTerrainPlanner();
-        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(6, 10, 10, 12, 4, 16, 16, 2, 0, 0f);
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(6, 10, 10, 12, 4, 16, 16, 2, 0, 0f, true);
 
         List<FarFieldTerrainTarget> targets = planner.plan(new ChunkCoord(0, 0), settings);
 
