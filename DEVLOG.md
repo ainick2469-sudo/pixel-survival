@@ -1,5 +1,55 @@
 # Devlog
 
+## 2026-03-16 05:11:23 MDT
+
+- Date/Time: 2026-03-16 05:11:23 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add a frame-time governor for `192` traversal so outer-detail promotion backs off under pressure instead of reopening the same hitch bursts.
+- Completed Work:
+  - Added a smoothed frame-time governor to `ChunkRenderManager` with stricter soft/hard thresholds at high and ultra render distances, faster drop response than recovery, and automatic reset on runtime reconfiguration.
+  - Routed chunk attach budgets, chunk work allowances, and far-field pending/attach budgets through that governor so heavy frames now immediately squeeze live promotion pressure instead of letting rear and lateral detail continue landing at full speed.
+  - Added governor-aware deferral logic for ultra-distance `SEAM`, `PROMOTION`, and `BUFFER` work so forward seam-critical chunks stay eligible first while rear/lateral promotion is suppressed much earlier when frame time climbs.
+  - Exposed the governor percentage in both the HUD and the smoke JSONL output so the runtime now shows when traversal scheduling is intentionally clamped instead of leaving every spike to be inferred from FPS alone.
+  - Added a regression test for the render-distance-sensitive governor thresholds and re-ran the `48` startup plus `192` move-and-settle smoke coverage against the new governor path.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeMetrics.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/test/java/.../rendering/world/ChunkRenderManagerPriorityTest.java`
+- Systems Touched:
+  - frame-time-aware traversal scheduling
+  - ultra-distance chunk promotion throttling
+  - far-field attach/pending-budget throttling
+  - HUD and smoke telemetry
+  - documentation and handoff
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 48 -WaitSeconds 8 -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -WaitSeconds 26 -MoveForwardSeconds 15 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-motion-v5.jsonl -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - `48` startup smoke still completes cleanly after the governor pass.
+  - The latest `192` motion report now shows the governor dropping to `40%` on the first sample and `16%` during the first hitch window, then recovering to `100%` across the steady moving phase while moving samples sit mostly in the mid-200 FPS range.
+  - Still-state catch-up remains the next visible cost center; as rendered detailed chunks climb after movement stops, the governor walks back down through roughly `96%`, `90%`, `81%`, and `75%` instead of immediately letting the whole outer promotion budget run flat out.
+- Known Issues:
+  - The first one to two `192` samples are still expensive while the initial far ring and first detailed chunks come online.
+  - Still-state catch-up after movement is still the main remaining hitch source because deferred detailed promotion and attach/upload work continue to pile up once the player settles.
+  - The final benchmark sample can still be distorted by the scheduled framebuffer screenshot itself because capture costs render time.
+- Next Tasks:
+  - Clamp still-state catch-up even harder so outer detailed promotion comes online in smaller phases after movement stops.
+  - Reduce attach/upload pressure further so scene-graph activation costs stop dominating the late `192` benchmark window.
+  - Keep using the governor as the safety valve while trimming the remaining initial-fill and post-movement spikes instead of reopening broad far-ring work.
+- Risks/Technical Debt:
+  - The governor currently uses smoothed frame time only; it does not yet distinguish GPU upload spikes from terrain-scheduling spikes, so threshold tuning is still heuristic.
+  - The suppression rules are intentionally more aggressive at `192` than `48` or `96`, which is correct for now but will need retuning if the detailed-ring policy changes again.
+
 ## 2026-03-16 03:00:12 MDT
 
 - Date/Time: 2026-03-16 03:00:12 MDT

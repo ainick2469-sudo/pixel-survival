@@ -47,6 +47,7 @@ public final class FarFieldTerrainRenderer {
     private ChunkMotionProfile motionProfile = ChunkMotionProfile.STILL;
     private Vector3f priorityDirection = new Vector3f(0f, 0f, 1f);
     private float catchUpScale;
+    private float frameTimeGovernorScale = 1f;
     private int totalRenderedFaceCount;
     private int totalRenderedSectionCount;
     private long nextCounterWindowNanos;
@@ -92,7 +93,8 @@ public final class FarFieldTerrainRenderer {
             FarFieldTerrainSettings settings,
             ChunkMotionProfile motionProfile,
             Vector3f priorityDirection,
-            float catchUpScale) {
+            float catchUpScale,
+            float frameTimeGovernorScale) {
         if (settings == null || centerChunk == null) {
             clear();
             return;
@@ -101,6 +103,7 @@ public final class FarFieldTerrainRenderer {
         rollCounterWindow(System.nanoTime());
         this.motionProfile = motionProfile;
         this.catchUpScale = catchUpScale;
+        this.frameTimeGovernorScale = frameTimeGovernorScale;
         if (priorityDirection != null && priorityDirection.lengthSquared() > 0.0001f) {
             this.priorityDirection = priorityDirection.normalize();
         }
@@ -445,7 +448,9 @@ public final class FarFieldTerrainRenderer {
     }
 
     private long attachBudgetNanos() {
-        return MOVING_ATTACH_BUDGET_NANOS + Math.round((STILL_ATTACH_BUDGET_NANOS - MOVING_ATTACH_BUDGET_NANOS) * catchUpScale);
+        long baseBudget =
+                MOVING_ATTACH_BUDGET_NANOS + Math.round((STILL_ATTACH_BUDGET_NANOS - MOVING_ATTACH_BUDGET_NANOS) * catchUpScale);
+        return Math.max(200_000L, Math.round(baseBudget * (0.4f + (0.6f * frameTimeGovernorScale))));
     }
 
     private void rollCounterWindow(long now) {
@@ -465,7 +470,7 @@ public final class FarFieldTerrainRenderer {
 
     private int maxPendingRegionBuilds() {
         int requestedBudget = activeSettings == null ? MIN_PENDING_REGION_BUILDS : Math.max(16, activeSettings.endRadiusChunks() / 4);
-        float scale = 0.35f + (0.65f * catchUpScale);
+        float scale = (0.35f + (0.65f * catchUpScale)) * (0.5f + (0.5f * frameTimeGovernorScale));
         return Math.max(MIN_PENDING_REGION_BUILDS, Math.min(MAX_PENDING_REGION_BUILDS, Math.round(requestedBudget * scale)));
     }
 

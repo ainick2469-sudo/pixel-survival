@@ -259,6 +259,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"
                 + " | GC " + String.format("%.1f", smoothedGarbageCollectionMilliseconds) + " ms"
                 + " | Move " + runtimeMetrics.motionProfile().name()
+                + " | Gov " + runtimeMetrics.frameGovernorPercent() + "%"
                 + " | FarRebuild/s " + runtimeMetrics.rebuiltFarRegionCountLastWindow()
                 + " | Anchor/s " + runtimeMetrics.farAnchorSnapCountLastWindow()
                 + "\nWASD move | Mouse look | Shift fast | F2/PrtSc screenshot | F11 fullscreen | Esc menu | F10 quit"
@@ -274,7 +275,11 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         }
         if (chunkRenderManager != null) {
             long chunkUpdateStartNanos = System.nanoTime();
-            chunkRenderManager.update(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
+            chunkRenderManager.update(
+                    cam.getLocation(),
+                    cam.getDirection(),
+                    horizontalViewDegrees(),
+                    smoothedFrameTimeSeconds);
             long chunkUpdateEndNanos = System.nanoTime();
             smoothedChunkUpdateMilliseconds = smoothMilliseconds(
                     smoothedChunkUpdateMilliseconds,
@@ -658,7 +663,8 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                         + ",\"meshCache\":" + runtimeMetrics.cachedMeshVariantCount()
                         + ",\"meshMemMb\":" + cachedMeshStorageMegabytes
                         + ",\"motionProfile\":\"" + runtimeMetrics.motionProfile().name()
-                        + "\",\"farAnchorSnaps\":" + runtimeMetrics.farAnchorSnapCountLastWindow()
+                        + "\",\"governor\":" + runtimeMetrics.frameGovernorPercent()
+                        + ",\"farAnchorSnaps\":" + runtimeMetrics.farAnchorSnapCountLastWindow()
                         + ",\"farRebuilds\":" + runtimeMetrics.rebuiltFarRegionCountLastWindow()
                         + "}");
                 reportWriter.newLine();

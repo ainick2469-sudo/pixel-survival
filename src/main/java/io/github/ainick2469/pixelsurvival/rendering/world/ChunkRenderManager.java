@@ -56,6 +56,14 @@ public final class ChunkRenderManager implements AutoCloseable {
     private static final int ULTRA_MOVING_PENDING_MESH_BUILD_FLOOR = 12;
     private static final float FORWARD_PRIORITY_ALIGNMENT = 0.55f;
     private static final float REAR_PRIORITY_ALIGNMENT = -0.2f;
+    private static final float STANDARD_GOVERNOR_SOFT_FRAME_MILLISECONDS = 6.5f;
+    private static final float STANDARD_GOVERNOR_HARD_FRAME_MILLISECONDS = 16.0f;
+    private static final float HIGH_DISTANCE_GOVERNOR_SOFT_FRAME_MILLISECONDS = 5.5f;
+    private static final float HIGH_DISTANCE_GOVERNOR_HARD_FRAME_MILLISECONDS = 12.0f;
+    private static final float ULTRA_DISTANCE_GOVERNOR_SOFT_FRAME_MILLISECONDS = 4.5f;
+    private static final float ULTRA_DISTANCE_GOVERNOR_HARD_FRAME_MILLISECONDS = 9.5f;
+    private static final float GOVERNOR_DROP_RESPONSE = 0.6f;
+    private static final float GOVERNOR_RECOVERY_RESPONSE = 0.15f;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
@@ -91,6 +99,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private int lastMovementDeltaChunkX;
     private int lastMovementDeltaChunkZ;
     private Vector3f priorityDirection = new Vector3f(0f, 0f, 1f);
+    private float frameTimeGovernorScale = 1f;
     private FarFieldTerrainSettings activeFarFieldSettings;
 
     public ChunkRenderManager(
@@ -138,6 +147,7 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     public void primeAround(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
         currentUpdateNanos = System.nanoTime();
+        frameTimeGovernorScale = 1f;
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
         updateMotionProfile(centerChunk, cameraDirection, currentUpdateNanos);
         ChunkRuntimeConfig startupConfig = activeChunkRuntimeConfig(runtimeConfig).startupPrimeConfig();
@@ -155,13 +165,18 @@ public final class ChunkRenderManager implements AutoCloseable {
         nextMetricsRefreshNanos = currentUpdateNanos + METRICS_REFRESH_NANOS;
     }
 
-    public void update(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
+    public void update(
+            Vector3f cameraLocation,
+            Vector3f cameraDirection,
+            float horizontalViewDegrees,
+            float smoothedFrameTimeSeconds) {
         long now = System.nanoTime();
         currentUpdateNanos = now;
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
         updateMotionProfile(centerChunk, cameraDirection, now);
         boolean targetsChanged = refreshActiveTargets(centerChunk, now);
         activeFarFieldSettings = effectiveFarFieldSettings(centerChunk);
+        updateFrameTimeGovernor(smoothedFrameTimeSeconds);
         if (targetsChanged) {
             cancelOutOfRangeWork(activeTargets.loadTargets(), activeTargets.renderTargets());
         }
@@ -183,7 +198,8 @@ public final class ChunkRenderManager implements AutoCloseable {
                     activeFarFieldSettings,
                     motionProfile,
                     priorityDirection,
-                    catchUpScale());
+                    catchUpScale(),
+                    frameTimeGovernorScale);
         }
         if (now >= nextMetricsRefreshNanos
                 || targetsChanged
@@ -207,6 +223,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         this.runtimeConfig = runtimeConfig;
         this.activeTargetRuntimeConfig = null;
         this.activeFarFieldSettings = null;
+        this.frameTimeGovernorScale = 1f;
         sessionMeshCache.setMaxStorageBytes(targetSessionMeshCacheStorageBytes(runtimeConfig));
     }
 
@@ -530,7 +547,8 @@ public final class ChunkRenderManager implements AutoCloseable {
                 sessionMeshCache.estimatedStorageBytes(),
                 farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.rebuiltRegionCountLastWindow(),
                 farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.anchorSnapCountLastWindow(),
-                motionProfile);
+                motionProfile,
+                Math.round(frameTimeGovernorScale * 100f));
     }
 
     private void cancelFuture(CompletableFuture<?> future) {
@@ -684,6 +702,14 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
     }
 
+    private void updateFrameTimeGovernor(float smoothedFrameTimeSeconds) {
+        float smoothedFrameMilliseconds = Math.max(0f, smoothedFrameTimeSeconds * 1000f);
+        float targetGovernorScale = targetFrameGovernorScale(activeBudgetRuntimeConfig(), smoothedFrameMilliseconds);
+        float response = targetGovernorScale < frameTimeGovernorScale ? GOVERNOR_DROP_RESPONSE : GOVERNOR_RECOVERY_RESPONSE;
+        frameTimeGovernorScale += (targetGovernorScale - frameTimeGovernorScale) * response;
+        frameTimeGovernorScale = Math.max(0f, Math.min(1f, frameTimeGovernorScale));
+    }
+
     private List<ChunkCoord> prioritizeChunkTargets(Set<ChunkCoord> targets) {
         List<ChunkCoord> prioritizedTargets = new ArrayList<>(targets);
         prioritizedTargets.sort(this::compareChunkPriority);
@@ -801,16 +827,42 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private int scaleBudget(int requestedBudget) {
-        float scale = 0.35f + (0.65f * catchUpScale());
+        float scale = (0.35f + (0.65f * catchUpScale())) * budgetGovernorScale();
         return Math.max(1, Math.round(requestedBudget * scale));
     }
 
     private long loadAttachBudgetNanos() {
-        return interpolateBudget(MOVING_LOAD_ATTACH_BUDGET_NANOS, STILL_LOAD_ATTACH_BUDGET_NANOS);
+        return applyFrameGovernorBudget(interpolateBudget(MOVING_LOAD_ATTACH_BUDGET_NANOS, STILL_LOAD_ATTACH_BUDGET_NANOS));
     }
 
     private long meshAttachBudgetNanos() {
-        return interpolateBudget(MOVING_MESH_ATTACH_BUDGET_NANOS, STILL_MESH_ATTACH_BUDGET_NANOS);
+        return applyFrameGovernorBudget(interpolateBudget(MOVING_MESH_ATTACH_BUDGET_NANOS, STILL_MESH_ATTACH_BUDGET_NANOS));
+    }
+
+    static float targetFrameGovernorScale(ChunkRuntimeConfig runtimeConfig, float smoothedFrameMilliseconds) {
+        if (runtimeConfig == null || smoothedFrameMilliseconds <= 0f) {
+            return 1f;
+        }
+
+        float softFrameThreshold = runtimeConfig.renderRadius() > 96
+                ? ULTRA_DISTANCE_GOVERNOR_SOFT_FRAME_MILLISECONDS
+                : runtimeConfig.renderRadius() > 48
+                        ? HIGH_DISTANCE_GOVERNOR_SOFT_FRAME_MILLISECONDS
+                        : STANDARD_GOVERNOR_SOFT_FRAME_MILLISECONDS;
+        float hardFrameThreshold = runtimeConfig.renderRadius() > 96
+                ? ULTRA_DISTANCE_GOVERNOR_HARD_FRAME_MILLISECONDS
+                : runtimeConfig.renderRadius() > 48
+                        ? HIGH_DISTANCE_GOVERNOR_HARD_FRAME_MILLISECONDS
+                        : STANDARD_GOVERNOR_HARD_FRAME_MILLISECONDS;
+        if (smoothedFrameMilliseconds <= softFrameThreshold) {
+            return 1f;
+        }
+        if (smoothedFrameMilliseconds >= hardFrameThreshold) {
+            return 0f;
+        }
+        float normalizedPressure =
+                (smoothedFrameMilliseconds - softFrameThreshold) / (hardFrameThreshold - softFrameThreshold);
+        return Math.max(0f, 1f - normalizedPressure);
     }
 
     static ChunkWorkBand classifyChunkWorkBand(
@@ -890,6 +942,9 @@ public final class ChunkRenderManager implements AutoCloseable {
             EnumMap<ChunkWorkBand, Integer> workCountsByBand,
             ChunkWorkStage stage) {
         ChunkWorkBand workBand = workBand(chunkCoord);
+        if (shouldDeferForGovernor(chunkCoord, workBand, stage)) {
+            return false;
+        }
         int bandLimit = bandLimitForStage(workBand, stage);
         if (bandLimit == Integer.MAX_VALUE) {
             return true;
@@ -954,6 +1009,52 @@ public final class ChunkRenderManager implements AutoCloseable {
             case SETTLING -> settlingLimit;
             case STILL -> settlingLimit + Math.round((stillLimit - settlingLimit) * stillnessProgress());
         };
+    }
+
+    private boolean shouldDeferForGovernor(ChunkCoord chunkCoord, ChunkWorkBand workBand, ChunkWorkStage stage) {
+        if (!isUltraDistanceSchedulingActive() || frameTimeGovernorScale >= 0.995f) {
+            return false;
+        }
+
+        ChunkTraversalLane traversalLane = workLane(chunkCoord);
+        return switch (motionProfile) {
+            case MOVING -> switch (workBand) {
+                case CORE -> false;
+                case SEAM -> traversalLane != ChunkTraversalLane.FORWARD
+                        && stage != ChunkWorkStage.LOAD_ATTACH
+                        && frameTimeGovernorScale < 0.65f;
+                case PROMOTION -> traversalLane != ChunkTraversalLane.FORWARD || frameTimeGovernorScale < 0.4f;
+                case BUFFER -> true;
+            };
+            case SETTLING -> switch (workBand) {
+                case CORE -> false;
+                case SEAM -> traversalLane == ChunkTraversalLane.REAR
+                        && stage == ChunkWorkStage.MESH_ATTACH
+                        && frameTimeGovernorScale < 0.55f;
+                case PROMOTION -> switch (traversalLane) {
+                    case FORWARD -> frameTimeGovernorScale < 0.3f;
+                    case LATERAL -> frameTimeGovernorScale < 0.65f;
+                    case REAR -> frameTimeGovernorScale < 0.9f;
+                };
+                case BUFFER -> frameTimeGovernorScale < 0.9f;
+            };
+            case STILL -> switch (workBand) {
+                case CORE, SEAM -> false;
+                case PROMOTION -> traversalLane == ChunkTraversalLane.REAR && frameTimeGovernorScale < 0.15f;
+                case BUFFER -> frameTimeGovernorScale < 0.25f;
+            };
+        };
+    }
+
+    private float budgetGovernorScale() {
+        return isUltraDistanceSchedulingActive()
+                ? 0.2f + (0.8f * frameTimeGovernorScale)
+                : 0.5f + (0.5f * frameTimeGovernorScale);
+    }
+
+    private long applyFrameGovernorBudget(long baseBudgetNanos) {
+        float scaledBudget = baseBudgetNanos * budgetGovernorScale();
+        return Math.max(250_000L, Math.round(scaledBudget));
     }
 
     private boolean isUltraDistanceSchedulingActive() {

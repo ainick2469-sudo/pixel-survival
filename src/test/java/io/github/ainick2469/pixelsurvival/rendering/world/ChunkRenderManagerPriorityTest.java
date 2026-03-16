@@ -5,6 +5,7 @@ import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChunkRenderManagerPriorityTest {
     @Test
@@ -58,5 +59,18 @@ class ChunkRenderManagerPriorityTest {
         assertEquals(
                 ChunkRenderManager.ChunkTraversalLane.REAR,
                 ChunkRenderManager.classifyTraversalLane(centerChunk, new ChunkCoord(-8, 0), priorityDirection));
+    }
+
+    @Test
+    void lowersGovernorScaleMoreAggressivelyAtUltraDistance() {
+        ChunkRuntimeConfig ultraDistanceConfig = new ChunkRuntimeConfig(196, 192, 4);
+        ChunkRuntimeConfig standardDistanceConfig = new ChunkRuntimeConfig(52, 48, 4);
+
+        assertEquals(1f, ChunkRenderManager.targetFrameGovernorScale(ultraDistanceConfig, 3.5f));
+        assertEquals(0f, ChunkRenderManager.targetFrameGovernorScale(ultraDistanceConfig, 10.0f));
+        assertEquals(1f, ChunkRenderManager.targetFrameGovernorScale(standardDistanceConfig, 6.0f));
+        assertTrue(
+                ChunkRenderManager.targetFrameGovernorScale(ultraDistanceConfig, 7.0f)
+                        < ChunkRenderManager.targetFrameGovernorScale(standardDistanceConfig, 7.0f));
     }
 }

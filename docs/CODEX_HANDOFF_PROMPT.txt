@@ -177,8 +177,9 @@ Important current truths:
 - Still-state catch-up now ramps over several seconds instead of immediately going full throttle when motion stops, which reduces the worst post-movement attach/build bursts.
 - Movement-direction bias now applies inside the non-core high-distance bands, so forward seam and promotion work outrank lateral/rear promotion while the player is moving or settling.
 - `192` scheduling no longer treats `CORE` and `SEAM` as effectively unlimited bands; they now have finite per-update load/build/attach caps so completed work lands more gradually.
+- `192` scheduling now also runs behind a smoothed frame-time governor. When frame time rises, the governor cuts chunk/far attach budgets, trims pending far-field work, and suppresses rear/lateral promotion before it suppresses forward seam-critical work.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
-- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, and coarse timing splits.
+- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, coarse timing splits, motion profile, and frame-governor percentage.
 - `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, and it no longer depends on OS-level pause-menu clicking for smoke-mode runs.
 
 Live chunk detail tiers:
@@ -210,16 +211,16 @@ Why performance is still not where the user wants it:
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- keep phasing outer detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and keep reducing the cost of the remaining initial-fill window
+- keep phasing outer detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and let the frame-time governor clamp still-state catch-up more decisively before expensive outer detail comes online
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
 - not the old cracked `HORIZON` cell approach
 
 Fresh benchmark note:
-- The latest `192` movement smoke report shows the startup far-field prime landing at `far=64` on the first sample instead of immediately building the full outer ring, and moving samples after the first burst now sit in the low hundreds of FPS instead of collapsing into the old single digits.
-- Still-state catch-up remains the next obvious bottleneck, and the final screenshot capture itself can distort the last reported frame because framebuffer capture costs render time.
-- The latest follow-up traversal-tuning pass pushed the initial `192` sample down to `far=44`, kept the post-fill moving window around the mid-200 FPS range in the smoke benchmark, and shifted the main remaining cost toward still-state detailed-ring catch-up rather than movement-time far-ring collapse.
+- The latest `192` movement smoke report (`pixel-survival-192-motion-v5.jsonl`) starts at `far=44` with the governor already clamping to `40%`, drops as low as `16%` during the first hitch window, then recovers to `100%` across the steady moving phase while the far ring stays fully stitched.
+- During the still-state catch-up window, the same report shows the governor stepping back down through roughly `96% -> 90% -> 81% -> 75%` as rendered detailed chunks climb, which confirms the next bottleneck is post-movement detail promotion rather than whole-ring far rebuild churn.
+- The final captured sample can still distort the last reported frame because framebuffer screenshot capture costs render time; the report ends with `governor=31%` on the capture-affected sample and should not be treated as steady-state traversal.
 
 The user wants:
 - strong performance at `48`

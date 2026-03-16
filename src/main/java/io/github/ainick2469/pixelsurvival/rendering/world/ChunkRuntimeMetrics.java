@@ -15,8 +15,9 @@ public record ChunkRuntimeMetrics(
         long estimatedCachedMeshStorageBytes,
         int rebuiltFarRegionCountLastWindow,
         int farAnchorSnapCountLastWindow,
-        ChunkMotionProfile motionProfile) {
+        ChunkMotionProfile motionProfile,
+        int frameGovernorPercent) {
     public static ChunkRuntimeMetrics empty() {
-        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0L, 0, 0L, 0, 0, ChunkMotionProfile.STILL);
+        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0L, 0, 0L, 0, 0, ChunkMotionProfile.STILL, 100);
     }
 }

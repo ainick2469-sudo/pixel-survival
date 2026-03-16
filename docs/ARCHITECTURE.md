@@ -156,16 +156,17 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Still-state catch-up now ramps over several seconds instead of instantly switching to the maximum attach/build budget the moment movement stops, which makes post-movement recovery less bursty.
 - Movement-direction bias is now applied inside the non-core high-distance bands, so forward seam/promotion work wins over lateral and rear detail promotion while the player is moving or settling.
 - Ultra-distance chunk scheduling now also uses tighter finite caps for `CORE` and `SEAM` load/build/attach work instead of treating those bands as effectively unbounded at `192`.
+- Ultra-distance scheduling now also sits behind a smoothed frame-time governor. When frame time climbs at `192`, the governor cuts attach/build budgets, trims pending far-field pressure, and suppresses rear/lateral promotion ahead of forward seam-critical work.
 - The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
 - A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
-- The next far-distance work should focus on reducing initial-fill and still-state catch-up spikes plus further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
+- The next far-distance work should focus on reducing still-state catch-up and attach/upload spikes plus further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns the shared terrain texture-array material plus any fallback debug-color materials so block visuals remain data-driven and renderer changes stay localized.
 - The terrain material path now uses crisp close-up filtering, mipmaps, and a shared texture-array material instead of one texture material per visible face family.
 - Rendered face totals and rendered section totals are now tracked incrementally across both chunk meshes and far-field region meshes instead of rescanning every rendered geometry every frame.
-- Runtime telemetry now also tracks motion profile, pending far-region builds, far anchor snaps per second, and far-region rebuilds per second so high-distance seam tuning can be measured directly.
+- Runtime telemetry now also tracks motion profile, frame-governor percentage, pending far-region builds, far anchor snaps per second, and far-region rebuilds per second so high-distance seam tuning can be measured directly.
 
 ## Block visual pipeline
 
