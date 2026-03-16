@@ -166,21 +166,22 @@ Important current truths:
 - Greedy meshing is active.
 - Chunk storage is palette-compressed.
 - Shared terrain texture-array batching is active, so textured chunk terrain now aims to render through one shared textured section per chunk instead of many per-face material sections.
-- The outer distance ring now renders through stitched far-field terrain regions that sample the heightmap generator directly, use the same shared terrain material path, and keep authoritative chunk data unchanged.
+- High-distance terrain now renders through stitched visual-only region bands that sample the heightmap generator directly, use the same shared terrain material path, and keep authoritative chunk data unchanged.
 - Far-field planning is now clip-aware: interior regions remain stable across anchor snaps, while only new or seam-touching regions are dirtied and rebuilt.
 - Detailed startup coverage is now widened toward the far-field seam at high render distances so the earlier giant middle-band void is not left between the detailed chunk ring and the stitched far-field ring.
 - Raw authoritative chunks are unloaded again outside the active buffered load radius, while a bounded session mesh cache keeps recent chunk mesh variants available for fast reattachment during the same play session.
 - The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block far-field cell, which reduces the obvious box-mountain look at the seam.
 - Chunk and far-field completion work now use motion-aware time budgets, and the HUD now exposes motion profile, pending far-region builds, anchor snaps per second, and far-region rebuilds per second.
-- `192` startup no longer synchronously primes the full stitched far-field ring. The far-field renderer now primes only a limited seam-priority subset up front and leaves the rest dirty for async catch-up.
+- `192` startup no longer synchronously primes the full stitched horizon stack. The middle and outer distance-region renderers now prime only limited subsets up front and leave the rest dirty for async catch-up.
 - Ultra-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes nearby playability and seam continuity while outer detailed promotion is deferred.
 - Still-state catch-up now ramps over several seconds instead of immediately going full throttle when motion stops, which reduces the worst post-movement attach/build bursts.
 - Movement-direction bias now applies inside the non-core high-distance bands, so forward seam and promotion work outrank lateral/rear promotion while the player is moving or settling.
 - `192` scheduling no longer treats `CORE` and `SEAM` as effectively unlimited bands; they now have finite per-update load/build/attach caps so completed work lands more gradually.
 - `192` scheduling now also runs behind a smoothed frame-time governor. When frame time rises, the governor cuts chunk/far attach budgets, trims pending far-field work, and suppresses rear/lateral promotion before it suppresses forward seam-critical work.
 - `192` still-state promotion now uses a separate delayed recovery curve from the seam/core catch-up path, so outer detailed promotion stays frozen a bit longer after motion stops and then phases in over a longer ramp.
+- `192` now also uses a middle-distance visual band instead of jumping straight from detailed chunks to the coarse outer ring. The detailed chunk runtime stops at a `42`-chunk radius, a middle band covers roughly `34 -> 96` chunks with `8`-block cells on `8 x 8` chunk regions, and the farther band covers roughly `80 -> 192` chunks with `16`-block cells on `16 x 16` chunk regions.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
-- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, coarse timing splits, motion profile, and frame-governor percentage.
+- The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, coarse timing splits, motion profile, and frame-governor percentage. The `Far` count now represents the combined middle-plus-far distance-region renderers when `192` is active.
 - `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, and it no longer depends on OS-level pause-menu clicking for smoke-mode runs.
 - Smoke validation now also forces a windowed launcher path and matches any top-level window title that starts with `Pixel Survival`, which makes the automated capture path more reliable than the earlier fullscreen-only startup behavior.
 
@@ -188,16 +189,24 @@ Live chunk detail tiers:
 - `FULL`
 - `SURFACE`
 
-Live outer-ring path:
-- `FarFieldTerrainRenderer`
+Live distance-region path:
+- `48` and `96`
+  - one stitched far-field band
   - `8 x 8` chunk regions
   - `8`-block coarse cells
   - snapped/hysteretic region anchor so the transition does not thrash every chunk movement
   - seam overlap with the detailed chunk ring plus skirts on missing far-neighbor edges
-  - current detailed chunk radii:
-    - `48` setting -> `32` detailed chunk radius
-    - `96` setting -> `62` detailed chunk radius
-    - `192` setting -> `54` detailed chunk radius
+- `192`
+  - detailed chunks now stop at `42` chunks
+  - middle band:
+    - roughly `34 -> 96` chunks
+    - `8 x 8` chunk regions
+    - `8`-block coarse cells
+  - far band:
+    - roughly `80 -> 192` chunks
+    - `16 x 16` chunk regions
+    - `16`-block coarse cells
+  - the HUD `Far` count combines both bands
   - measured detailed chunk-target reduction:
     - `48` setting: `7213` legacy detailed render targets -> `3209` detailed chunk targets
     - `96` setting: `28917` legacy detailed render targets -> `12061` detailed chunk targets
@@ -213,7 +222,7 @@ Why performance is still not where the user wants it:
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- keep tightening attach/upload pressure after movement stops, phase late outer-detail promotion even more conservatively behind the new still-state recovery gate, and let the governor clamp the remaining catch-up spikes before expensive outer detail comes online
+- keep tightening attach/upload pressure after movement stops, especially once rendered detailed chunks climb into the mid-thousands, and start reducing vertex/upload cost so the middle-plus-far distance stack can stay cheap while the detailed ring catches up
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
@@ -224,6 +233,7 @@ Fresh benchmark note:
 - During the still-state catch-up window, the same report shows the governor stepping back down through roughly `96% -> 90% -> 81% -> 75%` as rendered detailed chunks climb, which confirms the next bottleneck is post-movement detail promotion rather than whole-ring far rebuild churn.
 - The final captured sample can still distort the last reported frame because framebuffer screenshot capture costs render time; the report ends with `governor=31%` on the capture-affected sample and should not be treated as steady-state traversal.
 - The latest follow-up report (`pixel-survival-192-motion-v6.jsonl`) keeps the same first-fill burst but delays late promotion enough that the first several `STILL` samples hold around `309 -> 255 -> 242 -> 240 FPS` while rendered detailed chunks climb from `309` to `2378`, and the governor does not need to clamp until later in the catch-up window.
+- The latest middle-band report (`pixel-survival-192-middle-band-v1.jsonl`) keeps the combined distance-region footprint stable around `far=930` during movement, holds most moving samples in roughly the `260 -> 369 FPS` range after the first second, and keeps the early `STILL` window in roughly the `191 -> 323 FPS` range while rendered detailed chunks grow from `2336` to `5242`.
 
 The user wants:
 - strong performance at `48`

@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 192-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, bounded session mesh reuse, phased `192` traversal fill, frame-time-governed high-distance scheduling, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 192-chunk experimental cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, bounded session mesh caching plus restored raw chunk unloading, phased high-distance traversal fill/catch-up, frame-time-governed `192` promotion throttling, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
+- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 192-chunk experimental cap, shared-material terrain batching, stitched distance-region terrain rendering, bounded session mesh reuse, phased `192` traversal fill, frame-time-governed high-distance scheduling, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 192-chunk experimental cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched middle-plus-far terrain regions at `192`, bounded session mesh caching plus restored raw chunk unloading, phased high-distance traversal fill/catch-up, frame-time-governed `192` promotion throttling, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -99,12 +99,15 @@ The repo now also includes a sample imported block generated from a local `custo
 - Terrain now has two stable live chunk mesh detail tiers:
   - `FULL` for nearby chunks
   - `SURFACE` for mid-distance chunks
-- The outer distance ring now renders through a separate stitched far-field terrain path that builds coarse heightmap-style region meshes instead of normal chunk meshes.
-- The far-field path keeps using the shared terrain texture-array material, so imported `.voxelblock` grass and stone visuals still come through the normal block registry pipeline.
+- High-distance terrain now renders through stitched visual-only region paths instead of trying to promote chunk meshes all the way to the horizon.
+- `48` and `96` still use one stitched far-field ring, while `192` now splits the visual-only horizon into two bands:
+  - a middle band from roughly `34` to `96` chunks using `8 x 8` chunk regions and `8`-block cells
+  - a farther band from roughly `80` to `192` chunks using `16 x 16` chunk regions and `16`-block cells
+- Both distance-region bands keep using the shared terrain texture-array material, so imported `.voxelblock` grass and stone visuals still come through the normal block registry pipeline.
 - Far-field target planning is now clip-aware, so unchanged interior far regions stay clean across anchor snaps while only new or boundary-touching regions are dirtied and rebuilt.
 - The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block coarse cell, which reduces the obvious giant box-mountain look near the far seam.
 - Chunk and far-field completion work now use motion-aware time budgets, so moving, settling, and stationary states spend different amounts of main-thread attach time instead of draining large completion bursts in one frame.
-- At `192`, the far-field startup prime is now phased instead of synchronously building the whole stitched outer ring in one burst, which reduces the first-fill hitch cost.
+- At `192`, both the middle and far visual-region bands prime asynchronously instead of synchronously building the whole stitched horizon stack in one burst, which reduces the first-fill hitch cost.
 - High-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes the playable ring and seam continuity while delaying less important outer detailed promotion.
 - Still-state catch-up now ramps up over time instead of immediately spending the full attach/build budget when the player stops moving, which reduces the worst post-movement catch-up spikes.
 - `192` traversal prioritization now biases seam and promotion work toward the movement direction, keeps tighter per-frame attach caps while moving, and delays rear/lateral outer-detail promotion more aggressively.
@@ -112,9 +115,9 @@ The repo now also includes a sample imported block generated from a local `custo
 - `192` still-state promotion is now delayed behind a separate release window and its own slower ramp, so stopping movement no longer immediately opens the full outer detailed catch-up path the moment the core/seam ring becomes healthy.
 - Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
 - The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
-- The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` shrinks detailed chunk coverage more aggressively and remains strictly experimental.
+- The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while stitched visual regions carry the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` now shrinks detailed chunk coverage to `42` chunks before the middle-plus-far visual stack takes over.
 - The HUD now exposes bounded session mesh cache counts and estimated mesh-cache memory, which makes it easier to tell whether a high-distance run is reusing recent terrain or blowing out residency.
-- The HUD now also reports far-field queue depth, motion profile, governor percentage, far anchor snaps per second, and far-region rebuilds per second so high-distance tuning is grounded in the live seam/runtime behavior instead of only FPS.
+- The HUD now also reports combined distance-region queue depth, motion profile, governor percentage, far anchor snaps per second, and far-region rebuilds per second so high-distance tuning is grounded in the live seam/runtime behavior instead of only FPS.
 - A coarse `HORIZON` prototype seam still exists in code, but it is still disabled in the live runtime because the old approximation introduced visible cracks and holes in distant terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.

@@ -97,6 +97,28 @@ public record FarFieldTerrainSettings(
                 VERTICAL_BIAS_BLOCKS);
     }
 
+    public static FarFieldTerrainSettings visualOnlyBand(
+            int startRadiusChunks,
+            int endRadiusChunks,
+            int overlapChunks,
+            int regionSpanChunks,
+            int cellSizeBlocks,
+            int anchorHysteresisChunks) {
+        int detailedRenderRadiusChunks = Math.max(startRadiusChunks, 1);
+        int detailedLoadRadiusChunks = Math.max(detailedRenderRadiusChunks + 1, detailedRenderRadiusChunks + Math.max(1, overlapChunks / 2));
+        return new FarFieldTerrainSettings(
+                startRadiusChunks,
+                endRadiusChunks,
+                detailedRenderRadiusChunks,
+                detailedLoadRadiusChunks,
+                overlapChunks,
+                regionSpanChunks,
+                cellSizeBlocks,
+                anchorHysteresisChunks,
+                0,
+                VERTICAL_BIAS_BLOCKS);
+    }
+
     public ChunkRuntimeConfig detailedChunkRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
         return new ChunkRuntimeConfig(
                 detailedLoadRadiusChunks,

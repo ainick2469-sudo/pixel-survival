@@ -10,22 +10,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChunkRenderManagerPriorityTest {
     @Test
     void classifiesHighDistanceChunkWorkIntoCoreSeamPromotionAndBufferBands() {
-        ChunkRuntimeConfig detailedRuntimeConfig = new ChunkRuntimeConfig(58, 54, 4);
-        FarFieldTerrainSettings farFieldSettings = FarFieldTerrainSettings.from(new ChunkRuntimeConfig(196, 192, 4));
+        DistanceTerrainBands bands = DistanceTerrainBands.from(new ChunkRuntimeConfig(196, 192, 4));
+        ChunkRuntimeConfig detailedRuntimeConfig = bands.detailedChunkRuntimeConfig();
+        FarFieldTerrainSettings farFieldSettings = bands.transitionTerrainSettings();
         ChunkCoord centerChunk = new ChunkCoord(0, 0);
 
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.CORE,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(20, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(20, 0), detailedRuntimeConfig, farFieldSettings, true));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.SEAM,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(36, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(30, 0), detailedRuntimeConfig, farFieldSettings, true));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.PROMOTION,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(50, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(38, 0), detailedRuntimeConfig, farFieldSettings, true));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.BUFFER,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(57, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(44, 0), detailedRuntimeConfig, farFieldSettings, true));
     }
 
     @Test
@@ -36,13 +37,13 @@ class ChunkRenderManagerPriorityTest {
 
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.CORE,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(20, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(20, 0), detailedRuntimeConfig, farFieldSettings, false));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.CORE,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(62, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(62, 0), detailedRuntimeConfig, farFieldSettings, false));
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.BUFFER,
-                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(64, 0), detailedRuntimeConfig, farFieldSettings));
+                ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(64, 0), detailedRuntimeConfig, farFieldSettings, false));
     }
 
     @Test

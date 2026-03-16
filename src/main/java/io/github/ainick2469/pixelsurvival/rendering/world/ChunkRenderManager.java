@@ -73,6 +73,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final TerrainTexturePalette terrainTexturePalette;
     private final TerrainMaterialLibrary terrainMaterialLibrary;
     private final ChunkMeshBuilder chunkMeshBuilder;
+    private final FarFieldTerrainRenderer middleTerrainRenderer;
     private final FarFieldTerrainRenderer farFieldTerrainRenderer;
     private final ChunkVisibilityPlanner visibilityPlanner = new ChunkVisibilityPlanner();
     private final ExecutorService chunkBackgroundExecutor;
@@ -102,6 +103,8 @@ public final class ChunkRenderManager implements AutoCloseable {
     private int lastMovementDeltaChunkZ;
     private Vector3f priorityDirection = new Vector3f(0f, 0f, 1f);
     private float frameTimeGovernorScale = 1f;
+    private DistanceTerrainBands activeDistanceTerrainBands;
+    private FarFieldTerrainSettings activeMiddleTerrainSettings;
     private FarFieldTerrainSettings activeFarFieldSettings;
 
     public ChunkRenderManager(
@@ -134,6 +137,15 @@ public final class ChunkRenderManager implements AutoCloseable {
                 : Executors.newFixedThreadPool(
                         Math.max(1, Math.min(2, Runtime.getRuntime().availableProcessors() / 4)),
                         new ChunkRuntimeThreadFactory("pixel-survival-far-field-"));
+        this.middleTerrainRenderer = farFieldTerrainSampler == null
+                ? null
+                : new FarFieldTerrainRenderer(
+                        rootNode,
+                        terrainMaterialLibrary,
+                        registries,
+                        terrainTexturePalette,
+                        farFieldTerrainSampler,
+                        farFieldBackgroundExecutor);
         this.farFieldTerrainRenderer = farFieldTerrainSampler == null
                 ? null
                 : new FarFieldTerrainRenderer(
@@ -160,6 +172,9 @@ public final class ChunkRenderManager implements AutoCloseable {
         dirtyChunks.addAll(initialTargets.renderTargets());
         buildRenderTargetsSynchronously(centerChunk, startupConfig, initialTargets.renderTargets());
         refreshActiveTargets(centerChunk, currentUpdateNanos);
+        if (middleTerrainRenderer != null) {
+            middleTerrainRenderer.prime(centerChunk, activeMiddleTerrainSettings);
+        }
         if (farFieldTerrainRenderer != null) {
             farFieldTerrainRenderer.prime(centerChunk, activeFarFieldSettings);
         }
@@ -177,7 +192,8 @@ public final class ChunkRenderManager implements AutoCloseable {
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
         updateMotionProfile(centerChunk, cameraDirection, now);
         boolean targetsChanged = refreshActiveTargets(centerChunk, now);
-        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk);
+        activeMiddleTerrainSettings = effectiveMiddleTerrainSettings(centerChunk, activeDistanceTerrainBands);
+        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk, activeDistanceTerrainBands);
         updateFrameTimeGovernor(smoothedFrameTimeSeconds);
         if (targetsChanged) {
             cancelOutOfRangeWork(activeTargets.loadTargets(), activeTargets.renderTargets());
@@ -194,6 +210,15 @@ public final class ChunkRenderManager implements AutoCloseable {
             detachRenderedChunksOutside(activeTargets.renderTargets());
             unloadChunksOutside(activeTargets.loadTargets());
         }
+        if (middleTerrainRenderer != null) {
+            middleTerrainRenderer.update(
+                    centerChunk,
+                    activeMiddleTerrainSettings,
+                    motionProfile,
+                    priorityDirection,
+                    catchUpScale(),
+                    frameTimeGovernorScale);
+        }
         if (farFieldTerrainRenderer != null) {
             farFieldTerrainRenderer.update(
                     centerChunk,
@@ -207,7 +232,7 @@ public final class ChunkRenderManager implements AutoCloseable {
                 || targetsChanged
                 || !pendingChunkLoads.isEmpty()
                 || !pendingMeshBuilds.isEmpty()
-                || (farFieldTerrainRenderer != null && farFieldTerrainRenderer.hasPendingWork())) {
+                || hasPendingDistanceTerrainWork()) {
             metrics = buildMetrics(activeTargets.simulationTargets());
             nextMetricsRefreshNanos = now + METRICS_REFRESH_NANOS;
         }
@@ -231,6 +256,9 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     @Override
     public void close() {
+        if (middleTerrainRenderer != null) {
+            middleTerrainRenderer.close();
+        }
         if (farFieldTerrainRenderer != null) {
             farFieldTerrainRenderer.close();
         }
@@ -528,11 +556,9 @@ public final class ChunkRenderManager implements AutoCloseable {
             }
         }
 
-        int farRegionCount = farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedRegionCount();
-        int totalSectionCount = totalRenderedSectionCount
-                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedSectionCount());
-        int totalFaceCount =
-                totalRenderedFaceCount + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedFaceCount());
+        int farRegionCount = renderedDistanceTerrainRegionCount();
+        int totalSectionCount = totalRenderedSectionCount + renderedDistanceTerrainSectionCount();
+        int totalFaceCount = totalRenderedFaceCount + renderedDistanceTerrainFaceCount();
 
         return new ChunkRuntimeMetrics(
                 worldService.getLoadedChunkCount(),
@@ -542,13 +568,13 @@ public final class ChunkRenderManager implements AutoCloseable {
                 simulatedLoaded,
                 pendingChunkLoads.size(),
                 pendingMeshBuilds.size(),
-                farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.pendingRegionBuildCount(),
+                pendingDistanceTerrainBuildCount(),
                 totalFaceCount,
                 worldService.estimatedLoadedChunkStorageBytes(),
                 sessionMeshCache.cachedVariantCount(),
                 sessionMeshCache.estimatedStorageBytes(),
-                farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.rebuiltRegionCountLastWindow(),
-                farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.anchorSnapCountLastWindow(),
+                rebuiltDistanceTerrainRegionCountLastWindow(),
+                distanceTerrainAnchorSnapCountLastWindow(),
                 motionProfile,
                 Math.round(frameTimeGovernorScale * 100f));
     }
@@ -560,8 +586,11 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private boolean refreshActiveTargets(ChunkCoord centerChunk, long now) {
-        ChunkRuntimeConfig chunkRuntimeConfig = activeChunkRuntimeConfig(runtimeConfig);
-        if (Objects.equals(centerChunk, activeCenterChunk) && Objects.equals(chunkRuntimeConfig, activeTargetRuntimeConfig)) {
+        DistanceTerrainBands distanceTerrainBands = activeDistanceTerrainBands(runtimeConfig);
+        ChunkRuntimeConfig chunkRuntimeConfig = distanceTerrainBands.detailedChunkRuntimeConfig();
+        if (Objects.equals(centerChunk, activeCenterChunk)
+                && Objects.equals(chunkRuntimeConfig, activeTargetRuntimeConfig)
+                && Objects.equals(distanceTerrainBands, activeDistanceTerrainBands)) {
             return false;
         }
 
@@ -584,7 +613,9 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
         activeCenterChunk = centerChunk;
         activeTargetRuntimeConfig = chunkRuntimeConfig;
-        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk);
+        activeDistanceTerrainBands = distanceTerrainBands;
+        activeMiddleTerrainSettings = effectiveMiddleTerrainSettings(centerChunk, distanceTerrainBands);
+        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk, distanceTerrainBands);
         return true;
     }
 
@@ -636,22 +667,41 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private ChunkRuntimeConfig activeChunkRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
-        FarFieldTerrainSettings farFieldSettings = FarFieldTerrainSettings.from(runtimeConfig);
-        if (farFieldSettings == null) {
-            return runtimeConfig;
-        }
-        return farFieldSettings.detailedChunkRuntimeConfig(runtimeConfig);
+        return activeDistanceTerrainBands(runtimeConfig).detailedChunkRuntimeConfig();
     }
 
-    private FarFieldTerrainSettings effectiveFarFieldSettings(ChunkCoord centerChunk) {
-        FarFieldTerrainSettings farFieldSettings = FarFieldTerrainSettings.from(runtimeConfig);
-        if (farFieldSettings == null || centerChunk == null) {
-            return farFieldSettings;
+    private DistanceTerrainBands activeDistanceTerrainBands(ChunkRuntimeConfig runtimeConfig) {
+        return DistanceTerrainBands.from(runtimeConfig);
+    }
+
+    private FarFieldTerrainSettings effectiveMiddleTerrainSettings(
+            ChunkCoord centerChunk, DistanceTerrainBands distanceTerrainBands) {
+        if (distanceTerrainBands == null || distanceTerrainBands.middleTerrainSettings() == null || centerChunk == null) {
+            return distanceTerrainBands == null ? null : distanceTerrainBands.middleTerrainSettings();
         }
-        if (hasDetailedCoverageInsideRadius(centerChunk, farFieldSettings.startRadiusChunks())) {
-            return farFieldSettings;
+        if (hasDetailedCoverageInsideRadius(centerChunk, distanceTerrainBands.middleTerrainSettings().startRadiusChunks())) {
+            return distanceTerrainBands.middleTerrainSettings();
         }
-        return farFieldSettings.withStartRadiusChunks(bridgedFarFieldStartRadiusChunks(farFieldSettings));
+        return distanceTerrainBands.middleTerrainSettings()
+                .withStartRadiusChunks(bridgedFarFieldStartRadiusChunks(distanceTerrainBands.middleTerrainSettings()));
+    }
+
+    private FarFieldTerrainSettings effectiveFarFieldSettings(
+            ChunkCoord centerChunk, DistanceTerrainBands distanceTerrainBands) {
+        if (distanceTerrainBands == null || distanceTerrainBands.farTerrainSettings() == null) {
+            return null;
+        }
+        if (distanceTerrainBands.middleTerrainSettings() != null) {
+            return distanceTerrainBands.farTerrainSettings();
+        }
+        if (centerChunk == null) {
+            return distanceTerrainBands.farTerrainSettings();
+        }
+        if (hasDetailedCoverageInsideRadius(centerChunk, distanceTerrainBands.farTerrainSettings().startRadiusChunks())) {
+            return distanceTerrainBands.farTerrainSettings();
+        }
+        return distanceTerrainBands.farTerrainSettings()
+                .withStartRadiusChunks(bridgedFarFieldStartRadiusChunks(distanceTerrainBands.farTerrainSettings()));
     }
 
     private boolean hasDetailedCoverageInsideRadius(ChunkCoord centerChunk, int radiusChunks) {
@@ -674,6 +724,41 @@ public final class ChunkRenderManager implements AutoCloseable {
         return Math.min(
                 farFieldSettings.startRadiusChunks(),
                 Math.max(MIN_BRIDGED_FAR_FIELD_START_RADIUS_CHUNKS, farFieldSettings.startRadiusChunks() / 3));
+    }
+
+    private boolean hasPendingDistanceTerrainWork() {
+        return (middleTerrainRenderer != null && middleTerrainRenderer.hasPendingWork())
+                || (farFieldTerrainRenderer != null && farFieldTerrainRenderer.hasPendingWork());
+    }
+
+    private int renderedDistanceTerrainRegionCount() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.renderedRegionCount())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedRegionCount());
+    }
+
+    private int renderedDistanceTerrainSectionCount() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.renderedSectionCount())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedSectionCount());
+    }
+
+    private int renderedDistanceTerrainFaceCount() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.renderedFaceCount())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedFaceCount());
+    }
+
+    private int pendingDistanceTerrainBuildCount() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.pendingRegionBuildCount())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.pendingRegionBuildCount());
+    }
+
+    private int rebuiltDistanceTerrainRegionCountLastWindow() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.rebuiltRegionCountLastWindow())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.rebuiltRegionCountLastWindow());
+    }
+
+    private int distanceTerrainAnchorSnapCountLastWindow() {
+        return (middleTerrainRenderer == null ? 0 : middleTerrainRenderer.anchorSnapCountLastWindow())
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.anchorSnapCountLastWindow());
     }
 
     private void updateMotionProfile(ChunkCoord centerChunk, Vector3f cameraDirection, long now) {
@@ -879,7 +964,8 @@ public final class ChunkRenderManager implements AutoCloseable {
             ChunkCoord centerChunk,
             ChunkCoord chunkCoord,
             ChunkRuntimeConfig detailedRuntimeConfig,
-            FarFieldTerrainSettings farFieldSettings) {
+            FarFieldTerrainSettings farFieldSettings,
+            boolean phasedHighDistanceScheduling) {
         if (centerChunk == null || chunkCoord == null || detailedRuntimeConfig == null) {
             return ChunkWorkBand.CORE;
         }
@@ -888,7 +974,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         int deltaChunkZ = chunkCoord.z() - centerChunk.z();
         int distanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
         int detailedRenderRadiusSquared = detailedRuntimeConfig.renderRadius() * detailedRuntimeConfig.renderRadius();
-        if (farFieldSettings == null || farFieldSettings.endRadiusChunks() <= 96) {
+        if (farFieldSettings == null || !phasedHighDistanceScheduling) {
             return distanceSquared <= detailedRenderRadiusSquared ? ChunkWorkBand.CORE : ChunkWorkBand.BUFFER;
         }
 
@@ -940,7 +1026,12 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private ChunkWorkBand workBand(ChunkCoord chunkCoord) {
-        return classifyChunkWorkBand(activeCenterChunk, chunkCoord, activeBudgetRuntimeConfig(), activeFarFieldSettings);
+        return classifyChunkWorkBand(
+                activeCenterChunk,
+                chunkCoord,
+                activeBudgetRuntimeConfig(),
+                activeTransitionTerrainSettings(),
+                isUltraDistanceSchedulingActive());
     }
 
     private ChunkTraversalLane workLane(ChunkCoord chunkCoord) {
@@ -1102,6 +1193,10 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private boolean isUltraDistanceSchedulingActive() {
         return activeFarFieldSettings != null && activeFarFieldSettings.endRadiusChunks() > 96;
+    }
+
+    private FarFieldTerrainSettings activeTransitionTerrainSettings() {
+        return activeMiddleTerrainSettings != null ? activeMiddleTerrainSettings : activeFarFieldSettings;
     }
 
     private int clampRuntimeBudget(int requestedBudget, int minimumBudget, int maximumBudget) {

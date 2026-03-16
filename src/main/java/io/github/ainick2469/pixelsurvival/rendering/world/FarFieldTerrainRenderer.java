@@ -27,6 +27,7 @@ public final class FarFieldTerrainRenderer {
     private static final long STILL_ATTACH_BUDGET_NANOS = 3_500_000L;
     private static final long COUNTER_WINDOW_NANOS = 1_000_000_000L;
     private static final int MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS = 64;
+    private static final int MAX_SYNCHRONOUS_MIDDLE_PRIME_REGIONS = 128;
 
     private final Node farTerrainRoot = new Node("far_terrain_root");
     private final TerrainMaterialLibrary terrainMaterialLibrary;
@@ -484,6 +485,9 @@ public final class FarFieldTerrainRenderer {
 
     private int synchronousPrimeRegionLimit(FarFieldTerrainSettings settings) {
         if (settings.endRadiusChunks() <= 96) {
+            if (settings.startRadiusChunks() < 48 && settings.cellSizeBlocks() <= 8) {
+                return Math.min(MAX_SYNCHRONOUS_MIDDLE_PRIME_REGIONS, activeTargets.size());
+            }
             return activeTargets.size();
         }
         return Math.min(MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS, activeTargets.size());

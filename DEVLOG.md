@@ -1,5 +1,60 @@
 # Devlog
 
+## 2026-03-16 07:03:01 MDT
+
+- Date/Time: 2026-03-16 07:03:01 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add a middle-distance visual terrain band for `192` so the detailed chunk runtime stops earlier and the stitched horizon no longer depends on one coarse outer ring alone.
+- Completed Work:
+  - Added `DistanceTerrainBands` so high-distance runtime configuration can now split the world into a detailed chunk runtime plus optional middle and far visual-only terrain bands instead of forcing every render distance through the older one-band stitched horizon path.
+  - Added `FarFieldTerrainSettings.visualOnlyBand(...)` so the same stitched heightmap-region renderer can be reused for non-authoritative visual-only bands without inventing a second terrain system outside the current far-field pipeline.
+  - Reworked `ChunkRenderManager` so `192` now runs two stitched distance-region renderers in parallel: a middle band that covers roughly `34 -> 96` chunks with `8`-block cells on `8 x 8` chunk regions, plus a farther band that covers roughly `80 -> 192` chunks with `16`-block cells on `16 x 16` chunk regions.
+  - Reduced the `192` detailed chunk runtime from the previous `54`-chunk radius to `42`, while keeping `48` and `96` on the existing single stitched far-field path.
+  - Updated the high-distance chunk work-band classifier so phased `CORE` / `SEAM` / `PROMOTION` / `BUFFER` scheduling still works when the active transition band is the new middle renderer instead of the older single outer ring.
+  - Tightened synchronous priming for the new middle band so `192` does not front-load the full stitched horizon stack at startup.
+  - Added `DistanceTerrainBandsTest` plus updated chunk-priority regression coverage for the new split-band runtime.
+  - Re-ran compile, focused tests, full `test shadowJar`, sequential `48`/`96` startup smoke, and a fresh `192` move-plus-settle benchmark report (`pixel-survival-192-middle-band-v1.jsonl`).
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/DistanceTerrainBands.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainSettings.java`
+  - `src/test/java/.../rendering/world/ChunkRenderManagerPriorityTest.java`
+  - `src/test/java/.../rendering/world/DistanceTerrainBandsTest.java`
+- Systems Touched:
+  - high-distance terrain band selection
+  - stitched middle/far distance-region rendering
+  - ultra-distance chunk work-band classification
+  - startup prime behavior
+  - runtime docs and handoff
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.DistanceTerrainBandsTest --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 48 -WaitSeconds 12 -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 96 -WaitSeconds 12 -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -WaitSeconds 24 -MoveForwardSeconds 15 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-middle-band-v1.jsonl -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - `48` and `96` startup smoke still complete cleanly after the split-band change.
+  - `192` now keeps a fixed stitched middle-plus-far region footprint while holding the detailed chunk runtime to a `42`-chunk radius instead of pushing true chunk meshes much farther into the horizon.
+  - The fresh `192` motion report settles into roughly `260 -> 369 FPS` during most of the moving window after the first second, then holds roughly `191 -> 323 FPS` through the early `STILL` catch-up window while rendered detailed chunks grow from `2336` to `5242`.
+- Known Issues:
+  - The first one to two `192` samples are still expensive while the middle and far region bands plus the first detailed chunks come online.
+  - Still-state attach/upload pressure is still the next bottleneck once rendered detailed chunks climb into the mid-thousands.
+  - The split-band stack is still intentionally heightmap-limited and does not solve future caves, floating mountains, or cloud cities at distance.
+- Next Tasks:
+  - Reduce attach/upload pressure further during the late `STILL` window so the detailed ring can catch up without landing thousands of live chunk sections too aggressively.
+  - Start reducing terrain vertex/upload cost so the new middle-plus-far stack stays cheap while the detailed runtime continues to shrink.
+  - Use the new split-band stack as the base for any future middle-distance tuning instead of re-opening the cracked `HORIZON` path.
+- Risks/Technical Debt:
+  - `192` now depends on two stitched region renderers plus the detailed chunk runtime, so HUD `Far` counts are combined and tuning needs to remember that the number no longer maps to one single outer band.
+  - The middle-band thresholds are tuned for the current heightmap terrain and may need retuning once the render-distance ladder or future world-topology work changes.
+
 ## 2026-03-16 06:00:00 MDT
 
 - Date/Time: 2026-03-16 06:00:00 MDT
