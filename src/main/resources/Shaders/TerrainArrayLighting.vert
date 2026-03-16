@@ -13,14 +13,18 @@ uniform vec4 g_LightColor;
 uniform vec4 g_LightPosition;
 uniform vec4 g_LightDirection;
 uniform vec4 g_AmbientLightColor;
+uniform mat4 g_WorldViewProjectionMatrix;
+uniform mat4 g_WorldViewMatrix;
+uniform mat3 g_NormalMatrix;
+uniform mat4 g_ViewMatrix;
 
 void main() {
     vec4 modelSpacePos = vec4(inPosition, 1.0);
-    gl_Position = TransformWorldViewProjection(modelSpacePos);
+    gl_Position = g_WorldViewProjectionMatrix * modelSpacePos;
     texCoord = inTexCoord;
 
-    vec3 wvPosition = TransformWorldView(modelSpacePos).xyz;
-    vec3 wvNormal = normalize(TransformNormal(inNormal));
+    vec3 wvPosition = (g_WorldViewMatrix * modelSpacePos).xyz;
+    vec3 wvNormal = normalize(g_NormalMatrix * inNormal);
     vec3 viewDir = normalize(-wvPosition);
 
     vec4 wvLightPos = g_ViewMatrix * vec4(g_LightPosition.xyz, clamp(g_LightColor.w, 0.0, 1.0));

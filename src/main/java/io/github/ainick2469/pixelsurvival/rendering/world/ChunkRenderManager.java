@@ -10,6 +10,7 @@ import com.jme3.util.BufferUtils;
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
+import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSampler;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
 import java.util.Collection;
 import java.util.HashMap;
@@ -38,6 +39,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     private final TerrainTexturePalette terrainTexturePalette;
     private final TerrainMaterialLibrary terrainMaterialLibrary;
     private final ChunkMeshBuilder chunkMeshBuilder;
+    private final FarFieldTerrainRenderer farFieldTerrainRenderer;
     private final ChunkVisibilityPlanner visibilityPlanner = new ChunkVisibilityPlanner();
     private final ExecutorService backgroundExecutor;
     private final Map<ChunkCoord, CompletableFuture<ChunkData>> pendingChunkLoads = new ConcurrentHashMap<>();
@@ -65,6 +67,16 @@ public final class ChunkRenderManager implements AutoCloseable {
             AuthoritativeWorldService worldService,
             GameRegistries registries,
             ChunkRuntimeConfig runtimeConfig) {
+        this(rootNode, assetManager, worldService, registries, runtimeConfig, null);
+    }
+
+    public ChunkRenderManager(
+            Node rootNode,
+            AssetManager assetManager,
+            AuthoritativeWorldService worldService,
+            GameRegistries registries,
+            ChunkRuntimeConfig runtimeConfig,
+            FarFieldTerrainSampler farFieldTerrainSampler) {
         this.worldService = worldService;
         this.registries = registries;
         this.runtimeConfig = runtimeConfig;
@@ -74,12 +86,21 @@ public final class ChunkRenderManager implements AutoCloseable {
         this.backgroundExecutor = Executors.newFixedThreadPool(
                 Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)),
                 new ChunkRuntimeThreadFactory());
+        this.farFieldTerrainRenderer = farFieldTerrainSampler == null
+                ? null
+                : new FarFieldTerrainRenderer(
+                        rootNode,
+                        terrainMaterialLibrary,
+                        registries,
+                        terrainTexturePalette,
+                        farFieldTerrainSampler,
+                        backgroundExecutor);
         rootNode.attachChild(terrainRoot);
     }
 
     public void primeAround(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
-        ChunkRuntimeConfig startupConfig = runtimeConfig.startupPrimeConfig();
+        ChunkRuntimeConfig startupConfig = activeChunkRuntimeConfig(runtimeConfig).startupPrimeConfig();
         ChunkVisibilityPlanner.RuntimeTargets initialTargets = visibilityPlanner.plan(centerChunk, startupConfig);
         for (ChunkCoord chunkCoord : initialTargets.loadTargets()) {
             worldService.loadChunk(chunkCoord);
@@ -87,13 +108,17 @@ public final class ChunkRenderManager implements AutoCloseable {
         dirtyChunks.addAll(initialTargets.renderTargets());
         buildRenderTargetsSynchronously(centerChunk, startupConfig, initialTargets.renderTargets());
         refreshActiveTargets(centerChunk, System.nanoTime());
+        if (farFieldTerrainRenderer != null) {
+            farFieldTerrainRenderer.prime(centerChunk, runtimeConfig);
+        }
         metrics = buildMetrics(activeTargets.simulationTargets());
         nextMetricsRefreshNanos = System.nanoTime() + METRICS_REFRESH_NANOS;
     }
 
     public void update(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
         long now = System.nanoTime();
-        boolean targetsChanged = refreshActiveTargets(visibilityPlanner.centerChunkFor(cameraLocation), now);
+        ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
+        boolean targetsChanged = refreshActiveTargets(centerChunk, now);
         boolean retainedTargetsChanged = purgeExpiredRetainedLoadTargets(now);
         Set<ChunkCoord> effectiveLoadTargets = effectiveLoadTargets(activeTargets.loadTargets());
         if (targetsChanged || retainedTargetsChanged) {
@@ -109,6 +134,9 @@ public final class ChunkRenderManager implements AutoCloseable {
         attachCompletedMeshes(activeTargets.renderTargets());
         if (targetsChanged) {
             detachRenderedChunksOutside(activeTargets.renderTargets());
+        }
+        if (farFieldTerrainRenderer != null) {
+            farFieldTerrainRenderer.update(centerChunk, runtimeConfig);
         }
         if (now >= nextMetricsRefreshNanos || targetsChanged || !pendingChunkLoads.isEmpty() || !pendingMeshBuilds.isEmpty()) {
             metrics = buildMetrics(activeTargets.simulationTargets());
@@ -132,6 +160,9 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     @Override
     public void close() {
+        if (farFieldTerrainRenderer != null) {
+            farFieldTerrainRenderer.close();
+        }
         backgroundExecutor.shutdownNow();
     }
 
@@ -368,14 +399,21 @@ public final class ChunkRenderManager implements AutoCloseable {
             }
         }
 
+        int farRegionCount = farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedRegionCount();
+        int totalSectionCount = totalRenderedSectionCount
+                + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedSectionCount());
+        int totalFaceCount =
+                totalRenderedFaceCount + (farFieldTerrainRenderer == null ? 0 : farFieldTerrainRenderer.renderedFaceCount());
+
         return new ChunkRuntimeMetrics(
                 worldService.getLoadedChunkCount(),
                 renderedChunkNodes.size(),
-                totalRenderedSectionCount,
+                farRegionCount,
+                totalSectionCount,
                 simulatedLoaded,
                 pendingChunkLoads.size(),
                 pendingMeshBuilds.size(),
-                totalRenderedFaceCount,
+                totalFaceCount,
                 worldService.estimatedLoadedChunkStorageBytes());
     }
 
@@ -396,13 +434,14 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private boolean refreshActiveTargets(ChunkCoord centerChunk, long now) {
-        if (Objects.equals(centerChunk, activeCenterChunk) && Objects.equals(runtimeConfig, activeTargetRuntimeConfig)) {
+        ChunkRuntimeConfig chunkRuntimeConfig = activeChunkRuntimeConfig(runtimeConfig);
+        if (Objects.equals(centerChunk, activeCenterChunk) && Objects.equals(chunkRuntimeConfig, activeTargetRuntimeConfig)) {
             return false;
         }
 
         Set<ChunkCoord> previousLoadTargets = activeTargets.loadTargets();
         Set<ChunkCoord> previousRenderTargets = activeTargets.renderTargets();
-        activeTargets = visibilityPlanner.plan(centerChunk, runtimeConfig);
+        activeTargets = visibilityPlanner.plan(centerChunk, chunkRuntimeConfig);
         if (!previousLoadTargets.isEmpty()) {
             for (ChunkCoord chunkCoord : previousLoadTargets) {
                 if (!activeTargets.loadTargets().contains(chunkCoord)) {
@@ -416,18 +455,18 @@ public final class ChunkRenderManager implements AutoCloseable {
                 dirtyChunks.add(chunkCoord);
             }
             if (renderedChunkDetailLevels.containsKey(chunkCoord)
-                    && renderedChunkDetailLevels.get(chunkCoord) != desiredDetailLevel(centerChunk, runtimeConfig, chunkCoord)) {
+                    && renderedChunkDetailLevels.get(chunkCoord) != desiredDetailLevel(centerChunk, chunkRuntimeConfig, chunkCoord)) {
                 dirtyChunks.add(chunkCoord);
             }
             if (pendingMeshDetailLevels.containsKey(chunkCoord)
-                    && pendingMeshDetailLevels.get(chunkCoord) != desiredDetailLevel(centerChunk, runtimeConfig, chunkCoord)) {
+                    && pendingMeshDetailLevels.get(chunkCoord) != desiredDetailLevel(centerChunk, chunkRuntimeConfig, chunkCoord)) {
                 cancelFuture(pendingMeshBuilds.remove(chunkCoord));
                 pendingMeshDetailLevels.remove(chunkCoord);
                 dirtyChunks.add(chunkCoord);
             }
         }
         activeCenterChunk = centerChunk;
-        activeTargetRuntimeConfig = runtimeConfig;
+        activeTargetRuntimeConfig = chunkRuntimeConfig;
         return true;
     }
 
@@ -451,7 +490,10 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private ChunkDetailLevel desiredDetailLevel(ChunkCoord chunkCoord) {
-        return desiredDetailLevel(activeCenterChunk, runtimeConfig, chunkCoord);
+        return desiredDetailLevel(
+                activeCenterChunk,
+                activeTargetRuntimeConfig == null ? activeChunkRuntimeConfig(runtimeConfig) : activeTargetRuntimeConfig,
+                chunkCoord);
     }
 
     private ChunkDetailLevel desiredDetailLevel(
@@ -479,6 +521,14 @@ public final class ChunkRenderManager implements AutoCloseable {
         // currently disabled in the live runtime because the approximation introduces
         // visible terrain cracks at long range.
         return ChunkDetailLevel.SURFACE;
+    }
+
+    private ChunkRuntimeConfig activeChunkRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
+        FarFieldTerrainSettings farFieldSettings = FarFieldTerrainSettings.from(runtimeConfig);
+        if (farFieldSettings == null) {
+            return runtimeConfig;
+        }
+        return farFieldSettings.detailedChunkRuntimeConfig(runtimeConfig);
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

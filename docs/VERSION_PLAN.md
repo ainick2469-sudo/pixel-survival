@@ -11,7 +11,7 @@
 | `0.005` | Begin layering | Grass, dirt, and stone become a true terrain layering pipeline |
 | `0.006` | Chunk runtime and terrain readability | Production chunk streaming foundation replaces debug block rendering and textured terrain materials replace pastel debug colors |
 | `0.007` | Pause/settings and adjustable horizons | Minecraft-style pause/options menu controls a live high-range render-distance system and distant-horizon camera setup |
-| `0.008` | Buffered streaming stabilization and terrain art upgrade | Fullscreen-first launch, stable buffered chunk loading/unloading up to 48 chunks, greedy chunk meshing for lower quad count, palette-compressed chunk storage plus telemetry, cached chunk-target/metrics runtime work, far-chunk surface LOD on the live path, the coarse `HORIZON` seam retained in code but disabled after continuity failures, shared terrain texture-array batching/material consolidation, and upgraded premium-style terrain textures improve horizon scale and terrain readability |
+| `0.008` | Buffered streaming stabilization and terrain art upgrade | Fullscreen-first launch, stable buffered chunk loading/unloading up to 48 chunks, greedy chunk meshing for lower quad count, palette-compressed chunk storage plus telemetry, cached chunk-target/metrics runtime work, shared terrain texture-array batching/material consolidation, stitched far-field terrain regions for the outer ring, the coarse `HORIZON` seam retained in code but still disabled after continuity failures, and upgraded premium-style terrain textures improve horizon scale and terrain readability |
 
 ## After `0.008`
 
@@ -46,6 +46,12 @@ Future exploration systems are planned to land in this rough order:
 6. sky structures, shrines, and eventually cloud-city content
 7. ecology, creatures, and high-altitude/underground content
 8. staged migration from planar terrain prototype to planetary surface topology
+
+Immediate runtime follow-up after `0.008`:
+
+- tighten queue prioritization and background-work budgeting around the mixed detailed-chunk plus far-field terrain path
+- reduce far-region mesh cost further without abandoning the stitched heightmap continuity guarantees
+- keep `96` experimental until the live queue behavior and outer-ring timing are re-measured in motion
 
 ## Planet migration rule
 

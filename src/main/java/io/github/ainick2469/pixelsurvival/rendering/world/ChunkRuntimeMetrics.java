@@ -3,6 +3,7 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 public record ChunkRuntimeMetrics(
         int loadedChunkCount,
         int renderedChunkCount,
+        int renderedFarRegionCount,
         int renderedSectionCount,
         int simulatedChunkCount,
         int pendingLoadCount,
@@ -10,6 +11,6 @@ public record ChunkRuntimeMetrics(
         int renderedFaceCount,
         long estimatedLoadedChunkStorageBytes) {
     public static ChunkRuntimeMetrics empty() {
-        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0L);
+        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0L);
     }
 }

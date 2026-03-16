@@ -5,7 +5,7 @@ import io.github.ainick2469.pixelsurvival.world.block.BlockId;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 
-public final class FlatSpawnWorldGenerator implements WorldGenerator {
+public final class FlatSpawnWorldGenerator implements WorldGenerator, FarFieldTerrainSamplerProvider {
     public static final int SURFACE_HEIGHT = 24;
 
     private static final BlockId AIR = BlockId.of("pixel_survival:air");
@@ -25,5 +25,10 @@ public final class FlatSpawnWorldGenerator implements WorldGenerator {
             }
         }
         return chunkData;
+    }
+
+    @Override
+    public FarFieldTerrainSampler farFieldTerrainSampler() {
+        return (worldX, worldZ) -> new FarFieldTerrainSampler.ColumnSample(SURFACE_HEIGHT - 1, DIRT);
     }
 }

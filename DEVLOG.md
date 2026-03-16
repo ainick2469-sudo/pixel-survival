@@ -1,5 +1,65 @@
 # Devlog
 
+## 2026-03-15 18:52:38 MDT
+
+- Date/Time: 2026-03-15 18:52:38 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Add a stitched far-field terrain renderer for the outer distance ring, then repair the live shared-material shader path caught by the smoke check.
+- Completed Work:
+  - Added a separate `FarFieldTerrainRenderer` that fills the outer render ring with coarse stitched region meshes instead of normal chunk meshes while leaving authoritative chunk data and world-service chunk residency unchanged.
+  - Added `FarFieldTerrainSettings`, `FarFieldTerrainPlanner`, and `FarFieldTerrainMeshBuilder` so the far ring now runs on snapped `8 x 8` chunk regions, `8`-block coarse cells, overlap at the near/far seam, and stable anchor hysteresis instead of the old cracked `HORIZON` chunk tier.
+  - Kept the current `FULL` and `SURFACE` chunk detail tiers for near and mid range, but reduced the high-distance detailed chunk ring so the default `48` setting now tops out at a `32`-chunk detailed chunk radius and the experimental `96` setting tops out at `62`.
+  - Measured the detailed chunk-target reduction directly: `48` drops from `7213` detailed render targets to `3209`, and experimental `96` drops from `28917` to `12061`, before the far-field regions cover the outer ring visually.
+  - Kept grass and stone on the normal `.voxelblock` registry/material path by driving far-field top and wall faces through the same shared terrain texture-array material system.
+  - Extended runtime metrics and the HUD so live tuning now shows rendered far-region counts alongside chunk counts and section totals.
+  - Added regression coverage for far-field planning, anchor stability, shared-material far-field mesh generation, and skirt/seam behavior.
+  - Ran a fresh desktop smoke check, caught a real runtime shader compile failure in `TerrainArrayLighting.vert`, and fixed the missing jME transform uniforms so the live game boots again.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `docs/ROADMAP.md`
+  - `docs/VERSION_PLAN.md`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeMetrics.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainSettings.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRegionCoord.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainPlanner.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainMeshBuildResult.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainMeshBuilder.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/main/resources/Shaders/TerrainArrayLighting.vert`
+  - `src/test/java/.../rendering/world/FarFieldTerrainPlannerTest.java`
+  - `src/test/java/.../rendering/world/FarFieldTerrainMeshBuilderTest.java`
+- Systems Touched:
+  - far-distance terrain rendering
+  - chunk residency / render-radius budgeting
+  - shared terrain material runtime
+  - renderer smoke validation
+  - runtime telemetry HUD
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - Desktop smoke launch via `scripts\launch_desktop.vbs`
+  - Direct smoke launch via `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dfile.encoding=UTF-8 -jar build\libs\pixel-survival-desktop.jar`
+- Current Playable State:
+  - The game now renders the outer distance ring through stitched far-field regions while the near and mid range stay on the stable `FULL` plus `SURFACE` chunk paths.
+  - The old cracked `HORIZON` chunk tier remains disabled.
+  - The fresh fullscreen smoke check showed the game rendering again with the HUD visible, imported grass/stone visuals intact, and live far-region telemetry present at the default `48`-chunk setting.
+- Known Issues:
+  - `96` remains experimental even with the new far-field ring. The next bottleneck is queue/back-pressure behavior plus further far-region efficiency work, not a claim that ultra-distance performance is solved.
+  - The far-field renderer is intentionally heightmap-limited. It does not solve future caves, overhangs, floating mountains, or cloud platforms.
+- Next Tasks:
+  - Tighten chunk/far-region queue prioritization and background-work budgeting around the mixed detailed-chunk plus far-field runtime.
+  - Reduce far-region mesh cost further without giving up stitched seam continuity.
+- Risks/Technical Debt:
+  - The far-field renderer depends on generator-provided read-only height sampling, so future non-heightmap worlds will need a different outer-distance representation.
+  - The smoke check caught the custom terrain-array shader failing live even though the automated tests passed, so desktop runtime launches still need to stay part of meaningful renderer changes.
+
 ## 2026-03-15 17:49:04 MDT
 
 - Date/Time: 2026-03-15 17:49:04 MDT

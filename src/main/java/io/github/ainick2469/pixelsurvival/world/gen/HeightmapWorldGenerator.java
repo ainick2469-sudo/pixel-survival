@@ -13,7 +13,7 @@ import io.github.ainick2469.pixelsurvival.world.gen.topology.PlanarPrototypeTopo
 import io.github.ainick2469.pixelsurvival.world.gen.topology.WorldTopologyProfile;
 import java.util.List;
 
-public final class HeightmapWorldGenerator implements WorldGenerator {
+public final class HeightmapWorldGenerator implements WorldGenerator, FarFieldTerrainSamplerProvider {
     private static final int WORLD_SEED = 2469;
     private static final int BASE_HEIGHT = 22;
     private static final int MIN_SURFACE_HEIGHT = 14;
@@ -64,5 +64,12 @@ public final class HeightmapWorldGenerator implements WorldGenerator {
 
     public List<WorldGenerationStage> configuredStages() {
         return pipelineWorldGenerator.configuredStages();
+    }
+
+    @Override
+    public FarFieldTerrainSampler farFieldTerrainSampler() {
+        return (worldX, worldZ) -> new FarFieldTerrainSampler.ColumnSample(
+                surfaceHeightProfile.sampleSurfaceHeight(worldX, worldZ),
+                GRASS_BLOCK);
     }
 }

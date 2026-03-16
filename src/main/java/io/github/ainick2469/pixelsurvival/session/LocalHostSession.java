@@ -4,6 +4,7 @@ import io.github.ainick2469.pixelsurvival.registry.GameDataPaths;
 import io.github.ainick2469.pixelsurvival.registry.GameRegistries;
 import io.github.ainick2469.pixelsurvival.settings.GameSettings;
 import io.github.ainick2469.pixelsurvival.world.gen.HeightmapWorldGenerator;
+import io.github.ainick2469.pixelsurvival.world.gen.WorldGenerator;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
 import java.nio.file.Path;
 
@@ -11,16 +12,19 @@ public final class LocalHostSession {
     private final GameSessionMode mode;
     private final GameRegistries registries;
     private final GameSettings gameSettings;
+    private final WorldGenerator worldGenerator;
     private final AuthoritativeWorldService worldService;
 
     private LocalHostSession(
             GameSessionMode mode,
             GameRegistries registries,
             GameSettings gameSettings,
+            WorldGenerator worldGenerator,
             AuthoritativeWorldService worldService) {
         this.mode = mode;
         this.registries = registries;
         this.gameSettings = gameSettings;
+        this.worldGenerator = worldGenerator;
         this.worldService = worldService;
     }
 
@@ -28,10 +32,11 @@ public final class LocalHostSession {
         Path dataRoot = GameDataPaths.resolveDataRoot();
         GameRegistries registries = GameRegistries.load(dataRoot);
         GameSettings gameSettings = GameSettings.defaultSettings(registries.survivalPresets());
+        WorldGenerator worldGenerator = new HeightmapWorldGenerator();
         AuthoritativeWorldService worldService =
-                new AuthoritativeWorldService(registries, new HeightmapWorldGenerator());
+                new AuthoritativeWorldService(registries, worldGenerator);
 
-        return new LocalHostSession(GameSessionMode.LOCAL_HOST, registries, gameSettings, worldService);
+        return new LocalHostSession(GameSessionMode.LOCAL_HOST, registries, gameSettings, worldGenerator, worldService);
     }
 
     public void start() {
@@ -53,5 +58,9 @@ public final class LocalHostSession {
 
     public AuthoritativeWorldService worldService() {
         return worldService;
+    }
+
+    public WorldGenerator worldGenerator() {
+        return worldGenerator;
     }
 }

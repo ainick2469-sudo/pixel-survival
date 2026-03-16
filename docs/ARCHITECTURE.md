@@ -141,17 +141,22 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `ChunkMeshBuilder` now emits one shared textured terrain section plus any fallback debug-color sections instead of splitting textured terrain by per-face materials.
 - The mesh builder now greedily merges adjacent coplanar faces that share the same resolved face texture layer, which reduces quad count dramatically on flat terrain and cliff bands.
 - `TerrainTexturePalette` deterministically assigns layer indices to every registered terrain face texture so imported cube-net faces and direct textures can batch through one runtime material path.
-- The runtime now uses three terrain detail tiers:
+- The runtime now uses two live chunk detail tiers:
   - `FULL`: nearby chunks keep full voxel face detail
   - `SURFACE`: distance chunks collapse into top surfaces plus compressed vertical walls per height column
-- A coarse `HORIZON` tier still exists as a prototype seam in code, but it is intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
-- The far-distance seam remains important, but the next live horizon pass needs stronger continuity guarantees before it is re-enabled.
+- `FarFieldTerrainRenderer` now owns the outer distance ring through coarse region meshes instead of normal chunk meshes.
+- Far-field regions sample the current heightmap generator directly through `FarFieldTerrainSampler`, so authoritative world/chunk data stays unchanged and only the visual outer ring is approximated.
+- Far-field regions batch through the same shared terrain texture-array material path, which keeps imported `.voxelblock` grass-top, grass-lip, and stone textures aligned with the normal block registry flow.
+- The far-field path uses coarse snapped region anchors plus overlap at the seam with the detailed chunk ring so the near/far boundary stays stable instead of thrashing every chunk movement.
+- The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
+- A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
+- The next far-distance work should focus on queue tuning and further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
 - `TerrainMaterialLibrary` owns the shared terrain texture-array material plus any fallback debug-color materials so block visuals remain data-driven and renderer changes stay localized.
 - The terrain material path now uses crisp close-up filtering, mipmaps, and a shared texture-array material instead of one texture material per visible face family.
-- Rendered face totals and rendered section totals are now tracked incrementally when chunk meshes attach/detach instead of rescanning every rendered geometry every frame.
+- Rendered face totals and rendered section totals are now tracked incrementally across both chunk meshes and far-field region meshes instead of rescanning every rendered geometry every frame.
 
 ## Block visual pipeline
 
@@ -203,11 +208,12 @@ Why this matters:
 - `GraphicsSettings` owns the live render-distance setting and maps it onto chunk runtime radii.
 - `PauseMenuController` owns the current in-game pause/options UI state.
 - `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
-- Render distance changes are applied live to the chunk runtime and camera far clip so horizons can expand without restarting the game.
+- Render distance changes are applied live to the chunk runtime, far-field region planner, and camera far clip so horizons can expand without restarting the game.
 - The current default is `48` chunks and the experimental ceiling is `96` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
-- The load-radius buffer is now intentionally smaller at high render distances so horizon rendering does not automatically keep an oversized extra ring of chunks resident.
-- Render distance no longer implies camera-facing unload behavior. Stable buffered residency is preserved first, and additional far-distance representations will only be re-enabled when they maintain terrain continuity cleanly.
-- The HUD now reports chunk-memory usage, rendered chunk-section count, and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
+- At high render distances the detailed chunk ring now stops earlier and the far-field renderer takes over the outer ring, which more than halves the detailed chunk target count at both `48` and `96` settings.
+- The load-radius buffer is now intentionally attached to the smaller detailed chunk ring at high render distances so horizon rendering does not automatically keep an oversized extra ring of authoritative chunks resident.
+- Render distance no longer implies camera-facing unload behavior. Stable buffered residency is preserved first, and additional far-distance representations stay isolated from authoritative chunk residency.
+- The HUD now reports chunk-memory usage, rendered chunk count, rendered far-region count, rendered terrain-section count, and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
 
 ## Registry model
 

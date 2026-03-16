@@ -23,6 +23,8 @@ import io.github.ainick2469.pixelsurvival.session.LocalHostSession;
 import io.github.ainick2469.pixelsurvival.ui.PauseMenuCommand;
 import io.github.ainick2469.pixelsurvival.ui.PauseMenuController;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
+import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSampler;
+import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSamplerProvider;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Path;
@@ -124,12 +126,16 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         session = LocalHostSession.bootstrap();
         session.start();
         graphicsSettings = session.gameSettings().graphicsSettings();
+        FarFieldTerrainSampler farFieldTerrainSampler = session.worldGenerator() instanceof FarFieldTerrainSamplerProvider provider
+                ? provider.farFieldTerrainSampler()
+                : null;
         chunkRenderManager = new ChunkRenderManager(
                 rootNode,
                 assetManager,
                 session.worldService(),
                 session.registries(),
-                graphicsSettings.toChunkRuntimeConfig());
+                graphicsSettings.toChunkRuntimeConfig(),
+                farFieldTerrainSampler);
         pauseMenuController = new PauseMenuController(
                 assetManager,
                 guiNode,
@@ -213,6 +219,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | Render Distance " + graphicsSettings.renderDistanceChunks()
                 + " | Loaded " + runtimeMetrics.loadedChunkCount()
                 + " | Rendered " + runtimeMetrics.renderedChunkCount()
+                + " | Far " + runtimeMetrics.renderedFarRegionCount()
                 + " | Sections " + runtimeMetrics.renderedSectionCount()
                 + " | Sim " + runtimeMetrics.simulatedChunkCount()
                 + " | LoadQ " + runtimeMetrics.pendingLoadCount()

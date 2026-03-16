@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 96-chunk experimental cap, shared-material terrain batching, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, shared texture-array terrain batching, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
+- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 96-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 96-chunk cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -55,7 +55,7 @@ That means the runtime still uses the same optimized path after import:
 - hidden-face culling
 - greedy chunk meshing
 - shared texture-array terrain batching
-- far-chunk surface LOD
+- far-chunk surface LOD plus stitched far-field regions
 - chunk streaming
 - palette-compressed chunk storage
 
@@ -93,15 +93,20 @@ The repo now also includes a sample imported block generated from a local `custo
 - Chunk targets now stay in a buffered circular radius around the player so quick turns do not force full-world reloads.
 - Background load and mesh completion work is now capped per update to reduce hitching when many chunks finish at once.
 - Interior neighbor checks now stay chunk-local whenever possible, so mesh builds do less cross-service lookup work for interior terrain.
-- Terrain now has two stable live mesh detail tiers:
+- Terrain now has two stable live chunk mesh detail tiers:
   - `FULL` for nearby chunks
   - `SURFACE` for mid-distance chunks
-- A coarse `HORIZON` prototype seam still exists in code, but it is currently disabled in the live runtime because the approximation introduced visible cracks and holes in distant terrain.
+- The outer distance ring now renders through a separate stitched far-field terrain path that builds coarse heightmap-style region meshes instead of normal chunk meshes.
+- The far-field path keeps using the shared terrain texture-array material, so imported `.voxelblock` grass and stone visuals still come through the normal block registry pipeline.
+- Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
+- The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
+- The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius and remains experimental.
+- A coarse `HORIZON` prototype seam still exists in code, but it is still disabled in the live runtime because the old approximation introduced visible cracks and holes in distant terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.
 - High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
-- The HUD now exposes runtime counts for loaded, rendered, section, and simulated chunk targets plus render distance, queue depth, and heap use.
+- The HUD now exposes runtime counts for loaded chunks, rendered chunks, rendered far regions, terrain sections, simulated chunk targets, queue depth, and heap use.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.
@@ -130,4 +135,4 @@ The repo now also includes a sample imported block generated from a local `custo
 5. `0.005`: begin terrain layering
 6. `0.006`: production chunk runtime foundation and textured terrain readability pass
 7. `0.007`: adjustable render distance, pause/options menu, and distant horizons
-8. `0.008`: fullscreen-visible startup, buffered chunk streaming stabilization, terrain texture-array batching, and premium terrain texture upgrade
+8. `0.008`: fullscreen-visible startup, buffered chunk streaming stabilization, terrain texture-array batching, stitched far-field terrain rendering, and premium terrain texture upgrade
