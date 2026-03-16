@@ -1,5 +1,6 @@
 package io.github.ainick2469.pixelsurvival.rendering.world;
 
+import com.jme3.math.Vector3f;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import org.junit.jupiter.api.Test;
 
@@ -41,5 +42,21 @@ class ChunkRenderManagerPriorityTest {
         assertEquals(
                 ChunkRenderManager.ChunkWorkBand.BUFFER,
                 ChunkRenderManager.classifyChunkWorkBand(centerChunk, new ChunkCoord(64, 0), detailedRuntimeConfig, farFieldSettings));
+    }
+
+    @Test
+    void classifiesForwardLateralAndRearTraversalLanes() {
+        ChunkCoord centerChunk = new ChunkCoord(0, 0);
+        Vector3f priorityDirection = new Vector3f(1f, 0f, 0f);
+
+        assertEquals(
+                ChunkRenderManager.ChunkTraversalLane.FORWARD,
+                ChunkRenderManager.classifyTraversalLane(centerChunk, new ChunkCoord(10, 2), priorityDirection));
+        assertEquals(
+                ChunkRenderManager.ChunkTraversalLane.LATERAL,
+                ChunkRenderManager.classifyTraversalLane(centerChunk, new ChunkCoord(0, 12), priorityDirection));
+        assertEquals(
+                ChunkRenderManager.ChunkTraversalLane.REAR,
+                ChunkRenderManager.classifyTraversalLane(centerChunk, new ChunkCoord(-8, 0), priorityDirection));
     }
 }

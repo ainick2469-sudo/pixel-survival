@@ -43,15 +43,19 @@ public final class ChunkRenderManager implements AutoCloseable {
     private static final long MAX_SESSION_CACHE_STORAGE_BYTES = 256L * 1024L * 1024L;
     private static final long MOVING_PROFILE_WINDOW_NANOS = 250_000_000L;
     private static final long SETTLING_PROFILE_WINDOW_NANOS = 1_000_000_000L;
-    private static final long MOVING_LOAD_ATTACH_BUDGET_NANOS = 2_000_000L;
-    private static final long SETTLING_LOAD_ATTACH_BUDGET_NANOS = 4_000_000L;
-    private static final long STILL_LOAD_ATTACH_BUDGET_NANOS = 8_000_000L;
-    private static final long MOVING_MESH_ATTACH_BUDGET_NANOS = 2_000_000L;
-    private static final long SETTLING_MESH_ATTACH_BUDGET_NANOS = 4_000_000L;
-    private static final long STILL_MESH_ATTACH_BUDGET_NANOS = 8_000_000L;
-    private static final long STILL_CATCH_UP_RAMP_NANOS = 3_000_000_000L;
+    private static final long MOVING_LOAD_ATTACH_BUDGET_NANOS = 1_500_000L;
+    private static final long SETTLING_LOAD_ATTACH_BUDGET_NANOS = 3_000_000L;
+    private static final long STILL_LOAD_ATTACH_BUDGET_NANOS = 7_000_000L;
+    private static final long MOVING_MESH_ATTACH_BUDGET_NANOS = 1_250_000L;
+    private static final long SETTLING_MESH_ATTACH_BUDGET_NANOS = 2_500_000L;
+    private static final long STILL_MESH_ATTACH_BUDGET_NANOS = 6_000_000L;
+    private static final long STILL_CATCH_UP_RAMP_NANOS = 6_000_000_000L;
     private static final int MIN_CORE_PRIORITY_RADIUS_CHUNKS = 24;
     private static final int MAX_CORE_PRIORITY_RADIUS_CHUNKS = 32;
+    private static final int ULTRA_MOVING_PENDING_CHUNK_LOAD_FLOOR = 32;
+    private static final int ULTRA_MOVING_PENDING_MESH_BUILD_FLOOR = 12;
+    private static final float FORWARD_PRIORITY_ALIGNMENT = 0.55f;
+    private static final float REAR_PRIORITY_ALIGNMENT = -0.2f;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
@@ -712,9 +716,17 @@ public final class ChunkRenderManager implements AutoCloseable {
         if (activeCenterChunk == null) {
             return 0;
         }
-        int bandOrder = Integer.compare(workBand(left).ordinal(), workBand(right).ordinal());
+        ChunkWorkBand leftBand = workBand(left);
+        ChunkWorkBand rightBand = workBand(right);
+        int bandOrder = Integer.compare(leftBand.ordinal(), rightBand.ordinal());
         if (bandOrder != 0) {
             return bandOrder;
+        }
+        if (motionProfile != ChunkMotionProfile.STILL && leftBand != ChunkWorkBand.CORE) {
+            int laneOrder = Integer.compare(workLane(left).ordinal(), workLane(right).ordinal());
+            if (laneOrder != 0) {
+                return laneOrder;
+            }
         }
         int leftDistanceSquared = distanceSquared(left);
         int rightDistanceSquared = distanceSquared(right);
@@ -735,7 +747,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private float forwardBiasScore(ChunkCoord chunkCoord) {
-        if (motionProfile != ChunkMotionProfile.MOVING || activeCenterChunk == null) {
+        if (motionProfile == ChunkMotionProfile.STILL || activeCenterChunk == null) {
             return 0f;
         }
         float deltaChunkX = chunkCoord.x() - activeCenterChunk.x();
@@ -744,25 +756,39 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private int maxPendingChunkLoads() {
-        return clampRuntimeBudget(scaleBudget(activeBudgetRuntimeConfig().loadRadius() * 2), MIN_PENDING_CHUNK_LOADS, MAX_PENDING_CHUNK_LOADS);
+        int minimumBudget = isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL
+                ? ULTRA_MOVING_PENDING_CHUNK_LOAD_FLOOR
+                : MIN_PENDING_CHUNK_LOADS;
+        return clampRuntimeBudget(scaleBudget(activeBudgetRuntimeConfig().loadRadius() * 2), minimumBudget, MAX_PENDING_CHUNK_LOADS);
     }
 
     private int maxPendingMeshBuilds() {
-        return clampRuntimeBudget(scaleBudget(activeBudgetRuntimeConfig().renderRadius()), MIN_PENDING_MESH_BUILDS, MAX_PENDING_MESH_BUILDS);
+        int minimumBudget = isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL
+                ? ULTRA_MOVING_PENDING_MESH_BUILD_FLOOR
+                : MIN_PENDING_MESH_BUILDS;
+        return clampRuntimeBudget(scaleBudget(activeBudgetRuntimeConfig().renderRadius()), minimumBudget, MAX_PENDING_MESH_BUILDS);
     }
 
     private int maxCompletedChunkLoadsPerUpdate() {
-        return clampRuntimeBudget(
+        int completedLoads = clampRuntimeBudget(
                 scaleBudget(Math.max(24, activeBudgetRuntimeConfig().renderRadius() / 2)),
                 MIN_COMPLETED_CHUNK_LOADS_PER_UPDATE,
                 MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE);
+        if (isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL) {
+            return Math.min(completedLoads, motionProfile == ChunkMotionProfile.MOVING ? 16 : 24);
+        }
+        return completedLoads;
     }
 
     private int maxCompletedMeshAttachesPerUpdate() {
-        return clampRuntimeBudget(
+        int completedMeshAttaches = clampRuntimeBudget(
                 scaleBudget(Math.max(16, activeBudgetRuntimeConfig().renderRadius() / 2)),
                 MIN_COMPLETED_MESH_ATTACHES_PER_UPDATE,
                 MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE);
+        if (isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL) {
+            return Math.min(completedMeshAttaches, motionProfile == ChunkMotionProfile.MOVING ? 8 : 12);
+        }
+        return completedMeshAttaches;
     }
 
     private ChunkRuntimeConfig activeBudgetRuntimeConfig() {
@@ -775,7 +801,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private int scaleBudget(int requestedBudget) {
-        float scale = 0.45f + (0.55f * catchUpScale());
+        float scale = 0.35f + (0.65f * catchUpScale());
         return Math.max(1, Math.round(requestedBudget * scale));
     }
 
@@ -824,8 +850,39 @@ public final class ChunkRenderManager implements AutoCloseable {
         return Math.min(requestedRadius, Math.max(MIN_CORE_PRIORITY_RADIUS_CHUNKS, farFieldSettings.startRadiusChunks() - 4));
     }
 
+    static ChunkTraversalLane classifyTraversalLane(
+            ChunkCoord centerChunk, ChunkCoord chunkCoord, Vector3f priorityDirection) {
+        if (centerChunk == null
+                || chunkCoord == null
+                || priorityDirection == null
+                || priorityDirection.lengthSquared() < 0.0001f) {
+            return ChunkTraversalLane.FORWARD;
+        }
+
+        float deltaChunkX = chunkCoord.x() - centerChunk.x();
+        float deltaChunkZ = chunkCoord.z() - centerChunk.z();
+        float distanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
+        if (distanceSquared <= 0.0001f) {
+            return ChunkTraversalLane.FORWARD;
+        }
+
+        float alignment = ((deltaChunkX * priorityDirection.x) + (deltaChunkZ * priorityDirection.z))
+                / (float) Math.sqrt(distanceSquared);
+        if (alignment >= FORWARD_PRIORITY_ALIGNMENT) {
+            return ChunkTraversalLane.FORWARD;
+        }
+        if (alignment <= REAR_PRIORITY_ALIGNMENT) {
+            return ChunkTraversalLane.REAR;
+        }
+        return ChunkTraversalLane.LATERAL;
+    }
+
     private ChunkWorkBand workBand(ChunkCoord chunkCoord) {
         return classifyChunkWorkBand(activeCenterChunk, chunkCoord, activeBudgetRuntimeConfig(), activeFarFieldSettings);
+    }
+
+    private ChunkTraversalLane workLane(ChunkCoord chunkCoord) {
+        return classifyTraversalLane(activeCenterChunk, chunkCoord, priorityDirection);
     }
 
     private boolean consumeChunkWorkAllowance(
@@ -846,32 +903,36 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private int bandLimitForStage(ChunkWorkBand workBand, ChunkWorkStage stage) {
-        if (activeFarFieldSettings == null || activeFarFieldSettings.endRadiusChunks() <= 96) {
+        if (!isUltraDistanceSchedulingActive()) {
             return Integer.MAX_VALUE;
         }
-        if (workBand == ChunkWorkBand.CORE || workBand == ChunkWorkBand.SEAM) {
-            return Integer.MAX_VALUE;
-        }
-
-        float scale = catchUpScale();
         return switch (stage) {
-            case LOAD_ATTACH -> workBand == ChunkWorkBand.PROMOTION
-                    ? Math.max(0, Math.round(6f * scale))
-                    : Math.max(0, Math.round(2f * scale));
-            case MESH_BUILD -> workBand == ChunkWorkBand.PROMOTION
-                    ? Math.max(0, Math.round(3f * scale))
-                    : Math.max(0, (int) Math.floor(1f * scale));
-            case MESH_ATTACH -> workBand == ChunkWorkBand.PROMOTION
-                    ? Math.max(0, Math.round(4f * scale))
-                    : Math.max(0, Math.round(1f * scale));
+            case LOAD_ATTACH -> switch (workBand) {
+                case CORE -> motionScaledLimit(18, 24, 36);
+                case SEAM -> motionScaledLimit(12, 18, 28);
+                case PROMOTION -> motionScaledLimit(0, 3, 10);
+                case BUFFER -> motionScaledLimit(0, 1, 4);
+            };
+            case MESH_BUILD -> switch (workBand) {
+                case CORE -> motionScaledLimit(10, 14, 22);
+                case SEAM -> motionScaledLimit(6, 10, 16);
+                case PROMOTION -> motionScaledLimit(0, 2, 6);
+                case BUFFER -> motionScaledLimit(0, 1, 2);
+            };
+            case MESH_ATTACH -> switch (workBand) {
+                case CORE -> motionScaledLimit(8, 12, 18);
+                case SEAM -> motionScaledLimit(4, 8, 12);
+                case PROMOTION -> motionScaledLimit(0, 2, 5);
+                case BUFFER -> motionScaledLimit(0, 1, 2);
+            };
         };
     }
 
     private float catchUpScale() {
         return switch (motionProfile) {
             case MOVING -> 0f;
-            case SETTLING -> 0.333f;
-            case STILL -> 0.333f + (0.667f * stillnessProgress());
+            case SETTLING -> 0.2f;
+            case STILL -> 0.2f + (0.8f * stillnessProgress());
         };
     }
 
@@ -885,6 +946,18 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private long interpolateBudget(long movingBudgetNanos, long stillBudgetNanos) {
         return movingBudgetNanos + Math.round((stillBudgetNanos - movingBudgetNanos) * catchUpScale());
+    }
+
+    private int motionScaledLimit(int movingLimit, int settlingLimit, int stillLimit) {
+        return switch (motionProfile) {
+            case MOVING -> movingLimit;
+            case SETTLING -> settlingLimit;
+            case STILL -> settlingLimit + Math.round((stillLimit - settlingLimit) * stillnessProgress());
+        };
+    }
+
+    private boolean isUltraDistanceSchedulingActive() {
+        return activeFarFieldSettings != null && activeFarFieldSettings.endRadiusChunks() > 96;
     }
 
     private int clampRuntimeBudget(int requestedBudget, int minimumBudget, int maximumBudget) {
@@ -902,6 +975,12 @@ public final class ChunkRenderManager implements AutoCloseable {
         LOAD_ATTACH,
         MESH_BUILD,
         MESH_ATTACH
+    }
+
+    enum ChunkTraversalLane {
+        FORWARD,
+        LATERAL,
+        REAR
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

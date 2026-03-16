@@ -1504,6 +1504,57 @@
   - The new work-band scheduling is tuned for the current heightmap-style world and `192` experimental mode; once caves or non-heightmap distant content exist, the band rules will need another pass.
   - `192` is materially better than before, but it is still not a guarantee of smooth traversal on all machines and should keep being treated as an experimental stress mode.
 
+## 2026-03-16 04:29:04 local
+
+- Date/Time: 2026-03-16 04:29:04 local
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Tighten `192` traversal scheduling further with forward-biased promotion, lower attach pressure, and a cleaner smoke benchmark path.
+- Completed Work:
+  - Applied movement-direction bias inside the non-core high-distance bands so forward seam/promotion work is chosen ahead of lateral and rear promotion while the player is moving or settling.
+  - Replaced the earlier effectively unbounded `CORE`/`SEAM` ultra-distance behavior with finite per-stage load/build/attach caps so completed work lands more gradually at `192`.
+  - Lowered movement-time chunk/far-field attach budgets, reduced ultra-distance pending-work floors while moving, and stretched the still-state catch-up ramp from three seconds to six seconds.
+  - Lowered the synchronous ultra-distance far-field prime limit again and reduced far-field pending-build pressure so the first stitched-horizon burst is smaller.
+  - Added a traversal-lane regression test that locks in the new forward/lateral/rear classification used by high-distance prioritization.
+  - Hardened `scripts/desktop_smoke.ps1` so smoke runs no longer depend on an OS-level pause-menu click path and no longer error if the launched game exits before `Wait-Process` observes it.
+  - Re-ran a `48` startup smoke and a longer `192` move-plus-settle benchmark with in-game screenshots plus JSONL telemetry.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `scripts/desktop_smoke.ps1`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/test/java/.../rendering/world/ChunkRenderManagerPriorityTest.java`
+- Systems Touched:
+  - chunk traversal prioritization
+  - ultra-distance attach/load/build throttling
+  - far-field startup/update throttling
+  - smoke benchmark automation
+  - documentation and handoff
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 48 -WaitSeconds 8 -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -WaitSeconds 26 -MoveForwardSeconds 15 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-motion-v4.jsonl -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - `48` startup smoke still completes cleanly.
+  - `192` remains experimental, but the longer motion benchmark now starts with a smaller first far-field footprint (`far=44` on the first sample) and holds moving samples mostly in the mid-200 FPS range after the first fill burst.
+  - The main remaining cost has shifted further toward still-state detailed-ring catch-up after movement rather than movement-time stitched-horizon collapse.
+- Known Issues:
+  - The first one to two `192` samples are still expensive while the stitched far-field and first detailed chunks come online.
+  - Still-state catch-up after movement continues to be the next visible bottleneck as deferred detailed promotion lands.
+  - The final benchmark sample can still be distorted by the scheduled framebuffer screenshot itself because capture costs render time.
+- Next Tasks:
+  - Phase rear/lateral outer detailed promotion even more aggressively at `192` so stopping movement does not immediately begin broad ring catch-up.
+  - Reduce geometry attach/upload pressure during still-state catch-up without introducing seam holes or obvious pop-in.
+  - Keep trimming the first `192` fill burst before touching much larger future systems such as non-heightmap distant representation for caves, floating mountains, or cloud platforms.
+- Risks/Technical Debt:
+  - The new lane-based prioritization depends on the current movement-vector heuristic and may need retuning later for different travel speeds or future gameplay cameras.
+  - Smoke automation is now cleaner because it depends on the app's built-in smoke mode instead of window clicks, but future launcher/windowing changes can still break the harness if those properties drift.
+
 ## Entry Template
 
 - Date/Time:

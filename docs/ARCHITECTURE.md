@@ -154,6 +154,8 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `192` startup no longer synchronously primes the entire stitched far-field ring. The far-field renderer now primes only a limited seam-priority subset up front and leaves the rest dirty for async catch-up.
 - Ultra-distance chunk scheduling is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` work bands so the traversal-critical detailed ring stays prioritized while outer detailed promotion is deferred during movement.
 - Still-state catch-up now ramps over several seconds instead of instantly switching to the maximum attach/build budget the moment movement stops, which makes post-movement recovery less bursty.
+- Movement-direction bias is now applied inside the non-core high-distance bands, so forward seam/promotion work wins over lateral and rear detail promotion while the player is moving or settling.
+- Ultra-distance chunk scheduling now also uses tighter finite caps for `CORE` and `SEAM` load/build/attach work instead of treating those bands as effectively unbounded at `192`.
 - The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
 - A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
 - The next far-distance work should focus on reducing initial-fill and still-state catch-up spikes plus further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.

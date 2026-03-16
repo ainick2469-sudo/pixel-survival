@@ -107,6 +107,7 @@ The repo now also includes a sample imported block generated from a local `custo
 - At `192`, the far-field startup prime is now phased instead of synchronously building the whole stitched outer ring in one burst, which reduces the first-fill hitch cost.
 - High-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes the playable ring and seam continuity while delaying less important outer detailed promotion.
 - Still-state catch-up now ramps up over time instead of immediately spending the full attach/build budget when the player stops moving, which reduces the worst post-movement catch-up spikes.
+- `192` traversal prioritization now biases seam and promotion work toward the movement direction, keeps tighter per-frame attach caps while moving, and delays rear/lateral outer-detail promotion more aggressively.
 - Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
 - The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
 - The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` shrinks detailed chunk coverage more aggressively and remains strictly experimental.
@@ -120,6 +121,7 @@ The repo now also includes a sample imported block generated from a local `custo
 - The HUD now exposes runtime counts for loaded chunks, rendered chunks, rendered far regions, terrain sections, simulated chunk targets, queue depth, and heap use.
 - `scripts/desktop_smoke.ps1` now drives smoke validation through startup render-distance override, in-game scheduled framebuffer screenshots, and optional JSONL motion reports instead of brittle menu automation and OS-level window capture.
 - The smoke harness now proves `48`, `96`, and `192` startup directly and can run a scripted `192` forward-motion benchmark with JSONL telemetry, so high-distance changes are validated under motion instead of only while standing still.
+- The smoke harness now relies on the app's built-in smoke-mode movement and framebuffer screenshot scheduling directly, so high-distance smoke runs no longer depend on a fragile OS-level pause-menu click path.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.

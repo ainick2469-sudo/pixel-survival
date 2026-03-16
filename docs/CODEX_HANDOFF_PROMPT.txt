@@ -175,9 +175,11 @@ Important current truths:
 - `192` startup no longer synchronously primes the full stitched far-field ring. The far-field renderer now primes only a limited seam-priority subset up front and leaves the rest dirty for async catch-up.
 - Ultra-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes nearby playability and seam continuity while outer detailed promotion is deferred.
 - Still-state catch-up now ramps over several seconds instead of immediately going full throttle when motion stops, which reduces the worst post-movement attach/build bursts.
+- Movement-direction bias now applies inside the non-core high-distance bands, so forward seam and promotion work outrank lateral/rear promotion while the player is moving or settling.
+- `192` scheduling no longer treats `CORE` and `SEAM` as effectively unlimited bands; they now have finite per-update load/build/attach caps so completed work lands more gradually.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
 - The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, and coarse timing splits.
-- `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, not brittle menu automation or OS-level window capture.
+- `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, and it no longer depends on OS-level pause-menu clicking for smoke-mode runs.
 
 Live chunk detail tiers:
 - `FULL`
@@ -208,7 +210,7 @@ Why performance is still not where the user wants it:
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- phase detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and keep reducing the cost of the remaining initial-fill window
+- keep phasing outer detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and keep reducing the cost of the remaining initial-fill window
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
@@ -217,6 +219,7 @@ Next step after that:
 Fresh benchmark note:
 - The latest `192` movement smoke report shows the startup far-field prime landing at `far=64` on the first sample instead of immediately building the full outer ring, and moving samples after the first burst now sit in the low hundreds of FPS instead of collapsing into the old single digits.
 - Still-state catch-up remains the next obvious bottleneck, and the final screenshot capture itself can distort the last reported frame because framebuffer capture costs render time.
+- The latest follow-up traversal-tuning pass pushed the initial `192` sample down to `far=44`, kept the post-fill moving window around the mid-200 FPS range in the smoke benchmark, and shifted the main remaining cost toward still-state detailed-ring catch-up rather than movement-time far-ring collapse.
 
 The user wants:
 - strong performance at `48`

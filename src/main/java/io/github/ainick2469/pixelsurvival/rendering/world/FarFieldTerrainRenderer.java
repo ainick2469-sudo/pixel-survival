@@ -23,10 +23,10 @@ import java.util.concurrent.ExecutorService;
 public final class FarFieldTerrainRenderer {
     private static final int MIN_PENDING_REGION_BUILDS = 12;
     private static final int MAX_PENDING_REGION_BUILDS = 48;
-    private static final long MOVING_ATTACH_BUDGET_NANOS = 1_000_000L;
-    private static final long STILL_ATTACH_BUDGET_NANOS = 4_000_000L;
+    private static final long MOVING_ATTACH_BUDGET_NANOS = 750_000L;
+    private static final long STILL_ATTACH_BUDGET_NANOS = 3_500_000L;
     private static final long COUNTER_WINDOW_NANOS = 1_000_000_000L;
-    private static final int MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS = 96;
+    private static final int MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS = 64;
 
     private final Node farTerrainRoot = new Node("far_terrain_root");
     private final TerrainMaterialLibrary terrainMaterialLibrary;
@@ -434,7 +434,7 @@ public final class FarFieldTerrainRenderer {
     }
 
     private float forwardBiasScore(FarFieldTerrainRegionCoord regionCoord) {
-        if (activeAnchorChunk == null || activeSettings == null || motionProfile != ChunkMotionProfile.MOVING) {
+        if (activeAnchorChunk == null || activeSettings == null || motionProfile == ChunkMotionProfile.STILL) {
             return 0f;
         }
         float regionCenterChunkX = regionCoord.startChunkX(activeSettings) + (activeSettings.regionSpanChunks() / 2f);
@@ -465,7 +465,7 @@ public final class FarFieldTerrainRenderer {
 
     private int maxPendingRegionBuilds() {
         int requestedBudget = activeSettings == null ? MIN_PENDING_REGION_BUILDS : Math.max(16, activeSettings.endRadiusChunks() / 4);
-        float scale = 0.5f + (0.5f * catchUpScale);
+        float scale = 0.35f + (0.65f * catchUpScale);
         return Math.max(MIN_PENDING_REGION_BUILDS, Math.min(MAX_PENDING_REGION_BUILDS, Math.round(requestedBudget * scale)));
     }
 

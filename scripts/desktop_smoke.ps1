@@ -141,22 +141,46 @@ function Focus-Window {
 function Get-ClientOrigin {
   param([System.Diagnostics.Process]$Process)
 
-  $clientRect = New-Object PixelSurvivalSmokeNative+RECT
-  if (-not [PixelSurvivalSmokeNative]::GetClientRect($Process.MainWindowHandle, [ref]$clientRect)) {
-    throw "Failed to get client rect for Pixel Survival"
+  if ($null -eq $Process) {
+    throw "Pixel Survival process is not available"
   }
 
-  $origin = New-Object PixelSurvivalSmokeNative+POINT
-  if (-not [PixelSurvivalSmokeNative]::ClientToScreen($Process.MainWindowHandle, [ref]$origin)) {
-    throw "Failed to resolve client origin for Pixel Survival"
+  $processId = $Process.Id
+  $deadline = (Get-Date).AddSeconds(3)
+  while ((Get-Date) -lt $deadline) {
+    $process = Get-PixelSurvivalProcess -ProcessId $processId
+    if ($null -eq $process) {
+      Start-Sleep -Milliseconds 150
+      continue
+    }
+
+    $clientRect = New-Object PixelSurvivalSmokeNative+RECT
+    if (-not [PixelSurvivalSmokeNative]::GetClientRect($process.MainWindowHandle, [ref]$clientRect)) {
+      Start-Sleep -Milliseconds 150
+      continue
+    }
+    $width = $clientRect.Right - $clientRect.Left
+    $height = $clientRect.Bottom - $clientRect.Top
+    if ($width -le 0 -or $height -le 0) {
+      Start-Sleep -Milliseconds 150
+      continue
+    }
+
+    $origin = New-Object PixelSurvivalSmokeNative+POINT
+    if (-not [PixelSurvivalSmokeNative]::ClientToScreen($process.MainWindowHandle, [ref]$origin)) {
+      Start-Sleep -Milliseconds 150
+      continue
+    }
+
+    return @{
+      X = $origin.X
+      Y = $origin.Y
+      Width = $width
+      Height = $height
+    }
   }
 
-  return @{
-    X = $origin.X
-    Y = $origin.Y
-    Width = $clientRect.Right - $clientRect.Left
-    Height = $clientRect.Bottom - $clientRect.Top
-  }
+  throw "Failed to get client rect for Pixel Survival"
 }
 
 function Click-ClientPoint {
@@ -269,10 +293,12 @@ if ($Launch -or $null -eq $existingProcess) {
 
 $process = Wait-ForWindow -ProcessId $launchedProcessId -Title $windowTitle
 Focus-Window -Process $process
-Resume-GameIfPauseMenuIsOpen -Process $process
 
 if ($quitAfterScheduledScreenshots -and $launchedProcessId -gt 0) {
-  Wait-Process -Id $launchedProcessId -Timeout ([Math]::Max(20, $finalCaptureSeconds + $MoveForwardSeconds + 20))
+  $launchedProcess = Get-Process -Id $launchedProcessId -ErrorAction SilentlyContinue
+  if ($null -ne $launchedProcess) {
+    Wait-Process -Id $launchedProcessId -Timeout ([Math]::Max(20, $finalCaptureSeconds + $MoveForwardSeconds + 20))
+  }
 } else {
   Start-Sleep -Seconds ($finalCaptureSeconds + 2)
 }
