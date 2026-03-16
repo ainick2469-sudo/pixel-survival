@@ -8,11 +8,15 @@ public record ChunkRuntimeMetrics(
         int simulatedChunkCount,
         int pendingLoadCount,
         int pendingMeshBuildCount,
+        int pendingFarRegionBuildCount,
         int renderedFaceCount,
         long estimatedLoadedChunkStorageBytes,
         int cachedMeshVariantCount,
-        long estimatedCachedMeshStorageBytes) {
+        long estimatedCachedMeshStorageBytes,
+        int rebuiltFarRegionCountLastWindow,
+        int farAnchorSnapCountLastWindow,
+        ChunkMotionProfile motionProfile) {
     public static ChunkRuntimeMetrics empty() {
-        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0L, 0, 0L);
+        return new ChunkRuntimeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0L, 0, 0L, 0, 0, ChunkMotionProfile.STILL);
     }
 }

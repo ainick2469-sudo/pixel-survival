@@ -1,10 +1,12 @@
 package io.github.ainick2469.pixelsurvival.rendering.world;
 
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FarFieldTerrainPlannerTest {
@@ -56,14 +58,36 @@ class FarFieldTerrainPlannerTest {
     }
 
     @Test
+    void classifiesFarFieldTargetsAcrossTheInnerAndOuterBoundaries() {
+        FarFieldTerrainPlanner planner = new FarFieldTerrainPlanner();
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(26, 48, 34, 36, 8, 8, 8, 4, 0, 0f);
+
+        List<FarFieldTerrainTarget> targets = planner.plan(new ChunkCoord(0, 0), settings);
+
+        assertTargetMode(targets, new FarFieldTerrainRegionCoord(3, 0), FarFieldClipMode.CLIP_INNER);
+        assertTargetMode(targets, new FarFieldTerrainRegionCoord(4, 0), FarFieldClipMode.FULL_REGION);
+        assertTargetMode(targets, new FarFieldTerrainRegionCoord(6, 0), FarFieldClipMode.CLIP_OUTER);
+    }
+
+    @Test
+    void classifiesRegionsThatSpanTheEntireRingAsClipBoth() {
+        FarFieldTerrainPlanner planner = new FarFieldTerrainPlanner();
+        FarFieldTerrainSettings settings = new FarFieldTerrainSettings(6, 10, 10, 12, 4, 16, 16, 2, 0, 0f);
+
+        List<FarFieldTerrainTarget> targets = planner.plan(new ChunkCoord(0, 0), settings);
+
+        assertTargetMode(targets, new FarFieldTerrainRegionCoord(0, 0), FarFieldClipMode.CLIP_BOTH);
+    }
+
+    @Test
     void plansOuterRingRegionsWithoutReusingNearChunkTargets() {
         FarFieldTerrainPlanner planner = new FarFieldTerrainPlanner();
         FarFieldTerrainSettings settings = FarFieldTerrainSettings.from(new ChunkRuntimeConfig(51, 48, 4));
 
-        var targets = planner.plan(new ChunkCoord(0, 0), settings);
+        List<FarFieldTerrainTarget> targets = planner.plan(new ChunkCoord(0, 0), settings);
 
         assertFalse(targets.isEmpty());
-        assertFalse(targets.contains(new FarFieldTerrainRegionCoord(0, 0)));
+        assertFalse(targets.stream().anyMatch(target -> target.regionCoord().equals(new FarFieldTerrainRegionCoord(0, 0))));
     }
 
     @Test
@@ -79,5 +103,17 @@ class FarFieldTerrainPlannerTest {
 
         assertEquals(initialAnchor, sameAnchor);
         assertEquals(new ChunkCoord(12, 4), shiftedAnchor);
+    }
+
+    private static void assertTargetMode(
+            List<FarFieldTerrainTarget> targets,
+            FarFieldTerrainRegionCoord regionCoord,
+            FarFieldClipMode expectedClipMode) {
+        FarFieldTerrainTarget target = targets.stream()
+                .filter(candidate -> candidate.regionCoord().equals(regionCoord))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(target, "Expected far-field target for " + regionCoord);
+        assertEquals(expectedClipMode, target.clipMode());
     }
 }

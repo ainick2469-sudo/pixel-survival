@@ -167,10 +167,14 @@ Important current truths:
 - Chunk storage is palette-compressed.
 - Shared terrain texture-array batching is active, so textured chunk terrain now aims to render through one shared textured section per chunk instead of many per-face material sections.
 - The outer distance ring now renders through stitched far-field terrain regions that sample the heightmap generator directly, use the same shared terrain material path, and keep authoritative chunk data unchanged.
+- Far-field planning is now clip-aware: interior regions remain stable across anchor snaps, while only new or seam-touching regions are dirtied and rebuilt.
 - Detailed startup coverage is now widened toward the far-field seam at high render distances so the earlier giant middle-band void is not left between the detailed chunk ring and the stitched far-field ring.
 - Raw authoritative chunks are unloaded again outside the active buffered load radius, while a bounded session mesh cache keeps recent chunk mesh variants available for fast reattachment during the same play session.
+- The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block far-field cell, which reduces the obvious box-mountain look at the seam.
+- Chunk and far-field completion work now use motion-aware time budgets, and the HUD now exposes motion profile, pending far-region builds, anchor snaps per second, and far-region rebuilds per second.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
 - The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, and coarse timing splits.
+- `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, not brittle menu automation or OS-level window capture.
 
 Live chunk detail tiers:
 - `FULL`
@@ -205,6 +209,9 @@ Highest-value next optimization step:
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
 - not the old cracked `HORIZON` cell approach
+
+Fresh benchmark note:
+- The current `192` movement smoke report still shows an expensive initial fill window, but once the first burst settles the moving samples sit far above the old single-digit traversal behavior. The next pass should focus on reducing initial-fill hitching and still-state catch-up bursts rather than reverting the current clip-aware far-field architecture.
 
 The user wants:
 - strong performance at `48`

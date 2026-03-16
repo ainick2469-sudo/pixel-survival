@@ -5,9 +5,11 @@
 attribute vec3 inPosition;
 attribute vec3 inNormal;
 attribute vec3 inTexCoord;
+attribute float inTexCoord2;
 
 varying vec3 texCoord;
 varying vec3 lightColor;
+varying float seamWeight;
 
 uniform vec4 g_LightColor;
 uniform vec4 g_LightPosition;
@@ -22,6 +24,7 @@ void main() {
     vec4 modelSpacePos = vec4(inPosition, 1.0);
     gl_Position = g_WorldViewProjectionMatrix * modelSpacePos;
     texCoord = inTexCoord;
+    seamWeight = inTexCoord2;
 
     vec3 wvPosition = (g_WorldViewMatrix * modelSpacePos).xyz;
     vec3 wvNormal = normalize(g_NormalMatrix * inNormal);

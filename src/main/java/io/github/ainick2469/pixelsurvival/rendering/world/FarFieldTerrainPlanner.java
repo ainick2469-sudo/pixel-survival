@@ -3,14 +3,12 @@ package io.github.ainick2469.pixelsurvival.rendering.world;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkCoord;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 public final class FarFieldTerrainPlanner {
-    public Set<FarFieldTerrainRegionCoord> plan(ChunkCoord centerChunk, FarFieldTerrainSettings settings) {
+    public List<FarFieldTerrainTarget> plan(ChunkCoord centerChunk, FarFieldTerrainSettings settings) {
         if (centerChunk == null || settings == null) {
-            return Set.of();
+            return List.of();
         }
 
         int span = settings.regionSpanChunks();
@@ -18,22 +16,26 @@ public final class FarFieldTerrainPlanner {
         int maxRegionX = Math.floorDiv(centerChunk.x() + settings.endRadiusChunks() + span, span);
         int minRegionZ = Math.floorDiv(centerChunk.z() - settings.endRadiusChunks() - span, span);
         int maxRegionZ = Math.floorDiv(centerChunk.z() + settings.endRadiusChunks() + span, span);
-        int minDistanceSquared = settings.startRadiusChunks() * settings.startRadiusChunks();
-        int maxDistanceSquared = settings.endRadiusChunks() * settings.endRadiusChunks();
+        int innerDistanceSquared = settings.startRadiusChunks() * settings.startRadiusChunks();
+        int outerDistanceSquared = settings.endRadiusChunks() * settings.endRadiusChunks();
 
         List<RegionCandidate> candidates = new ArrayList<>();
         for (int regionX = minRegionX; regionX <= maxRegionX; regionX++) {
             for (int regionZ = minRegionZ; regionZ <= maxRegionZ; regionZ++) {
                 FarFieldTerrainRegionCoord regionCoord = new FarFieldTerrainRegionCoord(regionX, regionZ);
-                if (minDistanceSquared(centerChunk, regionCoord, settings) > maxDistanceSquared) {
+                int minDistanceSquared = minDistanceSquared(centerChunk, regionCoord, settings);
+                int maxDistanceSquared = maxDistanceSquared(centerChunk, regionCoord, settings);
+                if (minDistanceSquared > outerDistanceSquared) {
                     continue;
                 }
-                if (maxDistanceSquared(centerChunk, regionCoord, settings) < minDistanceSquared) {
+                if (maxDistanceSquared < innerDistanceSquared) {
                     continue;
                 }
 
                 candidates.add(new RegionCandidate(
-                        regionCoord,
+                        new FarFieldTerrainTarget(
+                                regionCoord,
+                                clipModeFor(minDistanceSquared, maxDistanceSquared, innerDistanceSquared, outerDistanceSquared)),
                         regionCenterDistanceSquared(centerChunk, regionCoord, settings),
                         manhattanDistance(centerChunk, regionCoord, settings)));
             }
@@ -41,14 +43,33 @@ public final class FarFieldTerrainPlanner {
 
         candidates.sort(Comparator.comparingDouble(RegionCandidate::distanceSquared)
                 .thenComparingInt(RegionCandidate::manhattanDistance)
-                .thenComparingInt(candidate -> candidate.regionCoord().x())
-                .thenComparingInt(candidate -> candidate.regionCoord().z()));
+                .thenComparingInt(candidate -> candidate.target().regionCoord().x())
+                .thenComparingInt(candidate -> candidate.target().regionCoord().z()));
 
-        LinkedHashSet<FarFieldTerrainRegionCoord> orderedTargets = new LinkedHashSet<>(candidates.size());
+        List<FarFieldTerrainTarget> orderedTargets = new ArrayList<>(candidates.size());
         for (RegionCandidate candidate : candidates) {
-            orderedTargets.add(candidate.regionCoord());
+            orderedTargets.add(candidate.target());
         }
-        return orderedTargets;
+        return List.copyOf(orderedTargets);
+    }
+
+    private FarFieldClipMode clipModeFor(
+            int minDistanceSquared,
+            int maxDistanceSquared,
+            int innerDistanceSquared,
+            int outerDistanceSquared) {
+        boolean clipsInner = minDistanceSquared < innerDistanceSquared;
+        boolean clipsOuter = maxDistanceSquared > outerDistanceSquared;
+        if (clipsInner && clipsOuter) {
+            return FarFieldClipMode.CLIP_BOTH;
+        }
+        if (clipsInner) {
+            return FarFieldClipMode.CLIP_INNER;
+        }
+        if (clipsOuter) {
+            return FarFieldClipMode.CLIP_OUTER;
+        }
+        return FarFieldClipMode.FULL_REGION;
     }
 
     private int minDistanceSquared(
@@ -106,7 +127,7 @@ public final class FarFieldTerrainPlanner {
     }
 
     private record RegionCandidate(
-            FarFieldTerrainRegionCoord regionCoord,
+            FarFieldTerrainTarget target,
             double distanceSquared,
             int manhattanDistance) {
     }

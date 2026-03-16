@@ -2,6 +2,8 @@ MaterialDef Terrain Array Lighting {
 
     MaterialParameters {
         TextureArray DiffuseMapArray
+        Color SeamMaskColor
+        Float SeamMaskStrength
     }
 
     Technique {

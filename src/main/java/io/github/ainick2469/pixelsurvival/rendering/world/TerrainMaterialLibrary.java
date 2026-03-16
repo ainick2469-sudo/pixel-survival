@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
 public final class TerrainMaterialLibrary {
+    private static final ColorRGBA DEFAULT_SEAM_MASK_COLOR = new ColorRGBA(0.56f, 0.72f, 0.88f, 1f);
+    private static final float DEFAULT_SEAM_MASK_STRENGTH = 0.15f;
     private final AssetManager assetManager;
     private final TerrainTexturePalette terrainTexturePalette;
     private final Map<TerrainMaterialKey, Material> materialCache = new ConcurrentHashMap<>();
@@ -62,6 +64,8 @@ public final class TerrainMaterialLibrary {
     private Material createSharedTerrainMaterial() {
         Material material = new Material(assetManager, "Materials/TerrainArrayLighting.j3md");
         material.setTexture("DiffuseMapArray", buildTextureArray());
+        material.setColor("SeamMaskColor", DEFAULT_SEAM_MASK_COLOR);
+        material.setFloat("SeamMaskStrength", DEFAULT_SEAM_MASK_STRENGTH);
         return material;
     }
 

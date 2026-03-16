@@ -25,9 +25,17 @@ import io.github.ainick2469.pixelsurvival.ui.PauseMenuController;
 import io.github.ainick2469.pixelsurvival.world.chunk.ChunkData;
 import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSampler;
 import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSamplerProvider;
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Locale;
 import java.util.List;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWVidMode;
@@ -36,6 +44,10 @@ import org.slf4j.LoggerFactory;
 
 public final class PixelSurvivalApplication extends SimpleApplication implements ScreenshotCaptureProcessor.ScreenshotFeedbackSink {
     private static final String SMOKE_MODE_PROPERTY = "pixelSurvival.smokeMode";
+    private static final String SMOKE_MOVE_FORWARD_SECONDS_PROPERTY = "pixelSurvival.smokeMoveForwardSeconds";
+    private static final String SMOKE_REPORT_PATH_PROPERTY = "pixelSurvival.smokeReportPath";
+    private static final String SMOKE_SCREENSHOT_SCHEDULE_SECONDS_PROPERTY = "pixelSurvival.smokeScreenshotScheduleSeconds";
+    private static final String SMOKE_QUIT_AFTER_SCREENSHOTS_PROPERTY = "pixelSurvival.smokeQuitAfterScreenshots";
     private static final String INPUT_TOGGLE_PAUSE_MENU = "pixel_survival_toggle_pause_menu";
     private static final String INPUT_QUIT_GAME = "pixel_survival_quit_game";
     private static final String INPUT_MENU_SELECT = "pixel_survival_menu_select";
@@ -44,6 +56,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
     private static final Logger LOGGER = LoggerFactory.getLogger(PixelSurvivalApplication.class);
     private static final List<GarbageCollectorMXBean> GARBAGE_COLLECTORS = ManagementFactory.getGarbageCollectorMXBeans();
     private static final long STATUS_MESSAGE_DURATION_NANOS = 4_000_000_000L;
+    private static final float DEBUG_FLY_CAMERA_MOVE_SPEED = 42f;
 
     private LocalHostSession session;
     private ChunkRenderManager chunkRenderManager;
@@ -64,6 +77,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
     private int windowedX = 160;
     private int windowedY = 90;
     private final boolean smokeMode = Boolean.getBoolean(SMOKE_MODE_PROPERTY);
+    private SmokeBenchmarkSession smokeBenchmarkSession;
 
     private final ActionListener inputListener = (name, isPressed, timePerFrame) -> {
         if (!isPressed) {
@@ -101,6 +115,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         chunkRenderManager.primeAround(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
         configureInput();
         attachHud();
+        smokeBenchmarkSession = createSmokeBenchmarkSession();
     }
 
     private void configureCamera() {
@@ -108,7 +123,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         float focusZ = 8f;
         float surfaceY = session.worldService().findSurfaceY((int) focusX, (int) focusZ);
 
-        flyCam.setMoveSpeed(42f);
+        flyCam.setMoveSpeed(DEBUG_FLY_CAMERA_MOVE_SPEED);
         flyCam.setRotationSpeed(2.5f);
         applyViewDistanceSettings();
         cam.setLocation(new Vector3f(focusX + 18f, surfaceY + 22f, focusZ + 20f));
@@ -233,6 +248,7 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | Sim " + runtimeMetrics.simulatedChunkCount()
                 + " | LoadQ " + runtimeMetrics.pendingLoadCount()
                 + " | MeshQ " + runtimeMetrics.pendingMeshBuildCount()
+                + " | FarQ " + runtimeMetrics.pendingFarRegionBuildCount()
                 + " | Faces " + runtimeMetrics.renderedFaceCount()
                 + " | Heap " + usedHeapMegabytes + " MB"
                 + " | ChunkMem " + chunkStorageMegabytes + " MB"
@@ -242,6 +258,9 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
                 + " | UI " + String.format("%.1f", smoothedUiUpdateMilliseconds) + " ms"
                 + " | Render+Engine " + String.format("%.1f", approximateRenderAndEngineMilliseconds) + " ms"
                 + " | GC " + String.format("%.1f", smoothedGarbageCollectionMilliseconds) + " ms"
+                + " | Move " + runtimeMetrics.motionProfile().name()
+                + " | FarRebuild/s " + runtimeMetrics.rebuiltFarRegionCountLastWindow()
+                + " | Anchor/s " + runtimeMetrics.farAnchorSnapCountLastWindow()
                 + "\nWASD move | Mouse look | Shift fast | F2/PrtSc screenshot | F11 fullscreen | Esc menu | F10 quit"
                 + buildStatusMessageSuffix();
     }
@@ -250,6 +269,9 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
     public void simpleUpdate(float timePerFrame) {
         long updateStartNanos = System.nanoTime();
         smoothedFrameTimeSeconds = (smoothedFrameTimeSeconds * 0.9f) + (timePerFrame * 0.1f);
+        if (smokeBenchmarkSession != null) {
+            smokeBenchmarkSession.update(timePerFrame);
+        }
         if (chunkRenderManager != null) {
             long chunkUpdateStartNanos = System.nanoTime();
             chunkRenderManager.update(cam.getLocation(), cam.getDirection(), horizontalViewDegrees());
@@ -277,6 +299,12 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         if (knownMilliseconds > totalUpdateMilliseconds * 2f) {
             smoothedUiUpdateMilliseconds = Math.max(0f, totalUpdateMilliseconds - smoothedChunkUpdateMilliseconds);
         }
+        if (smokeBenchmarkSession != null) {
+            smokeBenchmarkSession.captureSample();
+            if (smokeBenchmarkSession.shouldStop()) {
+                stop();
+            }
+        }
     }
 
     @Override
@@ -293,6 +321,9 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
 
     @Override
     public void destroy() {
+        if (smokeBenchmarkSession != null) {
+            smokeBenchmarkSession.close();
+        }
         if (chunkRenderManager != null) {
             chunkRenderManager.close();
         }
@@ -460,6 +491,10 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
         statusMessageExpiresAtNanos = System.nanoTime() + STATUS_MESSAGE_DURATION_NANOS;
     }
 
+    private SmokeBenchmarkSession createSmokeBenchmarkSession() {
+        return new SmokeBenchmarkSession(0f, new float[0], false, null).create();
+    }
+
     private String buildStatusMessageSuffix() {
         if (statusMessage == null) {
             return "";
@@ -473,6 +508,9 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
 
     @Override
     public void onScreenshotSaved(Path screenshotPath, boolean copiedToClipboard) {
+        if (smokeBenchmarkSession != null) {
+            smokeBenchmarkSession.onScreenshotSaved();
+        }
         LOGGER.info(
                 "Saved screenshot to {}{}",
                 screenshotPath,
@@ -485,7 +523,233 @@ public final class PixelSurvivalApplication extends SimpleApplication implements
 
     @Override
     public void onScreenshotFailed(Exception exception) {
+        if (smokeBenchmarkSession != null) {
+            smokeBenchmarkSession.onScreenshotFailed();
+        }
         LOGGER.error("Failed to save screenshot", exception);
         showStatusMessage("Screenshot failed: " + exception.getClass().getSimpleName());
+    }
+
+    private final class SmokeBenchmarkSession implements AutoCloseable {
+        private static final long SAMPLE_INTERVAL_NANOS = 1_000_000_000L;
+        private final BufferedWriter reportWriter;
+        private final float[] screenshotScheduleSeconds;
+        private final boolean quitAfterScheduledScreenshots;
+        private float remainingForwardMoveSeconds;
+        private float elapsedSeconds;
+        private long nextSampleAtNanos;
+        private int nextScheduledScreenshotIndex;
+        private int pendingScheduledScreenshotCount;
+        private boolean quitRequested;
+
+        private SmokeBenchmarkSession(
+                float remainingForwardMoveSeconds,
+                float[] screenshotScheduleSeconds,
+                boolean quitAfterScheduledScreenshots,
+                BufferedWriter reportWriter) {
+            this.remainingForwardMoveSeconds = remainingForwardMoveSeconds;
+            this.screenshotScheduleSeconds = screenshotScheduleSeconds;
+            this.quitAfterScheduledScreenshots = quitAfterScheduledScreenshots;
+            this.reportWriter = reportWriter;
+        }
+
+        private void update(float timePerFrame) {
+            elapsedSeconds += timePerFrame;
+            updateMovement(timePerFrame);
+            updateScheduledScreenshots();
+        }
+
+        private void updateMovement(float timePerFrame) {
+            if (remainingForwardMoveSeconds <= 0f) {
+                return;
+            }
+            float movementSlice = Math.min(remainingForwardMoveSeconds, timePerFrame);
+            remainingForwardMoveSeconds -= movementSlice;
+            Vector3f planarForward = cam.getDirection().clone();
+            planarForward.y = 0f;
+            if (planarForward.lengthSquared() < 0.0001f) {
+                planarForward.set(0f, 0f, -1f);
+            } else {
+                planarForward.normalizeLocal();
+            }
+            cam.setLocation(cam.getLocation().add(planarForward.mult(DEBUG_FLY_CAMERA_MOVE_SPEED * movementSlice)));
+        }
+
+        private void updateScheduledScreenshots() {
+            while (nextScheduledScreenshotIndex < screenshotScheduleSeconds.length
+                    && elapsedSeconds >= screenshotScheduleSeconds[nextScheduledScreenshotIndex]) {
+                if (screenshotCaptureProcessor != null) {
+                    screenshotCaptureProcessor.requestScreenshot();
+                    pendingScheduledScreenshotCount++;
+                }
+                nextScheduledScreenshotIndex++;
+            }
+        }
+
+        private void onScreenshotSaved() {
+            if (pendingScheduledScreenshotCount > 0) {
+                pendingScheduledScreenshotCount--;
+            }
+            updateQuitState();
+        }
+
+        private void onScreenshotFailed() {
+            if (pendingScheduledScreenshotCount > 0) {
+                pendingScheduledScreenshotCount--;
+            }
+            updateQuitState();
+        }
+
+        private boolean shouldStop() {
+            return quitRequested;
+        }
+
+        private void updateQuitState() {
+            if (quitAfterScheduledScreenshots
+                    && nextScheduledScreenshotIndex >= screenshotScheduleSeconds.length
+                    && pendingScheduledScreenshotCount == 0) {
+                quitRequested = true;
+            }
+        }
+
+        private void captureSample() {
+            if (reportWriter == null) {
+                return;
+            }
+            long now = System.nanoTime();
+            if (nextSampleAtNanos == 0L) {
+                nextSampleAtNanos = now;
+            }
+            if (now < nextSampleAtNanos) {
+                return;
+            }
+            nextSampleAtNanos = now + SAMPLE_INTERVAL_NANOS;
+
+            Runtime runtime = Runtime.getRuntime();
+            long usedHeapMegabytes = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            ChunkRuntimeMetrics runtimeMetrics = chunkRenderManager == null ? ChunkRuntimeMetrics.empty() : chunkRenderManager.metrics();
+            float framesPerSecond = 1f / Math.max(smoothedFrameTimeSeconds, 0.0001f);
+            long chunkStorageMegabytes = runtimeMetrics.estimatedLoadedChunkStorageBytes() / (1024 * 1024);
+            long cachedMeshStorageMegabytes = runtimeMetrics.estimatedCachedMeshStorageBytes() / (1024 * 1024);
+            float approximateRenderAndEngineMilliseconds = Math.max(
+                    0f,
+                    (smoothedFrameTimeSeconds * 1000f)
+                            - smoothedChunkUpdateMilliseconds
+                            - smoothedUiUpdateMilliseconds
+                            - smoothedGarbageCollectionMilliseconds);
+
+            try {
+                reportWriter.write("{\"timestamp\":\"" + Instant.now()
+                        + "\",\"renderDistance\":" + graphicsSettings.renderDistanceChunks()
+                        + ",\"fps\":" + Math.round(framesPerSecond)
+                        + ",\"frameMs\":" + String.format(Locale.US, "%.2f", smoothedFrameTimeSeconds * 1000f)
+                        + ",\"chunkMs\":" + String.format(Locale.US, "%.2f", smoothedChunkUpdateMilliseconds)
+                        + ",\"renderEngineMs\":"
+                        + String.format(Locale.US, "%.2f", approximateRenderAndEngineMilliseconds)
+                        + ",\"loaded\":" + runtimeMetrics.loadedChunkCount()
+                        + ",\"rendered\":" + runtimeMetrics.renderedChunkCount()
+                        + ",\"far\":" + runtimeMetrics.renderedFarRegionCount()
+                        + ",\"sections\":" + runtimeMetrics.renderedSectionCount()
+                        + ",\"loadQ\":" + runtimeMetrics.pendingLoadCount()
+                        + ",\"meshQ\":" + runtimeMetrics.pendingMeshBuildCount()
+                        + ",\"farQ\":" + runtimeMetrics.pendingFarRegionBuildCount()
+                        + ",\"heapMb\":" + usedHeapMegabytes
+                        + ",\"chunkMemMb\":" + chunkStorageMegabytes
+                        + ",\"meshCache\":" + runtimeMetrics.cachedMeshVariantCount()
+                        + ",\"meshMemMb\":" + cachedMeshStorageMegabytes
+                        + ",\"motionProfile\":\"" + runtimeMetrics.motionProfile().name()
+                        + "\",\"farAnchorSnaps\":" + runtimeMetrics.farAnchorSnapCountLastWindow()
+                        + ",\"farRebuilds\":" + runtimeMetrics.rebuiltFarRegionCountLastWindow()
+                        + "}");
+                reportWriter.newLine();
+                reportWriter.flush();
+            } catch (IOException exception) {
+                LOGGER.error("Failed to write smoke benchmark sample", exception);
+            }
+        }
+
+        @Override
+        public void close() {
+            if (reportWriter == null) {
+                return;
+            }
+            try {
+                reportWriter.close();
+            } catch (IOException exception) {
+                LOGGER.warn("Failed to close smoke benchmark writer", exception);
+            }
+        }
+
+        private SmokeBenchmarkSession create() {
+            float moveForwardSeconds = readFloatProperty(SMOKE_MOVE_FORWARD_SECONDS_PROPERTY);
+            String reportPathText = System.getProperty(SMOKE_REPORT_PATH_PROPERTY);
+            float[] screenshotScheduleSeconds = readFloatListProperty(SMOKE_SCREENSHOT_SCHEDULE_SECONDS_PROPERTY);
+            boolean quitAfterScreenshots = Boolean.getBoolean(SMOKE_QUIT_AFTER_SCREENSHOTS_PROPERTY);
+            if ((reportPathText == null || reportPathText.isBlank())
+                    && moveForwardSeconds <= 0f
+                    && screenshotScheduleSeconds.length == 0) {
+                return null;
+            }
+
+            BufferedWriter reportWriter = null;
+            if (reportPathText != null && !reportPathText.isBlank()) {
+                try {
+                    Path reportPath = Path.of(reportPathText.trim());
+                    if (reportPath.getParent() != null) {
+                        Files.createDirectories(reportPath.getParent());
+                    }
+                    reportWriter = Files.newBufferedWriter(
+                            reportPath,
+                            StandardCharsets.UTF_8,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                            StandardOpenOption.WRITE);
+                } catch (IOException exception) {
+                    LOGGER.error("Failed to open smoke benchmark report path {}", reportPathText, exception);
+                }
+            }
+            return new SmokeBenchmarkSession(
+                    moveForwardSeconds,
+                    screenshotScheduleSeconds,
+                    quitAfterScreenshots,
+                    reportWriter);
+        }
+
+        private float readFloatProperty(String propertyName) {
+            String propertyValue = System.getProperty(propertyName);
+            if (propertyValue == null || propertyValue.isBlank()) {
+                return 0f;
+            }
+            try {
+                return Math.max(0f, Float.parseFloat(propertyValue.trim()));
+            } catch (NumberFormatException ignored) {
+                return 0f;
+            }
+        }
+
+        private float[] readFloatListProperty(String propertyName) {
+            String propertyValue = System.getProperty(propertyName);
+            if (propertyValue == null || propertyValue.isBlank()) {
+                return new float[0];
+            }
+
+            List<Float> values = new ArrayList<>();
+            for (String rawValue : propertyValue.split(",")) {
+                if (rawValue == null || rawValue.isBlank()) {
+                    continue;
+                }
+                try {
+                    values.add(Math.max(0f, Float.parseFloat(rawValue.trim())));
+                } catch (NumberFormatException ignored) {
+                    // Ignore invalid schedule entries so smoke mode still proceeds.
+                }
+            }
+            values.sort(Float::compare);
+            float[] schedule = new float[values.size()];
+            for (int index = 0; index < values.size(); index++) {
+                schedule[index] = values.get(index);
+            }
+            return schedule;
+        }
     }
 }

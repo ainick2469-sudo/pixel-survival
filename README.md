@@ -101,16 +101,21 @@ The repo now also includes a sample imported block generated from a local `custo
   - `SURFACE` for mid-distance chunks
 - The outer distance ring now renders through a separate stitched far-field terrain path that builds coarse heightmap-style region meshes instead of normal chunk meshes.
 - The far-field path keeps using the shared terrain texture-array material, so imported `.voxelblock` grass and stone visuals still come through the normal block registry pipeline.
+- Far-field target planning is now clip-aware, so unchanged interior far regions stay clean across anchor snaps while only new or boundary-touching regions are dirtied and rebuilt.
+- The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block coarse cell, which reduces the obvious giant box-mountain look near the far seam.
+- Chunk and far-field completion work now use motion-aware time budgets, so moving, settling, and stationary states spend different amounts of main-thread attach time instead of draining large completion bursts in one frame.
 - Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
 - The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
 - The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` shrinks detailed chunk coverage more aggressively and remains strictly experimental.
 - The HUD now exposes bounded session mesh cache counts and estimated mesh-cache memory, which makes it easier to tell whether a high-distance run is reusing recent terrain or blowing out residency.
+- The HUD now also reports far-field queue depth, motion profile, far anchor snaps per second, and far-region rebuilds per second so high-distance tuning is grounded in the live seam/runtime behavior instead of only FPS.
 - A coarse `HORIZON` prototype seam still exists in code, but it is still disabled in the live runtime because the old approximation introduced visible cracks and holes in distant terrain.
 - The HUD now exposes chunk-memory usage plus chunk/UI/render+engine/GC timing so performance tuning is based on actual runtime data instead of only FPS.
 - Chunk target planning now reuses cached radius-offset plans and only refreshes full target sets when the player crosses into a new chunk or changes graphics settings.
 - Runtime face-count metrics are now tracked incrementally instead of rescanning every rendered chunk node every frame.
 - High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
 - The HUD now exposes runtime counts for loaded chunks, rendered chunks, rendered far regions, terrain sections, simulated chunk targets, queue depth, and heap use.
+- `scripts/desktop_smoke.ps1` now drives smoke validation through startup render-distance override, in-game scheduled framebuffer screenshots, and optional JSONL motion reports instead of brittle menu automation and OS-level window capture.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.

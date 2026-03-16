@@ -1,5 +1,75 @@
 # Devlog
 
+## 2026-03-16 03:00:12 MDT
+
+- Date/Time: 2026-03-16 03:00:12 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Stabilize `192` distant horizons under motion by making far-field refreshes clip-aware, reducing ultra-distance boxiness, time-budgeting completion work, and replacing flaky smoke capture with in-game scheduled screenshots plus motion reports.
+- Completed Work:
+  - Added `FarFieldClipMode` plus `FarFieldTerrainTarget` so the planner now classifies far regions as `FULL_REGION`, `CLIP_INNER`, `CLIP_OUTER`, or `CLIP_BOTH` instead of treating every target as an identical rebuild candidate.
+  - Reworked `FarFieldTerrainRenderer.refreshTargets()` so unchanged interior regions survive anchor snaps, only new or seam-touching regions are dirtied, and pending far-region work is canceled per region instead of globally flushing the whole outer ring.
+  - Added rolling far-anchor / far-rebuild counters plus motion-profile telemetry to `ChunkRuntimeMetrics` and the HUD so the live runtime now shows whether seam churn is actually happening.
+  - Added `ChunkMotionProfile` and moved chunk/far completion work onto motion-aware time budgets so moving, settling, and still states no longer drain the same amount of completion work on the main thread every frame.
+  - Reworked the `192` ultra-distance far-field path so `16 x 16`-block coarse cells now render through subdivided `2 x 2` height patches with sampled normals and seam-mask weights instead of one flat top quad per cell.
+  - Extended the shared terrain shader path to accept a seam-weight channel and blend far-field lighting subtly toward the sky color near the inner seam without adding transparency or a heavy fog wall.
+  - Hardened `scripts/desktop_smoke.ps1` by replacing failing OS-level window capture with in-game scheduled framebuffer screenshots and optional JSONL motion reports driven through smoke-mode JVM properties.
+  - Added regression coverage for planner clip-mode classification, refresh-plan diffing, ultra-distance patch/seam behavior, and the `192` render-distance cap.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `scripts/desktop_smoke.ps1`
+  - `src/main/java/.../app/PixelSurvivalApplication.java`
+  - `src/main/java/.../rendering/world/ChunkMeshSectionData.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/ChunkRuntimeMetrics.java`
+  - `src/main/java/.../rendering/world/ChunkMotionProfile.java`
+  - `src/main/java/.../rendering/world/FarFieldClipMode.java`
+  - `src/main/java/.../rendering/world/FarFieldMeshSectionBuilder.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainMeshBuilder.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainPlanner.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainTarget.java`
+  - `src/main/java/.../rendering/world/TerrainMaterialLibrary.java`
+  - `src/main/resources/Materials/TerrainArrayLighting.j3md`
+  - `src/main/resources/Shaders/TerrainArrayLighting.vert`
+  - `src/main/resources/Shaders/TerrainArrayLighting.frag`
+  - `src/test/java/.../rendering/world/FarFieldTerrainMeshBuilderTest.java`
+  - `src/test/java/.../rendering/world/FarFieldTerrainPlannerTest.java`
+  - `src/test/java/.../rendering/world/FarFieldTerrainRendererTest.java`
+- Systems Touched:
+  - far-field target planning
+  - far-region refresh diffing
+  - ultra-distance far-field mesh generation
+  - chunk/far completion budgeting
+  - terrain shader seam masking
+  - smoke-mode screenshot / benchmark automation
+  - runtime telemetry HUD
+  - runtime documentation
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 48 -Restart -QuitAfterCapture -WaitSeconds 12`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 96 -Restart -QuitAfterCapture -WaitSeconds 12`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 192 -Restart -QuitAfterCapture -WaitSeconds 12`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -RenderDistance 192 -Restart -QuitAfterCapture -WaitSeconds 25 -MoveForwardSeconds 15 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-motion.jsonl -CaptureSeries`
+- Current Playable State:
+  - The far-field ring no longer treats every anchor snap like a whole-ring refresh, and the ultra-distance seam now reads more like a coarse stitched heightfield than a single giant flat plateau per cell.
+  - Smoke automation now proves `48`, `96`, and `192` startup through in-game screenshots, and it can capture a `192` movement benchmark report without getting trapped by flaky OS-level capture.
+  - `192` is still experimental, but the movement benchmark now settles into much healthier traversal samples after the initial fill burst instead of staying in the older single-digit frame-rate failure state.
+- Known Issues:
+  - The initial fill window at `192` is still expensive, and still-state catch-up can trigger another visible cost spike while the detailed chunk ring finishes attaching after movement stops.
+  - The far-field renderer still only represents the current heightmap-style world. It remains explicitly non-authoritative and non-general for future caves, floating mountains, or cloud cities.
+- Next Tasks:
+  - Cut the initial-fill and post-movement catch-up spikes further by tightening queue prioritization and per-phase background budgets now that the clip-aware far-field refresh path is in place.
+  - Continue reducing far-region mesh cost and upload pressure without reintroducing the old cracked `HORIZON` seam or pretending the heightmap far field solves future 3D terrain.
+- Risks/Technical Debt:
+  - The new seam mask is intentionally subtle. If future art direction pushes heavier atmospheric perspective, it should be treated as a deliberate visual-system change instead of silently growing from this performance-driven blend.
+  - The smoke harness is now reliable because the game captures its own framebuffer, but that added JVM properties that should remain documented when launcher flows or CI smoke scripts change later.
+
 ## 2026-03-15 23:30:34 MDT
 
 - Date/Time: 2026-03-15 23:30:34 MDT

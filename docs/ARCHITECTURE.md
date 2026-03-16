@@ -147,7 +147,10 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `FarFieldTerrainRenderer` now owns the outer distance ring through coarse region meshes instead of normal chunk meshes.
 - Far-field regions sample the current heightmap generator directly through `FarFieldTerrainSampler`, so authoritative world/chunk data stays unchanged and only the visual outer ring is approximated.
 - Far-field regions batch through the same shared terrain texture-array material path, which keeps imported `.voxelblock` grass-top, grass-lip, and stone textures aligned with the normal block registry flow.
+- `FarFieldTerrainPlanner` now returns clip-aware far targets instead of bare region coords, so interior regions that stay fully inside the ring can remain clean across anchor snaps while seam-touching regions are rebuilt with boundary clipping.
 - The far-field path uses coarse snapped region anchors plus overlap at the seam with the detailed chunk ring so the near/far boundary stays stable instead of thrashing every chunk movement.
+- Ultra-distance `192` rendering no longer uses one flat top quad per `16 x 16`-block coarse cell. The mesh builder now emits a `2 x 2` height patch with sampled normals and per-vertex seam-mask weights for that path, which reduces the obvious box-mountain look near the seam.
+- Main-thread completion work is now motion-aware across both `ChunkRenderManager` and `FarFieldTerrainRenderer`, so moving, settling, and stationary states consume different attach budgets instead of draining large completion bursts in one frame.
 - The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
 - A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
 - The next far-distance work should focus on queue tuning and further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
@@ -157,6 +160,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - `TerrainMaterialLibrary` owns the shared terrain texture-array material plus any fallback debug-color materials so block visuals remain data-driven and renderer changes stay localized.
 - The terrain material path now uses crisp close-up filtering, mipmaps, and a shared texture-array material instead of one texture material per visible face family.
 - Rendered face totals and rendered section totals are now tracked incrementally across both chunk meshes and far-field region meshes instead of rescanning every rendered geometry every frame.
+- Runtime telemetry now also tracks motion profile, pending far-region builds, far anchor snaps per second, and far-region rebuilds per second so high-distance seam tuning can be measured directly.
 
 ## Block visual pipeline
 

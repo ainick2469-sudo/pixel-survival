@@ -1,9 +1,13 @@
 param(
   [ValidateSet(48, 96, 192)][int]$RenderDistance = 48,
   [int]$WaitSeconds = 12,
+  [int]$MoveForwardSeconds = 0,
+  [string]$ReportPath,
   [switch]$Launch,
   [switch]$Restart,
-  [switch]$QuitAfterCapture
+  [switch]$QuitAfterCapture,
+  [switch]$CaptureSeries,
+  [switch]$KeepOpen
 )
 
 Set-StrictMode -Version Latest
@@ -14,10 +18,14 @@ $launcherPath = Join-Path $PSScriptRoot "launch_desktop.vbs"
 $toolsDir = Join-Path $repoRoot "..\\pixel-survival-tools"
 $javaPath = Join-Path $toolsDir "jdk-21.0.10+7\\bin\\java.exe"
 $jarPath = Join-Path $repoRoot "build\\libs\\pixel-survival-desktop.jar"
-$screenshotScript = "C:\Users\nickb\.codex\skills\screenshot\scripts\take_screenshot.ps1"
+$screenshotDir = Join-Path $repoRoot "screenshots"
 $windowTitle = "Pixel Survival"
 $renderDistanceProperty = "pixelSurvival.renderDistanceChunks"
 $smokeModeProperty = "pixelSurvival.smokeMode"
+$smokeMoveForwardSecondsProperty = "pixelSurvival.smokeMoveForwardSeconds"
+$smokeReportPathProperty = "pixelSurvival.smokeReportPath"
+$smokeScreenshotScheduleProperty = "pixelSurvival.smokeScreenshotScheduleSeconds"
+$smokeQuitAfterScreenshotsProperty = "pixelSurvival.smokeQuitAfterScreenshots"
 
 Add-Type -AssemblyName Microsoft.VisualBasic
 Add-Type -AssemblyName System.Windows.Forms
@@ -185,8 +193,25 @@ function Build-PixelSurvival {
   & "C:\Windows\System32\wscript.exe" $launcherPath /buildonly
 }
 
+function Get-ScreenshotPaths {
+  if (-not (Test-Path $screenshotDir)) {
+    return @()
+  }
+  return @(
+    Get-ChildItem $screenshotDir -Filter "pixel-survival-*.png" |
+      Sort-Object LastWriteTime |
+      Select-Object -ExpandProperty FullName
+  )
+}
+
 function Launch-PixelSurvival {
-  param([int]$TargetRenderDistance)
+  param(
+    [int]$TargetRenderDistance,
+    [int]$MoveSeconds,
+    [string]$BenchmarkReportPath,
+    [string]$ScreenshotSchedule,
+    [bool]$QuitAfterScheduledScreenshots
+  )
 
   if (-not (Test-Path $javaPath)) {
     throw "java.exe not found at $javaPath"
@@ -200,20 +225,20 @@ function Launch-PixelSurvival {
     "-Dfile.encoding=UTF-8",
     "-D$smokeModeProperty=true",
     "-D$renderDistanceProperty=$TargetRenderDistance",
+    "-D$smokeScreenshotScheduleProperty=$ScreenshotSchedule",
     "-jar",
     $jarPath
   )
+  if ($MoveSeconds -gt 0) {
+    $arguments = @("-D$smokeMoveForwardSecondsProperty=$MoveSeconds") + $arguments
+  }
+  if (-not [string]::IsNullOrWhiteSpace($BenchmarkReportPath)) {
+    $arguments = @("-D$smokeReportPathProperty=$BenchmarkReportPath") + $arguments
+  }
+  if ($QuitAfterScheduledScreenshots) {
+    $arguments = @("-D$smokeQuitAfterScreenshotsProperty=true") + $arguments
+  }
   return Start-Process -FilePath $javaPath -WorkingDirectory $repoRoot -ArgumentList $arguments -WindowStyle Hidden -PassThru
-}
-
-function Capture-Window {
-  param([System.Diagnostics.Process]$Process)
-
-  & "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" `
-    -ExecutionPolicy Bypass `
-    -File $screenshotScript `
-    -Mode temp `
-    -WindowHandle $Process.MainWindowHandle
 }
 
 if ($Restart) {
@@ -221,24 +246,51 @@ if ($Restart) {
   $Launch = $true
 }
 
+$baselineScreenshots = Get-ScreenshotPaths
+$finalCaptureSeconds = [Math]::Max(1, $WaitSeconds)
+$screenshotSchedule = if ($CaptureSeries -and $finalCaptureSeconds -gt 1) {
+  "1,$finalCaptureSeconds"
+} else {
+  "$finalCaptureSeconds"
+}
+$quitAfterScheduledScreenshots = $QuitAfterCapture -and (-not $KeepOpen)
+
 $launchedProcessId = 0
 $existingProcess = Get-PixelSurvivalProcess
 if ($Launch -or $null -eq $existingProcess) {
-  $launchedProcess = Launch-PixelSurvival -TargetRenderDistance $RenderDistance
+  $launchedProcess = Launch-PixelSurvival `
+    -TargetRenderDistance $RenderDistance `
+    -MoveSeconds $MoveForwardSeconds `
+    -BenchmarkReportPath $ReportPath `
+    -ScreenshotSchedule $screenshotSchedule `
+    -QuitAfterScheduledScreenshots $quitAfterScheduledScreenshots
   $launchedProcessId = $launchedProcess.Id
 }
 
 $process = Wait-ForWindow -ProcessId $launchedProcessId -Title $windowTitle
 Focus-Window -Process $process
-Start-Sleep -Seconds $WaitSeconds
-$process = Wait-ForWindow -ProcessId $launchedProcessId -Title $windowTitle -TimeoutSeconds 10
-Focus-Window -Process $process
 Resume-GameIfPauseMenuIsOpen -Process $process
-$screenshotPath = Capture-Window -Process $process
 
-if ($QuitAfterCapture) {
-  $process = Get-PixelSurvivalProcess -ProcessId $launchedProcessId
-  Stop-Process -Id $process.Id -Force
+if ($quitAfterScheduledScreenshots -and $launchedProcessId -gt 0) {
+  Wait-Process -Id $launchedProcessId -Timeout ([Math]::Max(20, $finalCaptureSeconds + $MoveForwardSeconds + 20))
+} else {
+  Start-Sleep -Seconds ($finalCaptureSeconds + 2)
 }
 
-Write-Output $screenshotPath
+if (-not $KeepOpen -and $QuitAfterCapture -and $launchedProcessId -eq 0) {
+  $process = Get-PixelSurvivalProcess -ProcessId $launchedProcessId
+  if ($null -ne $process) {
+    Stop-Process -Id $process.Id -Force
+  }
+}
+
+Start-Sleep -Milliseconds 500
+
+if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
+  Write-Output $ReportPath
+}
+
+$captures = Get-ScreenshotPaths | Where-Object { $_ -notin $baselineScreenshots }
+foreach ($capture in $captures) {
+  Write-Output $capture
+}
