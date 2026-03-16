@@ -24,9 +24,9 @@ public final class FarFieldTerrainRenderer {
     private static final int MIN_PENDING_REGION_BUILDS = 12;
     private static final int MAX_PENDING_REGION_BUILDS = 48;
     private static final long MOVING_ATTACH_BUDGET_NANOS = 1_000_000L;
-    private static final long SETTLING_ATTACH_BUDGET_NANOS = 2_000_000L;
     private static final long STILL_ATTACH_BUDGET_NANOS = 4_000_000L;
     private static final long COUNTER_WINDOW_NANOS = 1_000_000_000L;
+    private static final int MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS = 96;
 
     private final Node farTerrainRoot = new Node("far_terrain_root");
     private final TerrainMaterialLibrary terrainMaterialLibrary;
@@ -46,6 +46,7 @@ public final class FarFieldTerrainRenderer {
     private FarFieldTerrainSettings activeSettings;
     private ChunkMotionProfile motionProfile = ChunkMotionProfile.STILL;
     private Vector3f priorityDirection = new Vector3f(0f, 0f, 1f);
+    private float catchUpScale;
     private int totalRenderedFaceCount;
     private int totalRenderedSectionCount;
     private long nextCounterWindowNanos;
@@ -74,9 +75,15 @@ public final class FarFieldTerrainRenderer {
         }
 
         refreshTargets(centerChunk, settings);
-        for (FarFieldTerrainTarget target : activeTargets) {
+        int primeLimit = synchronousPrimeRegionLimit(settings);
+        int primedRegionCount = 0;
+        for (FarFieldTerrainTarget target : prioritizedTargets()) {
+            if (primedRegionCount >= primeLimit) {
+                break;
+            }
             attachRegionMesh(meshBuilder.buildRegionMesh(target, activeAnchorChunk, activeSettings));
             dirtyRegions.remove(target.regionCoord());
+            primedRegionCount++;
         }
     }
 
@@ -84,7 +91,8 @@ public final class FarFieldTerrainRenderer {
             ChunkCoord centerChunk,
             FarFieldTerrainSettings settings,
             ChunkMotionProfile motionProfile,
-            Vector3f priorityDirection) {
+            Vector3f priorityDirection,
+            float catchUpScale) {
         if (settings == null || centerChunk == null) {
             clear();
             return;
@@ -92,6 +100,7 @@ public final class FarFieldTerrainRenderer {
 
         rollCounterWindow(System.nanoTime());
         this.motionProfile = motionProfile;
+        this.catchUpScale = catchUpScale;
         if (priorityDirection != null && priorityDirection.lengthSquared() > 0.0001f) {
             this.priorityDirection = priorityDirection.normalize();
         }
@@ -398,6 +407,10 @@ public final class FarFieldTerrainRenderer {
         if (right == null) {
             return -1;
         }
+        int bandOrder = Integer.compare(targetPriorityBand(left), targetPriorityBand(right));
+        if (bandOrder != 0) {
+            return bandOrder;
+        }
         double leftDistanceSquared = regionDistanceSquared(left.regionCoord());
         double rightDistanceSquared = regionDistanceSquared(right.regionCoord());
         int distanceOrder = Double.compare(leftDistanceSquared, rightDistanceSquared);
@@ -432,11 +445,7 @@ public final class FarFieldTerrainRenderer {
     }
 
     private long attachBudgetNanos() {
-        return switch (motionProfile) {
-            case MOVING -> MOVING_ATTACH_BUDGET_NANOS;
-            case SETTLING -> SETTLING_ATTACH_BUDGET_NANOS;
-            case STILL -> STILL_ATTACH_BUDGET_NANOS;
-        };
+        return MOVING_ATTACH_BUDGET_NANOS + Math.round((STILL_ATTACH_BUDGET_NANOS - MOVING_ATTACH_BUDGET_NANOS) * catchUpScale);
     }
 
     private void rollCounterWindow(long now) {
@@ -456,12 +465,23 @@ public final class FarFieldTerrainRenderer {
 
     private int maxPendingRegionBuilds() {
         int requestedBudget = activeSettings == null ? MIN_PENDING_REGION_BUILDS : Math.max(16, activeSettings.endRadiusChunks() / 4);
-        float scale = switch (motionProfile) {
-            case MOVING -> 0.5f;
-            case SETTLING -> 0.75f;
-            case STILL -> 1f;
-        };
+        float scale = 0.5f + (0.5f * catchUpScale);
         return Math.max(MIN_PENDING_REGION_BUILDS, Math.min(MAX_PENDING_REGION_BUILDS, Math.round(requestedBudget * scale)));
+    }
+
+    private int targetPriorityBand(FarFieldTerrainTarget target) {
+        return switch (target.clipMode()) {
+            case CLIP_BOTH, CLIP_INNER -> 0;
+            case CLIP_OUTER -> 1;
+            case FULL_REGION -> 2;
+        };
+    }
+
+    private int synchronousPrimeRegionLimit(FarFieldTerrainSettings settings) {
+        if (settings.endRadiusChunks() <= 96) {
+            return activeTargets.size();
+        }
+        return Math.min(MAX_SYNCHRONOUS_ULTRA_PRIME_REGIONS, activeTargets.size());
     }
 
     record RefreshTargetsPlan(

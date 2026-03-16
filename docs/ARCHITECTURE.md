@@ -151,9 +151,12 @@ This matters because future caves, floating mountains, and walkable cloud region
 - The far-field path uses coarse snapped region anchors plus overlap at the seam with the detailed chunk ring so the near/far boundary stays stable instead of thrashing every chunk movement.
 - Ultra-distance `192` rendering no longer uses one flat top quad per `16 x 16`-block coarse cell. The mesh builder now emits a `2 x 2` height patch with sampled normals and per-vertex seam-mask weights for that path, which reduces the obvious box-mountain look near the seam.
 - Main-thread completion work is now motion-aware across both `ChunkRenderManager` and `FarFieldTerrainRenderer`, so moving, settling, and stationary states consume different attach budgets instead of draining large completion bursts in one frame.
+- `192` startup no longer synchronously primes the entire stitched far-field ring. The far-field renderer now primes only a limited seam-priority subset up front and leaves the rest dirty for async catch-up.
+- Ultra-distance chunk scheduling is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` work bands so the traversal-critical detailed ring stays prioritized while outer detailed promotion is deferred during movement.
+- Still-state catch-up now ramps over several seconds instead of instantly switching to the maximum attach/build budget the moment movement stops, which makes post-movement recovery less bursty.
 - The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
 - A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
-- The next far-distance work should focus on queue tuning and further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
+- The next far-distance work should focus on reducing initial-fill and still-state catch-up spikes plus further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
 - Interior face visibility checks now resolve against the local `ChunkData` first and only fall back to world-service lookups at chunk boundaries.
 - `ChunkData` now stores voxels through a palette-compressed index buffer instead of a raw `BlockId[]`, which reduces loaded-world memory pressure and gives a clear path toward later palette/disk serialization.
 - Hidden-face culling now works against authoritative world block lookups instead of waiting for all neighbor meshes to be resident, which keeps border meshes correct while allowing more aggressive chunk eviction.
@@ -213,11 +216,11 @@ Why this matters:
 - `PauseMenuController` owns the current in-game pause/options UI state.
 - `Esc` now routes through that pause/options flow instead of acting as a raw mouse-capture toggle.
 - Render distance changes are applied live to the chunk runtime, far-field region planner, and camera far clip so horizons can expand without restarting the game.
-- The current default is `48` chunks and the experimental ceiling is `96` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
-- At high render distances the detailed chunk ring now stops earlier and the far-field renderer takes over the outer ring, which more than halves the detailed chunk target count at both `48` and `96` settings.
+- The current default is `48` chunks and the experimental ceiling is `192` chunks. The runtime now favors stable buffered residency plus capped background work over aggressive view-cone eviction so turning remains smooth.
+- At high render distances the detailed chunk ring now stops earlier and the far-field renderer takes over the outer ring. `48` keeps a `32`-chunk detailed ring, `96` keeps `62`, and `192` shrinks the detailed ring more aggressively while remaining explicitly experimental.
 - The load-radius buffer is now intentionally attached to the smaller detailed chunk ring at high render distances so horizon rendering does not automatically keep an oversized extra ring of authoritative chunks resident.
 - Render distance no longer implies camera-facing unload behavior. Stable buffered residency is preserved first, and additional far-distance representations stay isolated from authoritative chunk residency.
-- The HUD now reports chunk-memory usage, rendered chunk count, rendered far-region count, rendered terrain-section count, and a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time.
+- The HUD now reports chunk-memory usage, rendered chunk count, rendered far-region count, rendered terrain-section count, a basic frame-time split for chunk work, UI work, approximate render/engine work, and garbage collection time, plus high-distance tuning signals such as motion profile, far anchor snaps, far-region rebuilds, mesh-cache size, and mesh-cache memory.
 
 ## Registry model
 

@@ -172,6 +172,9 @@ Important current truths:
 - Raw authoritative chunks are unloaded again outside the active buffered load radius, while a bounded session mesh cache keeps recent chunk mesh variants available for fast reattachment during the same play session.
 - The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block far-field cell, which reduces the obvious box-mountain look at the seam.
 - Chunk and far-field completion work now use motion-aware time budgets, and the HUD now exposes motion profile, pending far-region builds, anchor snaps per second, and far-region rebuilds per second.
+- `192` startup no longer synchronously primes the full stitched far-field ring. The far-field renderer now primes only a limited seam-priority subset up front and leaves the rest dirty for async catch-up.
+- Ultra-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes nearby playability and seam continuity while outer detailed promotion is deferred.
+- Still-state catch-up now ramps over several seconds instead of immediately going full throttle when motion stops, which reduces the worst post-movement attach/build bursts.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
 - The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, and coarse timing splits.
 - `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, not brittle menu automation or OS-level window capture.
@@ -200,18 +203,20 @@ Important warning:
 - Do not casually re-enable it unless the continuity problem is actually solved.
 
 Why performance is still not where the user wants it:
-- High render distance is materially better now, but `96` and especially `192` are still expensive while moving because the mixed detailed-chunk plus far-field path still needs tighter queue/back-pressure tuning and likely further far-region mesh reduction.
+- High render distance is materially better now, but `96` and especially `192` are still expensive during initial fill and while the detailed ring catches up after movement.
+- The mixed detailed-chunk plus far-field path no longer does the earlier whole-ring far rebuilds, but attach/upload pressure and outer detailed promotion can still spike.
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- add movement-safe queue prioritization and adaptive background-work budgeting around the mixed detailed-chunk plus far-field path
+- phase detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and keep reducing the cost of the remaining initial-fill window
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
 - not the old cracked `HORIZON` cell approach
 
 Fresh benchmark note:
-- The current `192` movement smoke report still shows an expensive initial fill window, but once the first burst settles the moving samples sit far above the old single-digit traversal behavior. The next pass should focus on reducing initial-fill hitching and still-state catch-up bursts rather than reverting the current clip-aware far-field architecture.
+- The latest `192` movement smoke report shows the startup far-field prime landing at `far=64` on the first sample instead of immediately building the full outer ring, and moving samples after the first burst now sit in the low hundreds of FPS instead of collapsing into the old single digits.
+- Still-state catch-up remains the next obvious bottleneck, and the final screenshot capture itself can distort the last reported frame because framebuffer capture costs render time.
 
 The user wants:
 - strong performance at `48`
@@ -435,7 +440,7 @@ Important note:
 - live runtime now routes away from it
 
 Current known likely next commit themes:
-- tighter movement-safe chunk queue prioritization / back-pressure tuning
+- tighter phased detailed-ring promotion and lower attach/upload pressure after movement stops
 - more efficient far-region planning/meshing without giving up continuity
 - more importer polish if the external app evolves further
 
@@ -468,7 +473,7 @@ If taking over immediately, do this in order:
 4. Do NOT re-enable the old cracked `HORIZON` tier.
 5. Keep the shared terrain batching path intact and measure it at `48` first.
 6. Keep the `.voxelblock` importer as the authoring bridge from the external app into runtime assets.
-7. Treat the stitched far-field renderer as the current live outer-ring path, the bounded session mesh cache as the current revisit optimization, and start the next optimization pass with movement-safe queue tuning plus further far-region efficiency work.
+7. Treat the stitched far-field renderer as the current live outer-ring path, the bounded session mesh cache as the current revisit optimization, and start the next optimization pass by trimming initial-fill and still-state catch-up spikes without regressing seam continuity.
 
 ==================================================
 PROMPT TO FOLLOW

@@ -14,6 +14,7 @@ import io.github.ainick2469.pixelsurvival.world.gen.FarFieldTerrainSampler;
 import io.github.ainick2469.pixelsurvival.world.sim.AuthoritativeWorldService;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +49,9 @@ public final class ChunkRenderManager implements AutoCloseable {
     private static final long MOVING_MESH_ATTACH_BUDGET_NANOS = 2_000_000L;
     private static final long SETTLING_MESH_ATTACH_BUDGET_NANOS = 4_000_000L;
     private static final long STILL_MESH_ATTACH_BUDGET_NANOS = 8_000_000L;
+    private static final long STILL_CATCH_UP_RAMP_NANOS = 3_000_000_000L;
+    private static final int MIN_CORE_PRIORITY_RADIUS_CHUNKS = 24;
+    private static final int MAX_CORE_PRIORITY_RADIUS_CHUNKS = 32;
 
     private final Node terrainRoot = new Node("terrain_root");
     private final AuthoritativeWorldService worldService;
@@ -77,11 +81,13 @@ public final class ChunkRenderManager implements AutoCloseable {
     private int totalRenderedFaceCount;
     private int totalRenderedSectionCount;
     private long nextMetricsRefreshNanos;
+    private long currentUpdateNanos;
     private ChunkMotionProfile motionProfile = ChunkMotionProfile.STILL;
     private long lastCenterChunkMovementNanos;
     private int lastMovementDeltaChunkX;
     private int lastMovementDeltaChunkZ;
     private Vector3f priorityDirection = new Vector3f(0f, 0f, 1f);
+    private FarFieldTerrainSettings activeFarFieldSettings;
 
     public ChunkRenderManager(
             Node rootNode,
@@ -127,8 +133,9 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     public void primeAround(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
+        currentUpdateNanos = System.nanoTime();
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
-        updateMotionProfile(centerChunk, cameraDirection, System.nanoTime());
+        updateMotionProfile(centerChunk, cameraDirection, currentUpdateNanos);
         ChunkRuntimeConfig startupConfig = activeChunkRuntimeConfig(runtimeConfig).startupPrimeConfig();
         ChunkVisibilityPlanner.RuntimeTargets initialTargets = visibilityPlanner.plan(centerChunk, startupConfig);
         for (ChunkCoord chunkCoord : initialTargets.loadTargets()) {
@@ -136,19 +143,21 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
         dirtyChunks.addAll(initialTargets.renderTargets());
         buildRenderTargetsSynchronously(centerChunk, startupConfig, initialTargets.renderTargets());
-        refreshActiveTargets(centerChunk, System.nanoTime());
+        refreshActiveTargets(centerChunk, currentUpdateNanos);
         if (farFieldTerrainRenderer != null) {
-            farFieldTerrainRenderer.prime(centerChunk, effectiveFarFieldSettings(centerChunk));
+            farFieldTerrainRenderer.prime(centerChunk, activeFarFieldSettings);
         }
         metrics = buildMetrics(activeTargets.simulationTargets());
-        nextMetricsRefreshNanos = System.nanoTime() + METRICS_REFRESH_NANOS;
+        nextMetricsRefreshNanos = currentUpdateNanos + METRICS_REFRESH_NANOS;
     }
 
     public void update(Vector3f cameraLocation, Vector3f cameraDirection, float horizontalViewDegrees) {
         long now = System.nanoTime();
+        currentUpdateNanos = now;
         ChunkCoord centerChunk = visibilityPlanner.centerChunkFor(cameraLocation);
         updateMotionProfile(centerChunk, cameraDirection, now);
         boolean targetsChanged = refreshActiveTargets(centerChunk, now);
+        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk);
         if (targetsChanged) {
             cancelOutOfRangeWork(activeTargets.loadTargets(), activeTargets.renderTargets());
         }
@@ -165,7 +174,12 @@ public final class ChunkRenderManager implements AutoCloseable {
             unloadChunksOutside(activeTargets.loadTargets());
         }
         if (farFieldTerrainRenderer != null) {
-            farFieldTerrainRenderer.update(centerChunk, effectiveFarFieldSettings(centerChunk), motionProfile, priorityDirection);
+            farFieldTerrainRenderer.update(
+                    centerChunk,
+                    activeFarFieldSettings,
+                    motionProfile,
+                    priorityDirection,
+                    catchUpScale());
         }
         if (now >= nextMetricsRefreshNanos
                 || targetsChanged
@@ -188,6 +202,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     public void setRuntimeConfig(ChunkRuntimeConfig runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
         this.activeTargetRuntimeConfig = null;
+        this.activeFarFieldSettings = null;
         sessionMeshCache.setMaxStorageBytes(targetSessionMeshCacheStorageBytes(runtimeConfig));
     }
 
@@ -237,11 +252,15 @@ public final class ChunkRenderManager implements AutoCloseable {
             return;
         }
 
+        EnumMap<ChunkWorkBand, Integer> queuedLoadsByBand = new EnumMap<>(ChunkWorkBand.class);
         for (ChunkCoord chunkCoord : prioritizeChunkTargets(loadTargets)) {
             if (availableSlots == 0) {
                 break;
             }
             if (worldService.isChunkLoaded(chunkCoord) || pendingChunkLoads.containsKey(chunkCoord)) {
+                continue;
+            }
+            if (!consumeChunkWorkAllowance(chunkCoord, queuedLoadsByBand, ChunkWorkStage.LOAD_ATTACH)) {
                 continue;
             }
 
@@ -254,9 +273,13 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void attachCompletedLoads(long deadlineNanos) {
         int attachedLoads = 0;
+        EnumMap<ChunkWorkBand, Integer> attachedLoadsByBand = new EnumMap<>(ChunkWorkBand.class);
         for (Map.Entry<ChunkCoord, CompletableFuture<ChunkData>> entry : prioritizeCompletedChunkLoads()) {
             if (attachedLoads >= maxCompletedChunkLoadsPerUpdate() || System.nanoTime() >= deadlineNanos) {
                 break;
+            }
+            if (!consumeChunkWorkAllowance(entry.getKey(), attachedLoadsByBand, ChunkWorkStage.LOAD_ATTACH)) {
+                continue;
             }
             entry.getValue().join();
             pendingChunkLoads.remove(entry.getKey());
@@ -266,6 +289,7 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void attachCachedMeshes(Set<ChunkCoord> renderTargets, long deadlineNanos) {
+        EnumMap<ChunkWorkBand, Integer> attachedMeshesByBand = new EnumMap<>(ChunkWorkBand.class);
         for (ChunkCoord chunkCoord : prioritizeChunkTargets(renderTargets)) {
             if (System.nanoTime() >= deadlineNanos) {
                 break;
@@ -289,6 +313,9 @@ public final class ChunkRenderManager implements AutoCloseable {
             if (cachedMeshBuildResult == null) {
                 continue;
             }
+            if (!consumeChunkWorkAllowance(chunkCoord, attachedMeshesByBand, ChunkWorkStage.MESH_ATTACH)) {
+                continue;
+            }
 
             attachChunkMesh(cachedMeshBuildResult);
             dirtyChunks.remove(chunkCoord);
@@ -301,6 +328,7 @@ public final class ChunkRenderManager implements AutoCloseable {
             return;
         }
 
+        EnumMap<ChunkWorkBand, Integer> queuedBuildsByBand = new EnumMap<>(ChunkWorkBand.class);
         for (ChunkCoord chunkCoord : prioritizeChunkTargets(renderTargets)) {
             if (availableSlots == 0) {
                 break;
@@ -327,6 +355,9 @@ public final class ChunkRenderManager implements AutoCloseable {
             if (chunkData == null) {
                 continue;
             }
+            if (!consumeChunkWorkAllowance(chunkCoord, queuedBuildsByBand, ChunkWorkStage.MESH_BUILD)) {
+                continue;
+            }
 
             CompletableFuture<ChunkMeshBuildResult> meshFuture =
                     CompletableFuture.supplyAsync(
@@ -340,18 +371,28 @@ public final class ChunkRenderManager implements AutoCloseable {
 
     private void attachCompletedMeshes(Set<ChunkCoord> renderTargets, long deadlineNanos) {
         int attachedMeshes = 0;
+        EnumMap<ChunkWorkBand, Integer> attachedMeshesByBand = new EnumMap<>(ChunkWorkBand.class);
         for (Map.Entry<ChunkCoord, CompletableFuture<ChunkMeshBuildResult>> entry : prioritizeCompletedMeshBuilds()) {
             if (attachedMeshes >= maxCompletedMeshAttachesPerUpdate() || System.nanoTime() >= deadlineNanos) {
                 break;
             }
             ChunkCoord chunkCoord = entry.getKey();
-            pendingMeshBuilds.remove(chunkCoord);
-            pendingMeshDetailLevels.remove(chunkCoord);
             if (!renderTargets.contains(chunkCoord) || !worldService.isChunkLoaded(chunkCoord)) {
+                pendingMeshBuilds.remove(chunkCoord);
+                pendingMeshDetailLevels.remove(chunkCoord);
+                continue;
+            }
+            if (!consumeChunkWorkAllowance(chunkCoord, attachedMeshesByBand, ChunkWorkStage.MESH_ATTACH)) {
                 continue;
             }
 
-            ChunkMeshBuildResult meshBuildResult = entry.getValue().join();
+            CompletableFuture<ChunkMeshBuildResult> completedBuild = pendingMeshBuilds.remove(chunkCoord);
+            pendingMeshDetailLevels.remove(chunkCoord);
+            if (completedBuild == null) {
+                continue;
+            }
+
+            ChunkMeshBuildResult meshBuildResult = completedBuild.join();
             sessionMeshCache.put(meshBuildResult);
             if (meshBuildResult.detailLevel() != desiredDetailLevel(chunkCoord)) {
                 dirtyChunks.add(chunkCoord);
@@ -519,6 +560,7 @@ public final class ChunkRenderManager implements AutoCloseable {
         }
         activeCenterChunk = centerChunk;
         activeTargetRuntimeConfig = chunkRuntimeConfig;
+        activeFarFieldSettings = effectiveFarFieldSettings(centerChunk);
         return true;
     }
 
@@ -611,6 +653,9 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private void updateMotionProfile(ChunkCoord centerChunk, Vector3f cameraDirection, long now) {
+        if (activeCenterChunk == null) {
+            lastCenterChunkMovementNanos = now;
+        }
         if (activeCenterChunk != null && !activeCenterChunk.equals(centerChunk)) {
             lastCenterChunkMovementNanos = now;
             lastMovementDeltaChunkX = centerChunk.x() - activeCenterChunk.x();
@@ -666,6 +711,10 @@ public final class ChunkRenderManager implements AutoCloseable {
     private int compareChunkPriority(ChunkCoord left, ChunkCoord right) {
         if (activeCenterChunk == null) {
             return 0;
+        }
+        int bandOrder = Integer.compare(workBand(left).ordinal(), workBand(right).ordinal());
+        if (bandOrder != 0) {
+            return bandOrder;
         }
         int leftDistanceSquared = distanceSquared(left);
         int rightDistanceSquared = distanceSquared(right);
@@ -726,32 +775,133 @@ public final class ChunkRenderManager implements AutoCloseable {
     }
 
     private int scaleBudget(int requestedBudget) {
-        float scale = switch (motionProfile) {
-            case MOVING -> 0.5f;
-            case SETTLING -> 0.75f;
-            case STILL -> 1f;
-        };
+        float scale = 0.45f + (0.55f * catchUpScale());
         return Math.max(1, Math.round(requestedBudget * scale));
     }
 
     private long loadAttachBudgetNanos() {
-        return switch (motionProfile) {
-            case MOVING -> MOVING_LOAD_ATTACH_BUDGET_NANOS;
-            case SETTLING -> SETTLING_LOAD_ATTACH_BUDGET_NANOS;
-            case STILL -> STILL_LOAD_ATTACH_BUDGET_NANOS;
-        };
+        return interpolateBudget(MOVING_LOAD_ATTACH_BUDGET_NANOS, STILL_LOAD_ATTACH_BUDGET_NANOS);
     }
 
     private long meshAttachBudgetNanos() {
-        return switch (motionProfile) {
-            case MOVING -> MOVING_MESH_ATTACH_BUDGET_NANOS;
-            case SETTLING -> SETTLING_MESH_ATTACH_BUDGET_NANOS;
-            case STILL -> STILL_MESH_ATTACH_BUDGET_NANOS;
+        return interpolateBudget(MOVING_MESH_ATTACH_BUDGET_NANOS, STILL_MESH_ATTACH_BUDGET_NANOS);
+    }
+
+    static ChunkWorkBand classifyChunkWorkBand(
+            ChunkCoord centerChunk,
+            ChunkCoord chunkCoord,
+            ChunkRuntimeConfig detailedRuntimeConfig,
+            FarFieldTerrainSettings farFieldSettings) {
+        if (centerChunk == null || chunkCoord == null || detailedRuntimeConfig == null) {
+            return ChunkWorkBand.CORE;
+        }
+
+        int deltaChunkX = chunkCoord.x() - centerChunk.x();
+        int deltaChunkZ = chunkCoord.z() - centerChunk.z();
+        int distanceSquared = (deltaChunkX * deltaChunkX) + (deltaChunkZ * deltaChunkZ);
+        int detailedRenderRadiusSquared = detailedRuntimeConfig.renderRadius() * detailedRuntimeConfig.renderRadius();
+        if (farFieldSettings == null || farFieldSettings.endRadiusChunks() <= 96) {
+            return distanceSquared <= detailedRenderRadiusSquared ? ChunkWorkBand.CORE : ChunkWorkBand.BUFFER;
+        }
+
+        int coreRadiusChunks = corePriorityRadiusChunks(detailedRuntimeConfig, farFieldSettings);
+        if (distanceSquared <= (coreRadiusChunks * coreRadiusChunks)) {
+            return ChunkWorkBand.CORE;
+        }
+        if (distanceSquared <= (farFieldSettings.startRadiusChunks() * farFieldSettings.startRadiusChunks())) {
+            return ChunkWorkBand.SEAM;
+        }
+        if (distanceSquared <= detailedRenderRadiusSquared) {
+            return ChunkWorkBand.PROMOTION;
+        }
+        return ChunkWorkBand.BUFFER;
+    }
+
+    static int corePriorityRadiusChunks(ChunkRuntimeConfig detailedRuntimeConfig, FarFieldTerrainSettings farFieldSettings) {
+        int requestedRadius = Math.max(
+                MIN_CORE_PRIORITY_RADIUS_CHUNKS,
+                Math.min(MAX_CORE_PRIORITY_RADIUS_CHUNKS, detailedRuntimeConfig.renderRadius() / 2));
+        return Math.min(requestedRadius, Math.max(MIN_CORE_PRIORITY_RADIUS_CHUNKS, farFieldSettings.startRadiusChunks() - 4));
+    }
+
+    private ChunkWorkBand workBand(ChunkCoord chunkCoord) {
+        return classifyChunkWorkBand(activeCenterChunk, chunkCoord, activeBudgetRuntimeConfig(), activeFarFieldSettings);
+    }
+
+    private boolean consumeChunkWorkAllowance(
+            ChunkCoord chunkCoord,
+            EnumMap<ChunkWorkBand, Integer> workCountsByBand,
+            ChunkWorkStage stage) {
+        ChunkWorkBand workBand = workBand(chunkCoord);
+        int bandLimit = bandLimitForStage(workBand, stage);
+        if (bandLimit == Integer.MAX_VALUE) {
+            return true;
+        }
+        int currentCount = workCountsByBand.getOrDefault(workBand, 0);
+        if (currentCount >= bandLimit) {
+            return false;
+        }
+        workCountsByBand.put(workBand, currentCount + 1);
+        return true;
+    }
+
+    private int bandLimitForStage(ChunkWorkBand workBand, ChunkWorkStage stage) {
+        if (activeFarFieldSettings == null || activeFarFieldSettings.endRadiusChunks() <= 96) {
+            return Integer.MAX_VALUE;
+        }
+        if (workBand == ChunkWorkBand.CORE || workBand == ChunkWorkBand.SEAM) {
+            return Integer.MAX_VALUE;
+        }
+
+        float scale = catchUpScale();
+        return switch (stage) {
+            case LOAD_ATTACH -> workBand == ChunkWorkBand.PROMOTION
+                    ? Math.max(0, Math.round(6f * scale))
+                    : Math.max(0, Math.round(2f * scale));
+            case MESH_BUILD -> workBand == ChunkWorkBand.PROMOTION
+                    ? Math.max(0, Math.round(3f * scale))
+                    : Math.max(0, (int) Math.floor(1f * scale));
+            case MESH_ATTACH -> workBand == ChunkWorkBand.PROMOTION
+                    ? Math.max(0, Math.round(4f * scale))
+                    : Math.max(0, Math.round(1f * scale));
         };
+    }
+
+    private float catchUpScale() {
+        return switch (motionProfile) {
+            case MOVING -> 0f;
+            case SETTLING -> 0.333f;
+            case STILL -> 0.333f + (0.667f * stillnessProgress());
+        };
+    }
+
+    private float stillnessProgress() {
+        if (motionProfile != ChunkMotionProfile.STILL) {
+            return 0f;
+        }
+        long stillnessNanos = Math.max(0L, currentUpdateNanos - lastCenterChunkMovementNanos - SETTLING_PROFILE_WINDOW_NANOS);
+        return Math.min(1f, stillnessNanos / (float) STILL_CATCH_UP_RAMP_NANOS);
+    }
+
+    private long interpolateBudget(long movingBudgetNanos, long stillBudgetNanos) {
+        return movingBudgetNanos + Math.round((stillBudgetNanos - movingBudgetNanos) * catchUpScale());
     }
 
     private int clampRuntimeBudget(int requestedBudget, int minimumBudget, int maximumBudget) {
         return Math.max(minimumBudget, Math.min(maximumBudget, requestedBudget));
+    }
+
+    enum ChunkWorkBand {
+        CORE,
+        SEAM,
+        PROMOTION,
+        BUFFER
+    }
+
+    private enum ChunkWorkStage {
+        LOAD_ATTACH,
+        MESH_BUILD,
+        MESH_ATTACH
     }
 
     private static final class ChunkRuntimeThreadFactory implements ThreadFactory {

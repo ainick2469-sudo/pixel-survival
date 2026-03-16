@@ -1451,6 +1451,59 @@
 - Risks/Technical Debt:
   - the handoff prompt must be kept current as the repo evolves or it will become stale and misleading
 
+## 2026-03-16 03:43:06 local
+
+- Date/Time: 2026-03-16 03:43:06 local
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Stabilize `192` traversal fill by phasing startup far-field prime and delaying non-critical detailed promotion while moving.
+- Completed Work:
+  - Stopped `192` startup from synchronously priming the full stitched far-field ring; the far-field renderer now primes only a limited seam-priority subset up front and leaves the rest for async catch-up.
+  - Added `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` chunk-work bands so high-distance traversal keeps the near playable ring and seam-support chunks prioritized while outer detailed promotion is deferred.
+  - Reworked chunk load attach, mesh build, and mesh attach scheduling so band quotas depend on movement state instead of letting `192` immediately spend the same budget on every ring.
+  - Added a still-state catch-up ramp so the runtime does not jump straight to maximum attach/build pressure the moment movement stops.
+  - Tightened far-field update behavior so seam-touching targets stay prioritized and the `192` prime pass no longer front-loads the whole outer ring.
+  - Added a focused regression test that locks in the new high-distance chunk-work band classification.
+  - Re-ran startup smoke captures at `48`, `96`, and `192`, then re-ran the `192` forward-motion JSONL benchmark to confirm the first far-field footprint is smaller and moving samples recover into the low hundreds once the first burst settles.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/main/java/.../rendering/world/FarFieldTerrainRenderer.java`
+  - `src/test/java/.../rendering/world/ChunkRenderManagerPriorityTest.java`
+- Systems Touched:
+  - chunk scheduling and prioritization
+  - far-field startup and update scheduling
+  - high-distance traversal budgeting
+  - smoke/benchmark interpretation
+  - documentation and handoff
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `scripts/desktop_smoke.ps1 -Restart -Launch -RenderDistance 48 -QuitAfterCapture`
+  - `scripts/desktop_smoke.ps1 -Restart -Launch -RenderDistance 96 -QuitAfterCapture`
+  - `scripts/desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -QuitAfterCapture`
+  - `scripts/desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -MoveForwardSeconds 15 -ReportPath <temp-jsonl> -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - `48` and `96` startup remain stable.
+  - `192` still remains experimental, but it no longer tries to synchronously build the full outer stitched far-field ring at startup.
+  - After the initial fill burst, moving `192` samples recover into the low hundreds of FPS instead of dropping into the earlier single-digit traversal collapse.
+  - Still-state catch-up after movement is improved but remains the next obvious runtime bottleneck.
+- Known Issues:
+  - The first `192` fill window is still expensive even though the initial far-field footprint is smaller.
+  - When the player stops moving, detailed-ring catch-up can still create visible cost spikes while deferred promotion work lands.
+  - The final smoke screenshot capture can distort the very last benchmark sample because framebuffer capture itself costs render time.
+- Next Tasks:
+  - Phase outer detailed-ring promotion even more aggressively at `192` so traversal-critical chunks fill first and post-movement catch-up lands more gradually.
+  - Lower geometry attach/upload pressure further once movement stops without regressing seam continuity.
+  - Keep trimming initial-fill cost before touching bigger future-topology systems like caves, floating mountains, or cloud platforms.
+- Risks/Technical Debt:
+  - The new work-band scheduling is tuned for the current heightmap-style world and `192` experimental mode; once caves or non-heightmap distant content exist, the band rules will need another pass.
+  - `192` is materially better than before, but it is still not a guarantee of smooth traversal on all machines and should keep being treated as an experimental stress mode.
+
 ## Entry Template
 
 - Date/Time:

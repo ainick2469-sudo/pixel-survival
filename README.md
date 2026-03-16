@@ -5,8 +5,8 @@ Pixel Survival is a Java-based 3D block survival sandbox RPG with a multiplayer-
 ## Current milestone
 
 - Version target: `0.008`
-- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 192-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, bounded session mesh reuse, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
-- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 192-chunk experimental cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, bounded session mesh caching plus restored raw chunk unloading, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
+- Milestone: fullscreen-first launch, stable buffered terrain streaming with a 48-chunk default, a 192-chunk experimental cap, shared-material terrain batching, stitched far-field terrain rendering, bounded session mesh reuse, phased `192` traversal fill, in-game screenshots, live F11 display toggling, and a stronger terrain art pass
+- Status: repository foundation, docs, registry scaffolding, textured terrain, streamed chunk rendering, profiling HUD metrics, runtime-adjustable render distance with a 48-chunk default and 192-chunk experimental cap, buffered radial chunk streaming, shared texture-array terrain batching, stitched far-field terrain regions for the outer distance ring, bounded session mesh caching plus restored raw chunk unloading, phased high-distance traversal fill/catch-up, in-game screenshot capture, windowed/fullscreen toggling, a Minecraft-style pause/options flow, and `.voxelblock` block-asset import into the normal runtime registry path
 
 ## Technology stack
 
@@ -104,6 +104,9 @@ The repo now also includes a sample imported block generated from a local `custo
 - Far-field target planning is now clip-aware, so unchanged interior far regions stay clean across anchor snaps while only new or boundary-touching regions are dirtied and rebuilt.
 - The `192` ultra-distance path now uses subdivided height patches plus seam-mask weights instead of one flat top quad per `16 x 16`-block coarse cell, which reduces the obvious giant box-mountain look near the far seam.
 - Chunk and far-field completion work now use motion-aware time budgets, so moving, settling, and stationary states spend different amounts of main-thread attach time instead of draining large completion bursts in one frame.
+- At `192`, the far-field startup prime is now phased instead of synchronously building the whole stitched outer ring in one burst, which reduces the first-fill hitch cost.
+- High-distance chunk work is now split into `CORE`, `SEAM`, `PROMOTION`, and `BUFFER` bands so movement prioritizes the playable ring and seam continuity while delaying less important outer detailed promotion.
+- Still-state catch-up now ramps up over time instead of immediately spending the full attach/build budget when the player stops moving, which reduces the worst post-movement catch-up spikes.
 - Far-field coverage is intentionally limited to the current heightmap-style terrain model; it is not pretending to solve future caves, overhangs, or floating mountains.
 - The far-field anchor snaps on a coarse region grid with overlap at the near/far seam, which keeps the transition more stable and avoids constant boundary thrash as the player moves.
 - The detailed chunk ring is now intentionally smaller at high render distances, so the default `48` setting keeps a `32`-chunk detailed chunk radius while the far-field renderer carries the outer ring; `96` keeps a `62`-chunk detailed chunk radius, and `192` shrinks detailed chunk coverage more aggressively and remains strictly experimental.
@@ -116,6 +119,7 @@ The repo now also includes a sample imported block generated from a local `custo
 - High-distance load buffering stays intentionally lean, so `48` and `96` chunk settings do not silently imply the much larger older prototype load radius.
 - The HUD now exposes runtime counts for loaded chunks, rendered chunks, rendered far regions, terrain sections, simulated chunk targets, queue depth, and heap use.
 - `scripts/desktop_smoke.ps1` now drives smoke validation through startup render-distance override, in-game scheduled framebuffer screenshots, and optional JSONL motion reports instead of brittle menu automation and OS-level window capture.
+- The smoke harness now proves `48`, `96`, and `192` startup directly and can run a scripted `192` forward-motion benchmark with JSONL telemetry, so high-distance changes are validated under motion instead of only while standing still.
 - `Esc` opens a centered pause/options menu where render distance can be adjusted live.
 - `F2` and `Print Screen` both capture the current in-game frame directly from the render pipeline, save it into `screenshots/`, and also push the captured image into the system clipboard when clipboard access is available.
 - `F11` switches between fullscreen startup mode and a centered resizable window without restarting the game.
