@@ -1,1 +1,0 @@
-Bound chunk residency and prove 48 96 192 smoke startup
