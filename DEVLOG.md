@@ -1,5 +1,54 @@
 # Devlog
 
+## 2026-03-16 06:00:00 MDT
+
+- Date/Time: 2026-03-16 06:00:00 MDT
+- Branch: `codex/session-1-foundation-0.001`
+- Version Target: `0.008`
+- Milestone: Delay `192` still-state promotion harder so stopping movement no longer reopens the outer detailed ring as aggressively as the previous pass.
+- Completed Work:
+  - Split still-state recovery into two tracks inside `ChunkRenderManager`: core/seam catch-up still ramps on the existing stillness curve, while `PROMOTION` and `BUFFER` now wait behind a separate release delay plus a slower recovery ramp.
+  - Tightened ultra-distance `LOAD_ATTACH`, `MESH_BUILD`, and `MESH_ATTACH` limits for `PROMOTION`/`BUFFER` so post-stop outer detail lands in smaller phases instead of immediately inheriting the same still-state budget as the core ring.
+  - Lowered ultra-distance completed-load and completed-mesh-attach caps during `STILL` based on the new promotion recovery scale so late detailed meshes do not become live as aggressively the moment movement stops.
+  - Added a regression test that locks in the delayed still-state promotion recovery curve.
+  - Hardened smoke validation further by forcing a windowed launcher path for smoke runs and loosening the window-title match to any title starting with `Pixel Survival`, which fixed the startup timeout during this pass's validation.
+  - Re-ran `48` startup smoke and a fresh `192` move-plus-settle benchmark (`pixel-survival-192-motion-v6.jsonl`) after the delayed-promotion changes.
+- Files Changed:
+  - `DEVLOG.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_HANDOFF_PROMPT.txt`
+  - `scripts/desktop_smoke.ps1`
+  - `src/main/java/.../app/PixelSurvivalLauncher.java`
+  - `src/main/java/.../rendering/world/ChunkRenderManager.java`
+  - `src/test/java/.../rendering/world/ChunkRenderManagerPriorityTest.java`
+- Systems Touched:
+  - still-state chunk promotion scheduling
+  - ultra-distance attach/load/build caps
+  - smoke launcher reliability
+  - documentation and handoff
+- Tests Run:
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain compileJava compileTestJava`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test --tests io.github.ainick2469.pixelsurvival.rendering.world.ChunkRenderManagerPriorityTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainPlannerTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainRendererTest --tests io.github.ainick2469.pixelsurvival.rendering.world.FarFieldTerrainMeshBuilderTest --tests io.github.ainick2469.pixelsurvival.settings.GraphicsSettingsTest`
+  - `C:\Users\nickb\OneDrive\Desktop\GAMES\pixel-survival-tools\jdk-21.0.10+7\bin\java.exe -Dorg.gradle.appname=gradlew -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test shadowJar`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 48 -WaitSeconds 8 -QuitAfterCapture`
+  - `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File scripts\desktop_smoke.ps1 -Restart -Launch -RenderDistance 192 -WaitSeconds 26 -MoveForwardSeconds 15 -ReportPath C:\Users\nickb\AppData\Local\Temp\pixel-survival-192-motion-v6.jsonl -CaptureSeries -QuitAfterCapture`
+- Current Playable State:
+  - `48` startup smoke still completes cleanly.
+  - The fresh `192` motion report keeps the earlier moving-phase recovery, but the first several `STILL` samples now stay much healthier while rendered detailed chunks climb: roughly `309 FPS` at `309` rendered chunks, then `255`, `242`, and `240 FPS` while the detailed ring grows past `2300` rendered chunks.
+  - The governor does not need to clamp until later in the still-state catch-up window, which means the new delayed promotion gate is pushing the hitch pressure farther out than the previous pass.
+- Known Issues:
+  - The first one to two `192` samples are still expensive during the initial far-ring and first-detail startup burst.
+  - Still-state catch-up is still the next bottleneck; this pass delays it and makes it smoother, but once the outer detailed ring grows far enough the governor still needs to step in.
+  - The smoke harness is more reliable again, but it is still desktop-window automation and can break if the launcher/window-title path changes later.
+- Next Tasks:
+  - Tighten attach/upload pressure further during the late still-state window so the governor does not need to fall back as much once rendered chunk counts climb past the mid-thousands.
+  - Keep delaying non-forward outer detailed promotion until the runtime has held stable frame time for longer.
+  - Start evaluating a cheaper middle-distance detail representation so `192` does not need to promote as many true chunk meshes in the first place.
+- Risks/Technical Debt:
+  - The new delayed-promotion curve is intentionally conservative and may feel too slow for players who stop and wait for distant detail to fill in quickly.
+  - The current system is still policy-heavy: governor thresholds, band caps, and recovery ramps are now tightly tuned together and will need retuning if the detailed-ring size changes again.
+
 ## 2026-03-16 05:11:23 MDT
 
 - Date/Time: 2026-03-16 05:11:23 MDT

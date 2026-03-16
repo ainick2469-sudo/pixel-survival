@@ -73,4 +73,33 @@ class ChunkRenderManagerPriorityTest {
                 ChunkRenderManager.targetFrameGovernorScale(ultraDistanceConfig, 7.0f)
                         < ChunkRenderManager.targetFrameGovernorScale(standardDistanceConfig, 7.0f));
     }
+
+    @Test
+    void delaysStillStatePromotionCatchUpUntilAfterReleaseWindow() {
+        long lastMovementNanos = 10_000_000_000L;
+        long beforeReleaseNanos = lastMovementNanos + 2_000_000_000L;
+        long midRampNanos = lastMovementNanos + 6_500_000_000L;
+        long afterRampNanos = lastMovementNanos + 12_000_000_000L;
+
+        assertEquals(
+                0f,
+                ChunkRenderManager.targetPromotionCatchUpScale(
+                        ChunkMotionProfile.MOVING, beforeReleaseNanos, lastMovementNanos));
+        assertEquals(
+                0f,
+                ChunkRenderManager.targetPromotionCatchUpScale(
+                        ChunkMotionProfile.SETTLING, beforeReleaseNanos, lastMovementNanos));
+        assertEquals(
+                0f,
+                ChunkRenderManager.targetPromotionCatchUpScale(
+                        ChunkMotionProfile.STILL, beforeReleaseNanos, lastMovementNanos));
+        assertTrue(
+                ChunkRenderManager.targetPromotionCatchUpScale(
+                                ChunkMotionProfile.STILL, midRampNanos, lastMovementNanos)
+                        > 0f);
+        assertEquals(
+                1f,
+                ChunkRenderManager.targetPromotionCatchUpScale(
+                        ChunkMotionProfile.STILL, afterRampNanos, lastMovementNanos));
+    }
 }

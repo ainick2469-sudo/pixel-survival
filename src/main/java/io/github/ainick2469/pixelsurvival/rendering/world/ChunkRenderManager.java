@@ -50,6 +50,8 @@ public final class ChunkRenderManager implements AutoCloseable {
     private static final long SETTLING_MESH_ATTACH_BUDGET_NANOS = 2_500_000L;
     private static final long STILL_MESH_ATTACH_BUDGET_NANOS = 6_000_000L;
     private static final long STILL_CATCH_UP_RAMP_NANOS = 6_000_000_000L;
+    private static final long STILL_PROMOTION_RELEASE_DELAY_NANOS = 1_500_000_000L;
+    private static final long STILL_PROMOTION_RAMP_NANOS = 8_000_000_000L;
     private static final int MIN_CORE_PRIORITY_RADIUS_CHUNKS = 24;
     private static final int MAX_CORE_PRIORITY_RADIUS_CHUNKS = 32;
     private static final int ULTRA_MOVING_PENDING_CHUNK_LOAD_FLOOR = 32;
@@ -800,8 +802,12 @@ public final class ChunkRenderManager implements AutoCloseable {
                 scaleBudget(Math.max(24, activeBudgetRuntimeConfig().renderRadius() / 2)),
                 MIN_COMPLETED_CHUNK_LOADS_PER_UPDATE,
                 MAX_COMPLETED_CHUNK_LOADS_PER_UPDATE);
-        if (isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL) {
-            return Math.min(completedLoads, motionProfile == ChunkMotionProfile.MOVING ? 16 : 24);
+        if (isUltraDistanceSchedulingActive()) {
+            return switch (motionProfile) {
+                case MOVING -> Math.min(completedLoads, 16);
+                case SETTLING -> Math.min(completedLoads, 20);
+                case STILL -> Math.min(completedLoads, 12 + Math.round(12f * promotionCatchUpScale()));
+            };
         }
         return completedLoads;
     }
@@ -811,8 +817,12 @@ public final class ChunkRenderManager implements AutoCloseable {
                 scaleBudget(Math.max(16, activeBudgetRuntimeConfig().renderRadius() / 2)),
                 MIN_COMPLETED_MESH_ATTACHES_PER_UPDATE,
                 MAX_COMPLETED_MESH_ATTACHES_PER_UPDATE);
-        if (isUltraDistanceSchedulingActive() && motionProfile != ChunkMotionProfile.STILL) {
-            return Math.min(completedMeshAttaches, motionProfile == ChunkMotionProfile.MOVING ? 8 : 12);
+        if (isUltraDistanceSchedulingActive()) {
+            return switch (motionProfile) {
+                case MOVING -> Math.min(completedMeshAttaches, 8);
+                case SETTLING -> Math.min(completedMeshAttaches, 10);
+                case STILL -> Math.min(completedMeshAttaches, 6 + Math.round(10f * promotionCatchUpScale()));
+            };
         }
         return completedMeshAttaches;
     }
@@ -965,20 +975,20 @@ public final class ChunkRenderManager implements AutoCloseable {
             case LOAD_ATTACH -> switch (workBand) {
                 case CORE -> motionScaledLimit(18, 24, 36);
                 case SEAM -> motionScaledLimit(12, 18, 28);
-                case PROMOTION -> motionScaledLimit(0, 3, 10);
-                case BUFFER -> motionScaledLimit(0, 1, 4);
+                case PROMOTION -> promotionScaledLimit(0, 0, 1, 8);
+                case BUFFER -> promotionScaledLimit(0, 0, 0, 2);
             };
             case MESH_BUILD -> switch (workBand) {
                 case CORE -> motionScaledLimit(10, 14, 22);
                 case SEAM -> motionScaledLimit(6, 10, 16);
-                case PROMOTION -> motionScaledLimit(0, 2, 6);
-                case BUFFER -> motionScaledLimit(0, 1, 2);
+                case PROMOTION -> promotionScaledLimit(0, 0, 1, 5);
+                case BUFFER -> promotionScaledLimit(0, 0, 0, 1);
             };
             case MESH_ATTACH -> switch (workBand) {
                 case CORE -> motionScaledLimit(8, 12, 18);
                 case SEAM -> motionScaledLimit(4, 8, 12);
-                case PROMOTION -> motionScaledLimit(0, 2, 5);
-                case BUFFER -> motionScaledLimit(0, 1, 2);
+                case PROMOTION -> promotionScaledLimit(0, 0, 1, 4);
+                case BUFFER -> promotionScaledLimit(0, 0, 0, 1);
             };
         };
     }
@@ -999,6 +1009,24 @@ public final class ChunkRenderManager implements AutoCloseable {
         return Math.min(1f, stillnessNanos / (float) STILL_CATCH_UP_RAMP_NANOS);
     }
 
+    private float promotionCatchUpScale() {
+        return targetPromotionCatchUpScale(motionProfile, currentUpdateNanos, lastCenterChunkMovementNanos);
+    }
+
+    static float targetPromotionCatchUpScale(
+            ChunkMotionProfile motionProfile, long currentUpdateNanos, long lastCenterChunkMovementNanos) {
+        if (motionProfile != ChunkMotionProfile.STILL) {
+            return 0f;
+        }
+        long promotionStillnessNanos = Math.max(
+                0L,
+                currentUpdateNanos
+                        - lastCenterChunkMovementNanos
+                        - SETTLING_PROFILE_WINDOW_NANOS
+                        - STILL_PROMOTION_RELEASE_DELAY_NANOS);
+        return Math.min(1f, promotionStillnessNanos / (float) STILL_PROMOTION_RAMP_NANOS);
+    }
+
     private long interpolateBudget(long movingBudgetNanos, long stillBudgetNanos) {
         return movingBudgetNanos + Math.round((stillBudgetNanos - movingBudgetNanos) * catchUpScale());
     }
@@ -1008,6 +1036,14 @@ public final class ChunkRenderManager implements AutoCloseable {
             case MOVING -> movingLimit;
             case SETTLING -> settlingLimit;
             case STILL -> settlingLimit + Math.round((stillLimit - settlingLimit) * stillnessProgress());
+        };
+    }
+
+    private int promotionScaledLimit(int movingLimit, int settlingLimit, int stillMinimumLimit, int stillMaximumLimit) {
+        return switch (motionProfile) {
+            case MOVING -> movingLimit;
+            case SETTLING -> settlingLimit;
+            case STILL -> stillMinimumLimit + Math.round((stillMaximumLimit - stillMinimumLimit) * promotionCatchUpScale());
         };
     }
 
@@ -1038,11 +1074,18 @@ public final class ChunkRenderManager implements AutoCloseable {
                 };
                 case BUFFER -> frameTimeGovernorScale < 0.9f;
             };
-            case STILL -> switch (workBand) {
-                case CORE, SEAM -> false;
-                case PROMOTION -> traversalLane == ChunkTraversalLane.REAR && frameTimeGovernorScale < 0.15f;
-                case BUFFER -> frameTimeGovernorScale < 0.25f;
-            };
+            case STILL -> {
+                float promotionScale = promotionCatchUpScale();
+                yield switch (workBand) {
+                    case CORE, SEAM -> false;
+                    case PROMOTION -> switch (traversalLane) {
+                        case FORWARD -> promotionScale < 0.15f || frameTimeGovernorScale < 0.25f;
+                        case LATERAL -> promotionScale < 0.55f || frameTimeGovernorScale < 0.55f;
+                        case REAR -> promotionScale < 0.85f || frameTimeGovernorScale < 0.8f;
+                    };
+                    case BUFFER -> promotionScale < 0.95f || frameTimeGovernorScale < 0.8f;
+                };
+            }
         };
     }
 

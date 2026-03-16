@@ -6,6 +6,8 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 
 public final class PixelSurvivalLauncher {
+    private static final String WINDOWED_MODE_PROPERTY = "pixelSurvival.windowedMode";
+
     private PixelSurvivalLauncher() {
     }
 
@@ -24,6 +26,12 @@ public final class PixelSurvivalLauncher {
     }
 
     private static void configureDisplayMode(AppSettings settings) {
+        if (Boolean.getBoolean(WINDOWED_MODE_PROPERTY)) {
+            settings.setResolution(1600, 900);
+            settings.setFullscreen(false);
+            settings.setResizable(true);
+            return;
+        }
         try {
             GraphicsDevice graphicsDevice =
                     GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();

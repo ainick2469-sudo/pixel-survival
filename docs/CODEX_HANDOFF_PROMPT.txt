@@ -178,9 +178,11 @@ Important current truths:
 - Movement-direction bias now applies inside the non-core high-distance bands, so forward seam and promotion work outrank lateral/rear promotion while the player is moving or settling.
 - `192` scheduling no longer treats `CORE` and `SEAM` as effectively unlimited bands; they now have finite per-update load/build/attach caps so completed work lands more gradually.
 - `192` scheduling now also runs behind a smoothed frame-time governor. When frame time rises, the governor cuts chunk/far attach budgets, trims pending far-field work, and suppresses rear/lateral promotion before it suppresses forward seam-critical work.
+- `192` still-state promotion now uses a separate delayed recovery curve from the seam/core catch-up path, so outer detailed promotion stays frozen a bit longer after motion stops and then phases in over a longer ramp.
 - The current far-field path is limited to the current heightmap-style terrain model; it is not a claim that caves, overhangs, floating mountains, or cloud platforms are solved at distance.
 - The HUD reports loaded/rendered/far-region/section/simulated counts, queues, faces, heap, chunk memory, bounded session mesh-cache counts, mesh-cache memory, coarse timing splits, motion profile, and frame-governor percentage.
 - `scripts/desktop_smoke.ps1` now validates render-distance startup and motion through in-game scheduled framebuffer screenshots plus optional JSONL reports, and it no longer depends on OS-level pause-menu clicking for smoke-mode runs.
+- Smoke validation now also forces a windowed launcher path and matches any top-level window title that starts with `Pixel Survival`, which makes the automated capture path more reliable than the earlier fullscreen-only startup behavior.
 
 Live chunk detail tiers:
 - `FULL`
@@ -211,7 +213,7 @@ Why performance is still not where the user wants it:
 - The old cracked `HORIZON` chunk tier is still not the answer and should stay disabled.
 
 Highest-value next optimization step:
-- keep phasing outer detailed-ring promotion more aggressively at `192`, tighten attach/upload pressure after movement stops, and let the frame-time governor clamp still-state catch-up more decisively before expensive outer detail comes online
+- keep tightening attach/upload pressure after movement stops, phase late outer-detail promotion even more conservatively behind the new still-state recovery gate, and let the governor clamp the remaining catch-up spikes before expensive outer detail comes online
 
 Next step after that:
 - reduce far-region mesh cost further while preserving the stitched heightmap continuity guarantees
@@ -221,6 +223,7 @@ Fresh benchmark note:
 - The latest `192` movement smoke report (`pixel-survival-192-motion-v5.jsonl`) starts at `far=44` with the governor already clamping to `40%`, drops as low as `16%` during the first hitch window, then recovers to `100%` across the steady moving phase while the far ring stays fully stitched.
 - During the still-state catch-up window, the same report shows the governor stepping back down through roughly `96% -> 90% -> 81% -> 75%` as rendered detailed chunks climb, which confirms the next bottleneck is post-movement detail promotion rather than whole-ring far rebuild churn.
 - The final captured sample can still distort the last reported frame because framebuffer screenshot capture costs render time; the report ends with `governor=31%` on the capture-affected sample and should not be treated as steady-state traversal.
+- The latest follow-up report (`pixel-survival-192-motion-v6.jsonl`) keeps the same first-fill burst but delays late promotion enough that the first several `STILL` samples hold around `309 -> 255 -> 242 -> 240 FPS` while rendered detailed chunks climb from `309` to `2378`, and the governor does not need to clamp until later in the catch-up window.
 
 The user wants:
 - strong performance at `48`

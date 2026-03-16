@@ -157,6 +157,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - Movement-direction bias is now applied inside the non-core high-distance bands, so forward seam/promotion work wins over lateral and rear detail promotion while the player is moving or settling.
 - Ultra-distance chunk scheduling now also uses tighter finite caps for `CORE` and `SEAM` load/build/attach work instead of treating those bands as effectively unbounded at `192`.
 - Ultra-distance scheduling now also sits behind a smoothed frame-time governor. When frame time climbs at `192`, the governor cuts attach/build budgets, trims pending far-field pressure, and suppresses rear/lateral promotion ahead of forward seam-critical work.
+- Still-state outer promotion now uses a separate delayed recovery path from the core/seam catch-up logic, so late `PROMOTION` and `BUFFER` work stay frozen longer after motion stops and then phase in more gradually.
 - The current far-field renderer is intentionally limited to the current heightmap-style terrain model. It is not a general solution for future caves, overhangs, floating islands, or cloud platforms.
 - A coarse `HORIZON` tier still exists as a prototype seam in code, but it remains intentionally disabled in the live runtime because the first approximation introduced visible terrain cracks at long range.
 - The next far-distance work should focus on reducing still-state catch-up and attach/upload spikes plus further region/mesh efficiency, not re-enabling the cracked `HORIZON` mesh path.
@@ -167,6 +168,7 @@ This matters because future caves, floating mountains, and walkable cloud region
 - The terrain material path now uses crisp close-up filtering, mipmaps, and a shared texture-array material instead of one texture material per visible face family.
 - Rendered face totals and rendered section totals are now tracked incrementally across both chunk meshes and far-field region meshes instead of rescanning every rendered geometry every frame.
 - Runtime telemetry now also tracks motion profile, frame-governor percentage, pending far-region builds, far anchor snaps per second, and far-region rebuilds per second so high-distance seam tuning can be measured directly.
+- Smoke-mode validation now launches through a forced windowed path so automated `48`/`96`/`192` captures are less dependent on fullscreen window-handle behavior during CI-style desktop runs.
 
 ## Block visual pipeline
 

@@ -26,6 +26,7 @@ $smokeMoveForwardSecondsProperty = "pixelSurvival.smokeMoveForwardSeconds"
 $smokeReportPathProperty = "pixelSurvival.smokeReportPath"
 $smokeScreenshotScheduleProperty = "pixelSurvival.smokeScreenshotScheduleSeconds"
 $smokeQuitAfterScreenshotsProperty = "pixelSurvival.smokeQuitAfterScreenshots"
+$windowedModeProperty = "pixelSurvival.windowedMode"
 
 Add-Type -AssemblyName Microsoft.VisualBasic
 Add-Type -AssemblyName System.Windows.Forms
@@ -87,7 +88,7 @@ function Wait-ForWindow {
         return $process
       }
     }
-    $process = Get-Process | Where-Object { $_.MainWindowTitle -eq $Title } | Select-Object -First 1
+    $process = Get-Process | Where-Object { $_.MainWindowTitle -like "$Title*" } | Select-Object -First 1
     if ($null -ne $process -and $process.MainWindowHandle -ne 0) {
       return $process
     }
@@ -107,7 +108,7 @@ function Get-PixelSurvivalProcess {
     }
   }
 
-  Get-Process | Where-Object { $_.MainWindowTitle -eq $windowTitle -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+  Get-Process | Where-Object { $_.MainWindowTitle -like "$windowTitle*" -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 }
 
 function Stop-PixelSurvivalIfRunning {
@@ -248,6 +249,7 @@ function Launch-PixelSurvival {
   $arguments = @(
     "-Dfile.encoding=UTF-8",
     "-D$smokeModeProperty=true",
+    "-D$windowedModeProperty=true",
     "-D$renderDistanceProperty=$TargetRenderDistance",
     "-D$smokeScreenshotScheduleProperty=$ScreenshotSchedule",
     "-jar",
